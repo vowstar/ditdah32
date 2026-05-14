@@ -111,9 +111,53 @@ THIRD_PARTY_TEXT = """\
 """
 
 
+REMOTE_CI_CONTRACT_FILES = {
+    "scripts/ci_remote_evidence.py": """\
+parser.add_argument("--head-sha")
+expected_head_sha = "head"
+expected_head_source = "argument"
+def find_profile_job(jobs, profile):
+    return None
+job_conclusion = "success"
+artifact_present = True
+""",
+    "scripts/ci_remote_dispatch.py": """\
+parser.add_argument("--head-sha")
+expected_head_sha = "head"
+def find_profile_job(jobs, profile):
+    return None
+require_profile_job = True
+initial_profile_job = {}
+""",
+    "scripts/ci_remote_closure.py": """\
+parser.add_argument("--head-sha")
+expected_head_sha = "head"
+expected_head_source = "argument"
+""",
+    "scripts/completion_audit.py": """\
+expected_head_sha = "head"
+message = "Remote CI evidence was not collected for the current git HEAD"
+message = "Remote {profile} evidence does not match the current git HEAD"
+""",
+    "scripts/open_gap_audit.py": """\
+expected_head_sha = "head"
+message = "Remote CI evidence was not collected for the current git HEAD"
+message = "Remote {profile} evidence does not match the current git HEAD"
+""",
+    "doc/ci_remote_closure.md": """\
+# Remote CI Closure
+
+The report records expected_head_sha.
+Each required profile job must pass.
+The expected commit must match the current local git HEAD.
+""",
+}
+
+
 def populate_project(path, workflow_text=WORKFLOW_YAML):
     (path / ".github" / "workflows").mkdir(parents=True, exist_ok=True)
     (path / "doc").mkdir(parents=True, exist_ok=True)
+    (path / "scripts").mkdir(parents=True, exist_ok=True)
     (path / "test" / "cocotb_bus").mkdir(parents=True, exist_ok=True)
     (path / "test" / "cocotbext" / "axi").mkdir(parents=True, exist_ok=True)
     (path / "bench" / "coremark" / "upstream").mkdir(parents=True, exist_ok=True)
@@ -128,6 +172,8 @@ def populate_project(path, workflow_text=WORKFLOW_YAML):
     (path / "bench" / "coremark" / "upstream" / "LICENSE.md").write_text("Apache License\n", encoding="utf-8")
     (path / "bench" / "dhrystone" / "upstream" / "README_C").write_text("Dhrystone\n", encoding="utf-8")
     (path / "bench" / "dhrystone" / "upstream" / "RATIONALE").write_text("Measurement Rules\n", encoding="utf-8")
+    for rel_path, text in REMOTE_CI_CONTRACT_FILES.items():
+        (path / rel_path).write_text(text, encoding="utf-8")
 
 
 def fake_git_success(repo_root):
@@ -210,3 +256,18 @@ def test_ci_publish_readiness_catches_missing_third_party_manifest(tmp_path, mon
     notices_item = next(item for item in report["checklist"] if item["name"] == "third_party_notices")
     assert not notices_item["passed"]
     assert any("doc/third_party.md" in item for item in notices_item["missing"])
+
+
+def test_ci_publish_readiness_catches_missing_remote_ci_contract(tmp_path, monkeypatch):
+    populate_project(tmp_path)
+    evidence_path = tmp_path / "scripts" / "ci_remote_evidence.py"
+    evidence_path.write_text("def find_profile_job(jobs, profile):\n    return None\n", encoding="utf-8")
+    monkeypatch.setattr(ci_publish_readiness, "REPO_ROOT", tmp_path)
+    monkeypatch.setattr(ci_publish_readiness, "run_text", fake_git_success(tmp_path))
+
+    report = ci_publish_readiness.build_report()
+    assert report["status"] == "blocked"
+    contract_item = next(item for item in report["checklist"] if item["name"] == "remote_ci_contract")
+    assert not contract_item["passed"]
+    assert any("scripts/ci_remote_evidence.py" in item and "--head-sha" in item for item in contract_item["missing"])
+    assert any("scripts/ci_remote_evidence.py" in item and "expected_head_sha" in item for item in contract_item["missing"])

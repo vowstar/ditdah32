@@ -301,6 +301,69 @@ def audit_workflow():
     )
 
 
+def audit_remote_ci_contract():
+    required_terms = {
+        "scripts/ci_remote_evidence.py": [
+            "--head-sha",
+            "expected_head_sha",
+            "expected_head_source",
+            "find_profile_job",
+            "job_conclusion",
+            "artifact_present",
+        ],
+        "scripts/ci_remote_dispatch.py": [
+            "--head-sha",
+            "expected_head_sha",
+            "find_profile_job",
+            "require_profile_job",
+            "initial_profile_job",
+        ],
+        "scripts/ci_remote_closure.py": [
+            "--head-sha",
+            "expected_head_sha",
+            "expected_head_source",
+        ],
+        "scripts/completion_audit.py": [
+            "expected_head_sha",
+            "Remote CI evidence was not collected for the current git HEAD",
+            "Remote {profile} evidence does not match the current git HEAD",
+        ],
+        "scripts/open_gap_audit.py": [
+            "expected_head_sha",
+            "Remote CI evidence was not collected for the current git HEAD",
+            "Remote {profile} evidence does not match the current git HEAD",
+        ],
+        "doc/ci_remote_closure.md": [
+            "expected_head_sha",
+            "profile job",
+            "current local git HEAD",
+        ],
+    }
+
+    missing = []
+    evidence = {"required_terms": required_terms, "files": {}}
+    for rel_path, terms in required_terms.items():
+        path = REPO_ROOT / rel_path
+        if not path.exists():
+            missing.append(f"Remote CI contract file is missing: {rel_path}")
+            evidence["files"][rel_path] = {"exists": False, "missing_terms": terms}
+            continue
+
+        text = path.read_text(encoding="utf-8")
+        missing_terms = [term for term in terms if term not in text]
+        if missing_terms:
+            for term in missing_terms:
+                missing.append(f"{rel_path} does not contain required remote CI contract term: {term}")
+        evidence["files"][rel_path] = {"exists": True, "missing_terms": missing_terms}
+
+    return check_item(
+        "remote_ci_contract",
+        not missing,
+        evidence,
+        missing,
+    )
+
+
 def build_report(repo=None):
     started = time.monotonic()
     checklist = [
@@ -309,6 +372,7 @@ def build_report(repo=None):
         audit_makefile(),
         audit_third_party_notices(),
         audit_workflow(),
+        audit_remote_ci_contract(),
     ]
     missing = []
     for item in checklist:
