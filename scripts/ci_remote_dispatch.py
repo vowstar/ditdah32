@@ -72,19 +72,38 @@ def find_profile_job(jobs, profile):
     return None
 
 
-def find_new_run(repo, workflow, known_ids, timeout_seconds, poll_seconds):
+def find_new_run(repo, workflow, known_ids, expected_head_sha, profile, timeout_seconds, poll_seconds, require_profile_job=False):
     deadline = time.monotonic() + timeout_seconds
     last_error = ""
+    ignored = {}
     while time.monotonic() < deadline:
         runs, error = list_runs(repo, workflow, 20)
         if error:
             last_error = error
         for run in runs:
             run_id = run.get("databaseId")
-            if run_id not in known_ids and run.get("event") == "workflow_dispatch":
+            if run_id in known_ids or run_id in ignored or run.get("event") != "workflow_dispatch":
+                continue
+            if run.get("headSha") != expected_head_sha:
+                ignored[run_id] = f"run {run_id} headSha {run.get('headSha')!r} did not match expected HEAD {expected_head_sha!r}"
+                continue
+            if require_profile_job:
+                view, view_error = run_view(repo, run_id)
+                if view_error:
+                    last_error = view_error
+                if view is None:
+                    continue
+                profile_job = find_profile_job(view.get("jobs", []), profile)
+                if profile_job is None:
+                    if view.get("status") == "completed":
+                        ignored[run_id] = f"run {run_id} did not contain a job for profile {profile!r}"
+                    continue
+                run["initial_view"] = view
+                run["initial_profile_job"] = profile_job
                 return run, ""
         time.sleep(poll_seconds)
-    return None, last_error or "Timed out waiting for the dispatched workflow run to appear."
+    ignored_text = "; ".join(ignored.values())
+    return None, last_error or ignored_text or "Timed out waiting for the dispatched workflow run to appear."
 
 
 def wait_for_run(repo, run_id, timeout_seconds, poll_seconds):
@@ -135,7 +154,16 @@ def dispatch_profile(repo, workflow, ref, profile, expected_head_sha, wait, appe
         step["reason"] = stderr or stdout or "gh workflow run failed."
         return step
 
-    run, appear_error = find_new_run(repo, workflow, before_ids, appear_timeout, poll_seconds)
+    run, appear_error = find_new_run(
+        repo,
+        workflow,
+        before_ids,
+        expected_head_sha,
+        profile,
+        appear_timeout,
+        poll_seconds,
+        require_profile_job=wait,
+    )
     if run is None:
         step["reason"] = appear_error
         return step
@@ -143,9 +171,6 @@ def dispatch_profile(repo, workflow, ref, profile, expected_head_sha, wait, appe
     step["run"] = run
     step["run_id"] = run.get("databaseId")
     step["run_url"] = run.get("url")
-    if run.get("headSha") != expected_head_sha:
-        step["reason"] = f"workflow run headSha {run.get('headSha')!r} does not match expected HEAD {expected_head_sha!r}"
-        return step
     if not wait:
         step["status"] = "dispatched"
         return step

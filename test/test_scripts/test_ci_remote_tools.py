@@ -385,11 +385,12 @@ def test_ci_remote_dispatch_runs_profiles_in_order_and_waits(tmp_path, monkeypat
     assert [step["status"] for step in report["steps"]] == ["pass", "pass", "pass"]
     assert [step["run_id"] for step in report["steps"]] == [101, 202, 303]
     assert list_calls >= 6
-    assert view_calls == {101: 1, 202: 1, 303: 1}
+    assert view_calls == {101: 2, 202: 2, 303: 2}
 
 
 def test_ci_remote_dispatch_rejects_run_from_wrong_head(tmp_path, monkeypatch):
     dispatched = False
+    clock = {"now": 0.0}
 
     def fake_run_text(cmd):
         nonlocal dispatched
@@ -432,7 +433,8 @@ def test_ci_remote_dispatch_rejects_run_from_wrong_head(tmp_path, monkeypatch):
     )
     monkeypatch.setattr(ci_remote_dispatch, "run_text", fake_run_text)
     monkeypatch.setattr(ci_remote_dispatch, "run_json", fake_run_json)
-    monkeypatch.setattr(ci_remote_dispatch.time, "sleep", lambda _seconds: None)
+    monkeypatch.setattr(ci_remote_dispatch.time, "monotonic", lambda: clock["now"])
+    monkeypatch.setattr(ci_remote_dispatch.time, "sleep", lambda seconds: clock.__setitem__("now", clock["now"] + seconds))
     monkeypatch.setattr(
         sys,
         "argv",
@@ -444,6 +446,10 @@ def test_ci_remote_dispatch_rejects_run_from_wrong_head(tmp_path, monkeypatch):
             "new",
             "--profiles",
             "smoke",
+            "--appear-timeout-seconds",
+            "1",
+            "--poll-seconds",
+            "1",
             "--out-dir",
             str(tmp_path),
         ],
@@ -454,12 +460,13 @@ def test_ci_remote_dispatch_rejects_run_from_wrong_head(tmp_path, monkeypatch):
     assert report["status"] == "fail"
     assert report["expected_head_sha"] == "new"
     assert report["steps"][0]["status"] == "fail"
-    assert "does not match expected HEAD" in report["steps"][0]["reason"]
-    assert any("does not match expected HEAD" in item for item in report["missing"])
+    assert "did not match expected HEAD" in report["steps"][0]["reason"]
+    assert any("did not match expected HEAD" in item for item in report["missing"])
 
 
 def test_ci_remote_dispatch_rejects_run_with_wrong_profile_job(tmp_path, monkeypatch):
     dispatched = False
+    clock = {"now": 0.0}
 
     def fake_run_text(cmd):
         nonlocal dispatched
@@ -515,7 +522,8 @@ def test_ci_remote_dispatch_rejects_run_with_wrong_profile_job(tmp_path, monkeyp
     )
     monkeypatch.setattr(ci_remote_dispatch, "run_text", fake_run_text)
     monkeypatch.setattr(ci_remote_dispatch, "run_json", fake_run_json)
-    monkeypatch.setattr(ci_remote_dispatch.time, "sleep", lambda _seconds: None)
+    monkeypatch.setattr(ci_remote_dispatch.time, "monotonic", lambda: clock["now"])
+    monkeypatch.setattr(ci_remote_dispatch.time, "sleep", lambda seconds: clock.__setitem__("now", clock["now"] + seconds))
     monkeypatch.setattr(
         sys,
         "argv",
@@ -528,6 +536,10 @@ def test_ci_remote_dispatch_rejects_run_with_wrong_profile_job(tmp_path, monkeyp
             "--profiles",
             "smoke",
             "--wait",
+            "--appear-timeout-seconds",
+            "1",
+            "--poll-seconds",
+            "1",
             "--out-dir",
             str(tmp_path),
         ],
@@ -537,4 +549,113 @@ def test_ci_remote_dispatch_rejects_run_with_wrong_profile_job(tmp_path, monkeyp
     report = json.loads((tmp_path / "ci_remote_dispatch.json").read_text(encoding="utf-8"))
     assert report["status"] == "fail"
     assert report["steps"][0]["status"] == "fail"
-    assert "does not contain a job for profile 'smoke'" in report["steps"][0]["reason"]
+    assert "did not contain a job for profile 'smoke'" in report["steps"][0]["reason"]
+
+
+def test_ci_remote_dispatch_ignores_unrelated_run_until_profile_job_matches(tmp_path, monkeypatch):
+    dispatched = False
+    clock = {"now": 0.0}
+    viewed = []
+
+    def fake_run_text(cmd):
+        nonlocal dispatched
+        assert cmd[:4] == ["gh", "workflow", "run", "verification.yml"]
+        dispatched = True
+        return 0, "", ""
+
+    def fake_run_json(cmd, cwd=ROOT):
+        if cmd[:3] == ["gh", "run", "list"]:
+            if not dispatched:
+                return 0, [], ""
+            runs = [
+                {
+                    "databaseId": 505,
+                    "displayTitle": "full",
+                    "conclusion": None,
+                    "status": "queued",
+                    "event": "workflow_dispatch",
+                    "headSha": "abc",
+                    "headBranch": "main",
+                    "url": "https://github.com/owner/repo/actions/runs/505",
+                    "createdAt": "2026-05-15T00:00:00Z",
+                    "updatedAt": "2026-05-15T00:00:00Z",
+                    "workflowName": "DitDah32 Verification",
+                }
+            ]
+            if clock["now"] >= 1.0:
+                runs.append(
+                    {
+                        "databaseId": 606,
+                        "displayTitle": "smoke",
+                        "conclusion": None,
+                        "status": "queued",
+                        "event": "workflow_dispatch",
+                        "headSha": "abc",
+                        "headBranch": "main",
+                        "url": "https://github.com/owner/repo/actions/runs/606",
+                        "createdAt": "2026-05-15T00:00:01Z",
+                        "updatedAt": "2026-05-15T00:00:01Z",
+                        "workflowName": "DitDah32 Verification",
+                    }
+                )
+            return 0, runs, ""
+        if cmd[:3] == ["gh", "run", "view"]:
+            run_id = int(cmd[3])
+            viewed.append(run_id)
+            job_name = "Full" if run_id == 505 else "Smoke"
+            return 0, {
+                "databaseId": run_id,
+                "conclusion": "success",
+                "status": "completed",
+                "headSha": "abc",
+                "headBranch": "main",
+                "url": f"https://github.com/owner/repo/actions/runs/{run_id}",
+                "createdAt": "2026-05-15T00:00:00Z",
+                "updatedAt": "2026-05-15T00:01:00Z",
+                "workflowName": "DitDah32 Verification",
+                "jobs": [{"name": job_name, "conclusion": "success"}],
+            }, ""
+        raise AssertionError(f"unexpected command: {cmd}")
+
+    monkeypatch.setattr(ci_remote_dispatch.shutil, "which", lambda name: "/usr/bin/gh" if name == "gh" else None)
+    monkeypatch.setattr(
+        ci_remote_dispatch,
+        "repository_probe",
+        lambda repo: {
+            "status": "pass",
+            "name_with_owner": repo,
+            "url": f"https://github.com/{repo}",
+            "default_branch": "main",
+            "visibility": "PRIVATE",
+        },
+    )
+    monkeypatch.setattr(ci_remote_dispatch, "run_text", fake_run_text)
+    monkeypatch.setattr(ci_remote_dispatch, "run_json", fake_run_json)
+    monkeypatch.setattr(ci_remote_dispatch.time, "monotonic", lambda: clock["now"])
+    monkeypatch.setattr(ci_remote_dispatch.time, "sleep", lambda seconds: clock.__setitem__("now", clock["now"] + seconds))
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "ci_remote_dispatch.py",
+            "--repo",
+            "owner/repo",
+            "--head-sha",
+            "abc",
+            "--profiles",
+            "smoke",
+            "--wait",
+            "--appear-timeout-seconds",
+            "3",
+            "--poll-seconds",
+            "1",
+            "--out-dir",
+            str(tmp_path),
+        ],
+    )
+
+    assert ci_remote_dispatch.main() == 0
+    report = json.loads((tmp_path / "ci_remote_dispatch.json").read_text(encoding="utf-8"))
+    assert report["status"] == "pass"
+    assert report["steps"][0]["run_id"] == 606
+    assert viewed == [505, 606, 606]
