@@ -7,7 +7,7 @@ import shutil
 import time
 from pathlib import Path
 
-from ci_remote_evidence import REPO_ROOT, infer_repo, repository_probe, run_json, run_text
+from ci_remote_evidence import REPO_ROOT, infer_head_sha, infer_repo, repository_probe, run_json, run_text
 
 
 def rel(path):
@@ -87,7 +87,7 @@ def wait_for_run(repo, run_id, timeout_seconds, poll_seconds):
     return last_view, last_error or "Timed out waiting for the workflow run to complete."
 
 
-def dispatch_profile(repo, workflow, ref, profile, wait, appear_timeout, run_timeout, poll_seconds):
+def dispatch_profile(repo, workflow, ref, profile, expected_head_sha, wait, appear_timeout, run_timeout, poll_seconds):
     before_runs, before_error = list_runs(repo, workflow, 50)
     before_ids = {run.get("databaseId") for run in before_runs}
 
@@ -127,6 +127,9 @@ def dispatch_profile(repo, workflow, ref, profile, wait, appear_timeout, run_tim
     step["run"] = run
     step["run_id"] = run.get("databaseId")
     step["run_url"] = run.get("url")
+    if run.get("headSha") != expected_head_sha:
+        step["reason"] = f"workflow run headSha {run.get('headSha')!r} does not match expected HEAD {expected_head_sha!r}"
+        return step
     if not wait:
         step["status"] = "dispatched"
         return step
@@ -135,6 +138,9 @@ def dispatch_profile(repo, workflow, ref, profile, wait, appear_timeout, run_tim
     step["final_run"] = view
     if view is None:
         step["reason"] = wait_error
+        return step
+    if view.get("headSha") != expected_head_sha:
+        step["reason"] = f"completed workflow run headSha {view.get('headSha')!r} does not match expected HEAD {expected_head_sha!r}"
         return step
     if view.get("conclusion") == "success":
         step["status"] = "pass"
@@ -149,6 +155,7 @@ def main():
     parser.add_argument("--repo", help="GitHub repository as owner/name. Defaults to GITHUB_REPOSITORY or git origin.")
     parser.add_argument("--workflow", default="verification.yml")
     parser.add_argument("--ref", help="Branch or tag containing the workflow file. Defaults to the repository default branch.")
+    parser.add_argument("--head-sha", help="Expected commit SHA for dispatched runs. Defaults to GITHUB_SHA or local git HEAD.")
     parser.add_argument("--profiles", nargs="+", default=["smoke", "full", "ci-evidence"])
     parser.add_argument("--wait", action="store_true", help="Wait for each dispatched run to finish.")
     parser.add_argument("--appear-timeout-seconds", type=float, default=120.0)
@@ -162,10 +169,13 @@ def main():
 
     started = time.monotonic()
     repo, repo_source = infer_repo(args.repo)
+    expected_head_sha, expected_head_source = infer_head_sha(args.head_sha)
     report = {
         "status": "fail",
         "repository": repo,
         "repository_source": repo_source,
+        "expected_head_sha": expected_head_sha,
+        "expected_head_source": expected_head_source,
         "workflow": args.workflow,
         "ref": args.ref,
         "profiles": args.profiles,
@@ -179,6 +189,8 @@ def main():
         report["missing"].append("GitHub CLI is not available.")
     if repo is None:
         report["missing"].append("No GitHub repository could be inferred from arguments, GITHUB_REPOSITORY, or git origin.")
+    if expected_head_sha is None:
+        report["missing"].append("No expected commit SHA could be inferred from --head-sha, GITHUB_SHA, or local git HEAD.")
 
     if not report["missing"]:
         report["repository_probe"] = repository_probe(repo)
@@ -194,6 +206,7 @@ def main():
                 args.workflow,
                 args.ref,
                 profile,
+                expected_head_sha,
                 args.wait,
                 args.appear_timeout_seconds,
                 args.run_timeout_seconds,
