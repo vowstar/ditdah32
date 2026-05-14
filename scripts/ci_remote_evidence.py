@@ -68,6 +68,18 @@ def infer_repo(cli_repo):
     return None, "unsupported_remote"
 
 
+def infer_head_sha(cli_head_sha):
+    if cli_head_sha:
+        return cli_head_sha, "argument"
+    env_sha = os.environ.get("GITHUB_SHA")
+    if env_sha:
+        return env_sha, "GITHUB_SHA"
+    returncode, stdout, _stderr = run_text(["git", "rev-parse", "HEAD"])
+    if returncode == 0 and stdout:
+        return stdout, "git_head"
+    return None, "missing"
+
+
 def artifact_names(repo, run_id):
     returncode, payload, error = run_json(
         [
@@ -159,6 +171,7 @@ def main():
     parser = argparse.ArgumentParser(description="Collect remote GitHub Actions evidence for DitDah32 verification")
     parser.add_argument("--repo", help="GitHub repository as owner/name. Defaults to GITHUB_REPOSITORY or git origin.")
     parser.add_argument("--workflow", default="verification.yml")
+    parser.add_argument("--head-sha", help="Expected commit SHA for closing remote evidence. Defaults to GITHUB_SHA or local git HEAD.")
     parser.add_argument("--limit", type=int, default=50)
     parser.add_argument("--out-dir", type=Path, default=REPO_ROOT / "result" / "verification")
     args = parser.parse_args()
@@ -168,10 +181,13 @@ def main():
 
     started = time.monotonic()
     repo, repo_source = infer_repo(args.repo)
+    expected_head_sha, expected_head_source = infer_head_sha(args.head_sha)
     report = {
         "status": "missing",
         "repository": repo,
         "repository_source": repo_source,
+        "expected_head_sha": expected_head_sha,
+        "expected_head_source": expected_head_source,
         "workflow": args.workflow,
         "required_profiles": ["smoke", "full"],
         "optional_profiles": ["signoff"],
@@ -185,6 +201,8 @@ def main():
         report["missing"].append("GitHub CLI is not available.")
     if repo is None:
         report["missing"].append("No GitHub repository could be inferred from arguments, GITHUB_REPOSITORY, or git origin.")
+    if expected_head_sha is None:
+        report["missing"].append("No expected commit SHA could be inferred from --head-sha, GITHUB_SHA, or local git HEAD.")
 
     if not report["missing"]:
         report["repository_probe"] = repository_probe(repo)
@@ -242,6 +260,8 @@ def main():
         for run in report["runs"]:
             if run.get("conclusion") != "success" or run.get("status") != "completed":
                 continue
+            if run.get("head_sha") != expected_head_sha:
+                continue
             for item in run.get("classifications", []):
                 if item.get("profile") == profile and item.get("artifact_present"):
                     satisfied[profile] = run
@@ -249,7 +269,9 @@ def main():
             if satisfied[profile] is not None:
                 break
         if satisfied[profile] is None:
-            report["missing"].append(f"No successful remote {profile} run with uploaded artifact evidence was found.")
+            report["missing"].append(
+                f"No successful remote {profile} run for expected HEAD {expected_head_sha} with uploaded artifact evidence was found."
+            )
 
     report["satisfied_runs"] = {
         profile: None if run is None else {

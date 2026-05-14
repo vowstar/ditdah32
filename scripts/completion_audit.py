@@ -130,6 +130,17 @@ def build_report():
     signoff_fresh = signoff_pass and not signoff_missing
     preflight_pass = ci_remote_preflight is not None and ci_remote_preflight.get("status") == "pass"
     ci_pass = ci_remote is not None and ci_remote.get("status") == "pass"
+    ci_missing = list((ci_remote or {}).get("missing", []) or gap_statuses.get("ci_regression", {}).get("missing", []))
+    ci_satisfied_runs = (ci_remote or {}).get("satisfied_runs") or {}
+    expected_remote_head = (ci_remote or {}).get("expected_head_sha")
+    if ci_pass:
+        if expected_remote_head != git_state.get("head"):
+            ci_missing.append("Remote CI evidence was not collected for the current git HEAD.")
+        for profile in ("smoke", "full"):
+            run = ci_satisfied_runs.get(profile) or {}
+            if run.get("head_sha") != git_state.get("head"):
+                ci_missing.append(f"Remote {profile} evidence does not match the current git HEAD.")
+    ci_current_head_pass = ci_pass and not ci_missing
     all_gaps_closed = open_gap_summary.get("not_closed") == 0
 
     checklist = [
@@ -222,11 +233,13 @@ def build_report():
             [
                 artifact("result/verification/ci_remote_evidence.json", ci_remote is not None),
                 {"ci_remote_status": (ci_remote or {}).get("status")},
-                {"ci_remote_satisfied_runs": (ci_remote or {}).get("satisfied_runs")},
+                {"ci_remote_expected_head_sha": expected_remote_head},
+                {"current_git_head": git_state.get("head")},
+                {"ci_remote_satisfied_runs": ci_satisfied_runs},
                 {"gap_status": gap_statuses.get("ci_regression")},
             ],
-            ci_pass and gap_statuses.get("ci_regression", {}).get("closed") is True,
-            (ci_remote or {}).get("missing", []) or gap_statuses.get("ci_regression", {}).get("missing", []),
+            ci_current_head_pass and gap_statuses.get("ci_regression", {}).get("closed") is True,
+            ci_missing,
         ),
         checklist_item(
             "open_gap_audit",

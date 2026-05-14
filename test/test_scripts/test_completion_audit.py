@@ -30,7 +30,7 @@ def closed_gap(gap_id, status="closed"):
     }
 
 
-def populate_completion_repo(tmp_path, ci_status="pass", not_closed=0):
+def populate_completion_repo(tmp_path, ci_status="pass", not_closed=0, head="abc123"):
     write_json(
         tmp_path / "result" / "verification" / "signoff.json",
         {
@@ -38,7 +38,7 @@ def populate_completion_repo(tmp_path, ci_status="pass", not_closed=0):
             "duration_seconds": 1.0,
             "git": {
                 "available": True,
-                "head": "abc123",
+                "head": head,
                 "branch": "main",
                 "dirty": False,
                 "status_porcelain": "",
@@ -95,9 +95,12 @@ def populate_completion_repo(tmp_path, ci_status="pass", not_closed=0):
         {
             "status": ci_status,
             "missing": ci_missing,
+            "expected_head_sha": head,
             "satisfied_runs": {
-                "smoke": {"run_id": 11, "url": "https://github.com/owner/repo/actions/runs/11"},
-                "full": None if ci_status != "pass" else {"run_id": 22, "url": "https://github.com/owner/repo/actions/runs/22"},
+                "smoke": {"run_id": 11, "url": "https://github.com/owner/repo/actions/runs/11", "head_sha": head},
+                "full": None
+                if ci_status != "pass"
+                else {"run_id": 22, "url": "https://github.com/owner/repo/actions/runs/22", "head_sha": head},
             },
         },
     )
@@ -151,6 +154,12 @@ def test_completion_audit_reports_incomplete_when_remote_ci_is_missing(tmp_path,
 
 def test_completion_audit_rejects_stale_local_signoff(tmp_path, monkeypatch):
     populate_completion_repo(tmp_path, ci_status="pass", not_closed=0)
+    ci_remote_path = tmp_path / "result" / "verification" / "ci_remote_evidence.json"
+    ci_remote = json.loads(ci_remote_path.read_text(encoding="utf-8"))
+    ci_remote["expected_head_sha"] = "new456"
+    ci_remote["satisfied_runs"]["smoke"]["head_sha"] = "new456"
+    ci_remote["satisfied_runs"]["full"]["head_sha"] = "new456"
+    write_json(ci_remote_path, ci_remote)
     monkeypatch.setattr(completion_audit, "REPO_ROOT", tmp_path)
     monkeypatch.setattr(
         completion_audit,
@@ -170,6 +179,36 @@ def test_completion_audit_rejects_stale_local_signoff(tmp_path, monkeypatch):
     failed_items = {item["name"]: item for item in report["checklist"] if not item["passed"]}
     assert set(failed_items) == {"local_signoff"}
     assert "Local signoff report was not generated from the current git HEAD." in failed_items["local_signoff"]["missing"]
+
+
+def test_completion_audit_rejects_stale_remote_ci_evidence(tmp_path, monkeypatch):
+    populate_completion_repo(tmp_path, ci_status="pass", not_closed=0)
+    monkeypatch.setattr(completion_audit, "REPO_ROOT", tmp_path)
+    monkeypatch.setattr(
+        completion_audit,
+        "current_git_state",
+        lambda: {
+            "available": True,
+            "head": "new456",
+            "branch": "main",
+            "dirty": False,
+            "status_porcelain": "",
+            "error": None,
+        },
+    )
+
+    signoff_path = tmp_path / "result" / "verification" / "signoff.json"
+    signoff = json.loads(signoff_path.read_text(encoding="utf-8"))
+    signoff["git"]["head"] = "new456"
+    write_json(signoff_path, signoff)
+
+    report = completion_audit.build_report()
+    assert report["status"] == "incomplete"
+    failed_items = {item["name"]: item for item in report["checklist"] if not item["passed"]}
+    assert set(failed_items) == {"remote_ci"}
+    assert "Remote CI evidence was not collected for the current git HEAD." in failed_items["remote_ci"]["missing"]
+    assert "Remote smoke evidence does not match the current git HEAD." in failed_items["remote_ci"]["missing"]
+    assert "Remote full evidence does not match the current git HEAD." in failed_items["remote_ci"]["missing"]
 
 
 def test_completion_audit_reports_incomplete_when_remote_preflight_is_missing(tmp_path, monkeypatch):
