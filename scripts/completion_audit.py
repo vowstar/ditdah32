@@ -3,6 +3,7 @@
 
 import argparse
 import json
+import subprocess
 import time
 from pathlib import Path
 
@@ -37,6 +38,52 @@ def status_from_report(path):
     return None if report is None else report.get("status")
 
 
+def run_text(command):
+    completed = subprocess.run(
+        command,
+        cwd=REPO_ROOT,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        check=False,
+    )
+    return completed.returncode, completed.stdout.strip(), completed.stderr.strip()
+
+
+def current_git_state():
+    state = {
+        "available": False,
+        "head": None,
+        "branch": None,
+        "dirty": None,
+        "status_porcelain": None,
+        "error": None,
+    }
+    returncode, stdout, stderr = run_text(["git", "rev-parse", "--is-inside-work-tree"])
+    if returncode != 0 or stdout != "true":
+        state["error"] = stderr or stdout or "not inside a git work tree"
+        return state
+
+    state["available"] = True
+    for key, command in (
+        ("head", ["git", "rev-parse", "HEAD"]),
+        ("branch", ["git", "branch", "--show-current"]),
+    ):
+        returncode, stdout, stderr = run_text(command)
+        if returncode == 0:
+            state[key] = stdout
+        else:
+            state["error"] = stderr or stdout
+
+    returncode, stdout, stderr = run_text(["git", "status", "--porcelain"])
+    if returncode == 0:
+        state["status_porcelain"] = stdout
+        state["dirty"] = bool(stdout)
+    else:
+        state["error"] = stderr or stdout
+    return state
+
+
 def checklist_item(name, requirement, evidence, passed, missing=None):
     return {
         "name": name,
@@ -51,6 +98,7 @@ def build_report():
     signoff = load_json(REPO_ROOT / "result" / "verification" / "signoff.json")
     open_gaps = load_json(REPO_ROOT / "result" / "verification" / "open_gaps.json")
     ci_remote = load_json(REPO_ROOT / "result" / "verification" / "ci_remote_evidence.json")
+    git_state = current_git_state()
     started = time.time()
 
     open_gap_summary = (open_gaps or {}).get("summary", {})
@@ -64,6 +112,21 @@ def build_report():
     }
 
     signoff_pass = signoff is not None and signoff.get("status") == "pass"
+    signoff_git = (signoff or {}).get("git") or {}
+    signoff_missing = []
+    if not signoff_pass:
+        signoff_missing.append("Local signoff report is missing or not passing.")
+    if not git_state.get("available"):
+        signoff_missing.append("Current git state is not available for signoff freshness checking.")
+    if signoff_pass and not signoff_git:
+        signoff_missing.append("Local signoff report does not record git metadata.")
+    if signoff_git and signoff_git.get("head") != git_state.get("head"):
+        signoff_missing.append("Local signoff report was not generated from the current git HEAD.")
+    if signoff_git and signoff_git.get("dirty") is not False:
+        signoff_missing.append("Local signoff report was generated from a dirty git workspace.")
+    if git_state.get("dirty") is not False:
+        signoff_missing.append("Current git workspace has uncommitted changes after local signoff.")
+    signoff_fresh = signoff_pass and not signoff_missing
     ci_pass = ci_remote is not None and ci_remote.get("status") == "pass"
     all_gaps_closed = open_gap_summary.get("not_closed") == 0
 
@@ -75,9 +138,11 @@ def build_report():
                 artifact("result/verification/signoff.json", signoff_pass),
                 {"signoff_status": (signoff or {}).get("status")},
                 {"signoff_duration_seconds": (signoff or {}).get("duration_seconds")},
+                {"signoff_git": signoff_git},
+                {"current_git": git_state},
             ],
-            signoff_pass,
-            [] if signoff_pass else ["Local signoff report is missing or not passing."],
+            signoff_fresh,
+            signoff_missing,
         ),
         checklist_item(
             "external_iss",

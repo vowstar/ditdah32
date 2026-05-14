@@ -31,7 +31,20 @@ def closed_gap(gap_id, status="closed"):
 
 
 def populate_completion_repo(tmp_path, ci_status="pass", not_closed=0):
-    write_json(tmp_path / "result" / "verification" / "signoff.json", {"status": "pass", "duration_seconds": 1.0})
+    write_json(
+        tmp_path / "result" / "verification" / "signoff.json",
+        {
+            "status": "pass",
+            "duration_seconds": 1.0,
+            "git": {
+                "available": True,
+                "head": "abc123",
+                "branch": "main",
+                "dirty": False,
+                "status_porcelain": "",
+            },
+        },
+    )
     write_json(tmp_path / "result" / "iss" / "external_iss_full" / "external_iss_full.json", {"status": "pass"})
     write_json(tmp_path / "result" / "riscv_dv" / "riscv_dv.json", {"status": "pass"})
     write_json(tmp_path / "result" / "formal" / "rvfi" / "rvfi.json", {"status": "pass"})
@@ -80,6 +93,18 @@ def populate_completion_repo(tmp_path, ci_status="pass", not_closed=0):
 def test_completion_audit_reports_complete_when_all_items_pass(tmp_path, monkeypatch):
     populate_completion_repo(tmp_path, ci_status="pass", not_closed=0)
     monkeypatch.setattr(completion_audit, "REPO_ROOT", tmp_path)
+    monkeypatch.setattr(
+        completion_audit,
+        "current_git_state",
+        lambda: {
+            "available": True,
+            "head": "abc123",
+            "branch": "main",
+            "dirty": False,
+            "status_porcelain": "",
+            "error": None,
+        },
+    )
 
     report = completion_audit.build_report()
     assert report["status"] == "complete"
@@ -90,6 +115,18 @@ def test_completion_audit_reports_complete_when_all_items_pass(tmp_path, monkeyp
 def test_completion_audit_reports_incomplete_when_remote_ci_is_missing(tmp_path, monkeypatch):
     populate_completion_repo(tmp_path, ci_status="missing", not_closed=1)
     monkeypatch.setattr(completion_audit, "REPO_ROOT", tmp_path)
+    monkeypatch.setattr(
+        completion_audit,
+        "current_git_state",
+        lambda: {
+            "available": True,
+            "head": "abc123",
+            "branch": "main",
+            "dirty": False,
+            "status_porcelain": "",
+            "error": None,
+        },
+    )
 
     report = completion_audit.build_report()
     assert report["status"] == "incomplete"
@@ -97,3 +134,26 @@ def test_completion_audit_reports_incomplete_when_remote_ci_is_missing(tmp_path,
     assert set(failed_items) == {"remote_ci", "open_gap_audit"}
     assert any("remote_ci" in item for item in report["missing"])
     assert any("Open or partial gaps remain: 1 / 6" in item for item in report["missing"])
+
+
+def test_completion_audit_rejects_stale_local_signoff(tmp_path, monkeypatch):
+    populate_completion_repo(tmp_path, ci_status="pass", not_closed=0)
+    monkeypatch.setattr(completion_audit, "REPO_ROOT", tmp_path)
+    monkeypatch.setattr(
+        completion_audit,
+        "current_git_state",
+        lambda: {
+            "available": True,
+            "head": "new456",
+            "branch": "main",
+            "dirty": False,
+            "status_porcelain": "",
+            "error": None,
+        },
+    )
+
+    report = completion_audit.build_report()
+    assert report["status"] == "incomplete"
+    failed_items = {item["name"]: item for item in report["checklist"] if not item["passed"]}
+    assert set(failed_items) == {"local_signoff"}
+    assert "Local signoff report was not generated from the current git HEAD." in failed_items["local_signoff"]["missing"]

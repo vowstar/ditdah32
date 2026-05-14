@@ -278,6 +278,54 @@ PROFILES = {
 }
 
 
+def run_text(command):
+    completed = subprocess.run(
+        command,
+        cwd=REPO_ROOT,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        check=False,
+    )
+    return completed.returncode, completed.stdout.strip(), completed.stderr.strip()
+
+
+def git_metadata():
+    metadata = {
+        "available": False,
+        "head": None,
+        "branch": None,
+        "dirty": None,
+        "status_porcelain": None,
+        "error": None,
+    }
+
+    returncode, stdout, stderr = run_text(["git", "rev-parse", "--is-inside-work-tree"])
+    if returncode != 0 or stdout != "true":
+        metadata["error"] = stderr or stdout or "not inside a git work tree"
+        return metadata
+
+    metadata["available"] = True
+    for key, command in (
+        ("head", ["git", "rev-parse", "HEAD"]),
+        ("branch", ["git", "branch", "--show-current"]),
+    ):
+        returncode, stdout, stderr = run_text(command)
+        if returncode == 0:
+            metadata[key] = stdout
+        else:
+            metadata["error"] = stderr or stdout
+
+    returncode, stdout, stderr = run_text(["git", "status", "--porcelain"])
+    if returncode == 0:
+        metadata["status_porcelain"] = stdout
+        metadata["dirty"] = bool(stdout)
+    else:
+        metadata["dirty"] = None
+        metadata["error"] = stderr or stdout
+    return metadata
+
+
 def run_step(step, logs_dir):
     start = time.monotonic()
     log_path = logs_dir / f"{step.name}.log"
@@ -322,6 +370,7 @@ def main():
     report = {
         "profile": args.profile,
         "repo": str(REPO_ROOT),
+        "git": git_metadata(),
         "started_unix": int(time.time()),
         "steps": [],
     }
