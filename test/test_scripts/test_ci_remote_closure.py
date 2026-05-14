@@ -201,6 +201,7 @@ def test_ci_remote_closure_reports_authorized_publish_command_for_missing_repo(t
     assert report["reason"] == "Remote CI closure incomplete."
     assert "remote_ci: GitHub repository owner/missing is not accessible: not found" in report["missing"]
     assert "open_gap_audit: Open or partial gaps remain: 1 / 6" in report["missing"]
+    assert not any(item.startswith("completion_audit: remote_ci:") for item in report["missing"])
     assert report["next_authorized_commands"] == [
         'make ci-remote-publish CI_REMOTE_PUBLISH_ARGS="--confirm-create --confirm-push"',
         'make ci-remote-closure CI_REMOTE_CLOSURE_ARGS="--repo owner/missing"',

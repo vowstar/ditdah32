@@ -90,14 +90,23 @@ def dedupe(items):
 
 def collect_missing():
     missing = []
-    for label, path in (
-        ("remote_ci", "result/verification/ci_remote_evidence.json"),
-        ("open_gap_audit", "result/verification/open_gaps.json"),
-        ("completion_audit", "result/verification/completion_audit.json"),
-    ):
-        report = read_report(path)
-        for entry in report.get("missing", []):
-            missing.append(f"{label}: {entry}")
+    ci_remote = read_report("result/verification/ci_remote_evidence.json")
+    for entry in ci_remote.get("missing", []):
+        missing.append(f"remote_ci: {entry}")
+
+    open_gaps = read_report("result/verification/open_gaps.json")
+    summary = open_gaps.get("summary") or {}
+    if summary.get("not_closed"):
+        missing.append(f"open_gap_audit: Open or partial gaps remain: {summary.get('not_closed')} / {summary.get('total')}")
+    else:
+        for entry in open_gaps.get("missing", []):
+            missing.append(f"open_gap_audit: {entry}")
+
+    completion = read_report("result/verification/completion_audit.json")
+    for entry in completion.get("missing", []):
+        if entry.startswith(("remote_ci:", "open_gap_audit:")):
+            continue
+        missing.append(f"completion_audit: {entry}")
     return dedupe(missing)
 
 
