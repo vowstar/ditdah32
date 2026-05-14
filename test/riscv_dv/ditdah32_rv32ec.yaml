@@ -1,0 +1,68 @@
+# SPDX-License-Identifier: MIT
+
+name: ditdah32_rv32ec
+description: DitDah32 RV32EC-only RISCV-DV intent configuration.
+
+isa:
+  xlen: 32
+  base: rv32e
+  compressed: true
+  abi: ilp32e
+  architectural_registers:
+    legal: [x0, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15]
+    illegal: [x16, x17, x18, x19, x20, x21, x22, x23, x24, x25, x26, x27, x28, x29, x30, x31]
+
+enabled_profiles:
+  - rv32e
+  - rvc_rv32e_legal_registers
+
+disabled_extensions:
+  - rv32i_32_register_profile
+  - m
+  - a
+  - f
+  - d
+  - q
+  - b
+  - v
+  - pmp
+  - mmu
+  - debug
+  - interrupts
+
+control_profile:
+  zicsr: minimal_machine_csrs
+  wfi: sleep_until_interrupt_or_reset
+  ecall: trap
+  ebreak: trap
+  mret: return_from_trap
+
+memory_profile:
+  bus: single_beat_axi_lite_subset
+  misaligned_load_store: trap_before_bus_request
+  atomics: disabled
+  executable_region_base: 0x00000000
+  data_region_base: 0x00000080
+
+generator_policy:
+  legal_programs_only_until_negative_flow_is_added: true
+  avoid_self_modifying_code: true
+  avoid_unbounded_loops: true
+  require_terminal_ebreak_or_wfi: true
+  fixed_seed_reproducibility: true
+
+trace_compare:
+  rtl_trace: result/rtl_trace/riscv_dv
+  reference_trace: result/riscv_dv/reference
+  compare_fields:
+    - pc
+    - insn
+    - length
+    - rd_we
+    - rd
+    - rd_wdata
+    - mem_addr
+    - mem_rdata
+    - mem_wdata
+    - trap
+    - trap_cause

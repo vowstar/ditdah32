@@ -1,0 +1,186 @@
+name: DitDah32 Verification
+
+on:
+  push:
+  pull_request:
+  schedule:
+    - cron: "23 18 * * 0"
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: Verification profile to run.
+        required: true
+        default: smoke
+        type: choice
+        options:
+          - smoke
+          - full
+          - signoff
+          - spike-matrix
+          - ci-evidence
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event_name }}-${{ inputs.profile || 'auto' }}
+  cancel-in-progress: false
+
+jobs:
+  smoke:
+    name: Smoke
+    if: github.event_name == 'push' || github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && inputs.profile == 'smoke')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v31
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+            accept-flake-config = true
+
+      - name: Run Smoke Profile
+        run: nix develop --option sandbox false -c sh -c 'make verify-smoke && make audit-gaps'
+
+      - name: Upload Artifacts
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: ditdah32-smoke-${{ github.run_id }}
+          if-no-files-found: ignore
+          path: |
+            result/verification/**
+            result/isa/**
+            result/bench/**/*.manifest.json
+
+  full:
+    name: Full
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.profile == 'full')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v31
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+            accept-flake-config = true
+
+      - name: Run Full Profile
+        run: nix develop --option sandbox false -c sh -c 'make verify && make audit-gaps'
+
+      - name: Upload Artifacts
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: ditdah32-full-${{ github.run_id }}
+          if-no-files-found: ignore
+          path: |
+            result/verification/**
+            result/rtl_trace/**
+            result/coverage/**
+            result/axi/**
+            result/formal/**
+            result/bench/**
+            result/iss/**
+            result/isa/**
+            test/test_ditdah32/results.xml
+
+  signoff:
+    name: Signoff
+    if: github.event_name == 'workflow_dispatch' && inputs.profile == 'signoff'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v31
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+            accept-flake-config = true
+
+      - name: Run Signoff Profile
+        run: nix develop --option sandbox false -c make verify-signoff
+
+      - name: Upload Artifacts
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: ditdah32-signoff-${{ github.run_id }}
+          if-no-files-found: ignore
+          path: |
+            result/verification/**
+            result/rtl_trace/**
+            result/coverage/**
+            result/axi/**
+            result/formal/**
+            result/riscv_dv/**
+            result/iss/**
+            result/bench/**
+            test/test_ditdah32/results.xml
+
+  spike-matrix:
+    name: Spike Matrix
+    if: github.event_name == 'workflow_dispatch' && inputs.profile == 'spike-matrix'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v31
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+            accept-flake-config = true
+
+      - name: Run Spike-Compatible Matrix
+        run: nix develop --option sandbox false -c sh -c 'make verify-spike-matrix && make audit-gaps'
+
+      - name: Upload Artifacts
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: ditdah32-spike-matrix-${{ github.run_id }}
+          if-no-files-found: ignore
+          path: |
+            result/verification/**
+            result/iss/**
+            result/isa/**
+
+  ci-evidence:
+    name: CI Evidence
+    if: github.event_name == 'workflow_dispatch' && inputs.profile == 'ci-evidence'
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v31
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+            accept-flake-config = true
+
+      - name: Collect Remote CI Evidence
+        run: nix develop --option sandbox false -c sh -c 'make audit-ci-remote && make audit-gaps'
+
+      - name: Upload Artifacts
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: ditdah32-ci-evidence-${{ github.run_id }}
+          if-no-files-found: ignore
+          path: |
+            result/verification/**

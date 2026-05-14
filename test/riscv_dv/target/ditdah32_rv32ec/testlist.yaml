@@ -1,0 +1,22 @@
+# SPDX-License-Identifier: MIT
+
+- test: ditdah32_rv32ec_smoke
+  description: >
+    Small legal RV32EC smoke program for DitDah32 RISCV-DV bring-up.
+  iterations: 1
+  gen_test: riscv_instr_base_test
+  gen_opts: >
+    +instr_cnt=80
+    +num_of_sub_program=0
+    +bare_program_mode=1
+    +no_data_page=1
+    +no_load_store=1
+    +no_branch_jump=1
+    +no_csr_instr=1
+    +no_fence=1
+    +no_directed_instr=1
+    +disable_compressed_instr=0
+    +fix_sp=1
+    +illegal_instr_ratio=0
+    +hint_instr_ratio=0
+  rtl_test: core_base_test
