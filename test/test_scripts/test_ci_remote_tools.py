@@ -269,6 +269,7 @@ def test_ci_remote_dispatch_runs_profiles_in_order_and_waits(tmp_path, monkeypat
                 "createdAt": "2026-05-15T00:00:00Z",
                 "updatedAt": "2026-05-15T00:01:00Z",
                 "workflowName": "DitDah32 Verification",
+                "jobs": [{"name": next(name for name, value in run_ids.items() if value == run_id), "conclusion": "success"}],
             }, ""
         raise AssertionError(f"unexpected command: {cmd}")
 
@@ -384,3 +385,85 @@ def test_ci_remote_dispatch_rejects_run_from_wrong_head(tmp_path, monkeypatch):
     assert report["steps"][0]["status"] == "fail"
     assert "does not match expected HEAD" in report["steps"][0]["reason"]
     assert any("does not match expected HEAD" in item for item in report["missing"])
+
+
+def test_ci_remote_dispatch_rejects_run_with_wrong_profile_job(tmp_path, monkeypatch):
+    dispatched = False
+
+    def fake_run_text(cmd):
+        nonlocal dispatched
+        assert cmd[:4] == ["gh", "workflow", "run", "verification.yml"]
+        dispatched = True
+        return 0, "", ""
+
+    def fake_run_json(cmd, cwd=ROOT):
+        if cmd[:3] == ["gh", "run", "list"]:
+            if not dispatched:
+                return 0, [], ""
+            return 0, [
+                {
+                    "databaseId": 505,
+                    "displayTitle": "smoke",
+                    "conclusion": None,
+                    "status": "queued",
+                    "event": "workflow_dispatch",
+                    "headSha": "abc",
+                    "headBranch": "main",
+                    "url": "https://github.com/owner/repo/actions/runs/505",
+                    "createdAt": "2026-05-15T00:00:00Z",
+                    "updatedAt": "2026-05-15T00:00:00Z",
+                    "workflowName": "DitDah32 Verification",
+                }
+            ], ""
+        if cmd[:3] == ["gh", "run", "view"]:
+            return 0, {
+                "databaseId": 505,
+                "conclusion": "success",
+                "status": "completed",
+                "headSha": "abc",
+                "headBranch": "main",
+                "url": "https://github.com/owner/repo/actions/runs/505",
+                "createdAt": "2026-05-15T00:00:00Z",
+                "updatedAt": "2026-05-15T00:01:00Z",
+                "workflowName": "DitDah32 Verification",
+                "jobs": [{"name": "Full", "conclusion": "success"}],
+            }, ""
+        raise AssertionError(f"unexpected command: {cmd}")
+
+    monkeypatch.setattr(ci_remote_dispatch.shutil, "which", lambda name: "/usr/bin/gh" if name == "gh" else None)
+    monkeypatch.setattr(
+        ci_remote_dispatch,
+        "repository_probe",
+        lambda repo: {
+            "status": "pass",
+            "name_with_owner": repo,
+            "url": f"https://github.com/{repo}",
+            "default_branch": "main",
+            "visibility": "PRIVATE",
+        },
+    )
+    monkeypatch.setattr(ci_remote_dispatch, "run_text", fake_run_text)
+    monkeypatch.setattr(ci_remote_dispatch, "run_json", fake_run_json)
+    monkeypatch.setattr(ci_remote_dispatch.time, "sleep", lambda _seconds: None)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "ci_remote_dispatch.py",
+            "--repo",
+            "owner/repo",
+            "--head-sha",
+            "abc",
+            "--profiles",
+            "smoke",
+            "--wait",
+            "--out-dir",
+            str(tmp_path),
+        ],
+    )
+
+    assert ci_remote_dispatch.main() == 1
+    report = json.loads((tmp_path / "ci_remote_dispatch.json").read_text(encoding="utf-8"))
+    assert report["status"] == "fail"
+    assert report["steps"][0]["status"] == "fail"
+    assert "does not contain a job for profile 'smoke'" in report["steps"][0]["reason"]

@@ -3,6 +3,7 @@
 
 import argparse
 import json
+import re
 import shutil
 import time
 from pathlib import Path
@@ -48,12 +49,27 @@ def run_view(repo, run_id):
             "--repo",
             repo,
             "--json",
-            "databaseId,conclusion,status,headSha,headBranch,url,createdAt,updatedAt,workflowName",
+            "databaseId,conclusion,status,headSha,headBranch,url,createdAt,updatedAt,workflowName,jobs",
         ]
     )
     if returncode != 0 or payload is None:
         return None, error
     return payload, ""
+
+
+def normalize_profile_name(text):
+    return re.sub(r"[^a-z0-9]", "", str(text).lower())
+
+
+def job_matches_profile(job, profile):
+    return normalize_profile_name(job.get("name")) == normalize_profile_name(profile)
+
+
+def find_profile_job(jobs, profile):
+    for job in jobs or []:
+        if job_matches_profile(job, profile):
+            return job
+    return None
 
 
 def find_new_run(repo, workflow, known_ids, timeout_seconds, poll_seconds):
@@ -141,6 +157,14 @@ def dispatch_profile(repo, workflow, ref, profile, expected_head_sha, wait, appe
         return step
     if view.get("headSha") != expected_head_sha:
         step["reason"] = f"completed workflow run headSha {view.get('headSha')!r} does not match expected HEAD {expected_head_sha!r}"
+        return step
+    profile_job = find_profile_job(view.get("jobs", []), profile)
+    step["profile_job"] = profile_job
+    if profile_job is None:
+        step["reason"] = f"completed workflow run does not contain a job for profile {profile!r}"
+        return step
+    if profile_job.get("conclusion") != "success":
+        step["reason"] = f"profile job {profile_job.get('name')!r} completed with conclusion {profile_job.get('conclusion')!r}"
         return step
     if view.get("conclusion") == "success":
         step["status"] = "pass"
