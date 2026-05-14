@@ -51,13 +51,15 @@ def test_audit_ci_closes_when_remote_evidence_passes(tmp_path, monkeypatch):
         tmp_path,
         {
             "status": "pass",
+            "expected_head_sha": "abc123",
             "satisfied_runs": {
-                "smoke": {"run_id": 11, "url": "https://github.com/owner/repo/actions/runs/11"},
-                "full": {"run_id": 22, "url": "https://github.com/owner/repo/actions/runs/22"},
+                "smoke": {"run_id": 11, "url": "https://github.com/owner/repo/actions/runs/11", "head_sha": "abc123"},
+                "full": {"run_id": 22, "url": "https://github.com/owner/repo/actions/runs/22", "head_sha": "abc123"},
             },
         },
     )
     monkeypatch.setattr(open_gap_audit, "REPO_ROOT", tmp_path)
+    monkeypatch.setattr(open_gap_audit, "current_git_head", lambda: "abc123")
 
     gap = open_gap_audit.audit_ci()
     assert gap["status"] == "closed"
@@ -78,8 +80,32 @@ def test_audit_ci_remains_partial_when_remote_evidence_is_missing(tmp_path, monk
         },
     )
     monkeypatch.setattr(open_gap_audit, "REPO_ROOT", tmp_path)
+    monkeypatch.setattr(open_gap_audit, "current_git_head", lambda: "abc123")
 
     gap = open_gap_audit.audit_ci()
     assert gap["status"] == "partial"
     assert gap["closed"] is False
     assert gap["missing"] == ["No successful remote full run with uploaded artifact evidence was found."]
+
+
+def test_audit_ci_rejects_remote_evidence_from_stale_head(tmp_path, monkeypatch):
+    make_ci_repo(
+        tmp_path,
+        {
+            "status": "pass",
+            "expected_head_sha": "old456",
+            "satisfied_runs": {
+                "smoke": {"run_id": 11, "url": "https://github.com/owner/repo/actions/runs/11", "head_sha": "old456"},
+                "full": {"run_id": 22, "url": "https://github.com/owner/repo/actions/runs/22", "head_sha": "old456"},
+            },
+        },
+    )
+    monkeypatch.setattr(open_gap_audit, "REPO_ROOT", tmp_path)
+    monkeypatch.setattr(open_gap_audit, "current_git_head", lambda: "abc123")
+
+    gap = open_gap_audit.audit_ci()
+    assert gap["status"] == "partial"
+    assert gap["closed"] is False
+    assert "Remote CI evidence was not collected for the current git HEAD." in gap["missing"]
+    assert "Remote smoke evidence does not match the current git HEAD." in gap["missing"]
+    assert "Remote full evidence does not match the current git HEAD." in gap["missing"]

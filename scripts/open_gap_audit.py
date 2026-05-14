@@ -30,6 +30,25 @@ def tool_capability(tool_report, name):
     return bool((tool_report or {}).get("capabilities", {}).get(name, False))
 
 
+def run_text(command):
+    completed = subprocess.run(
+        command,
+        cwd=REPO_ROOT,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        check=False,
+    )
+    return completed.returncode, completed.stdout.strip(), completed.stderr.strip()
+
+
+def current_git_head():
+    returncode, stdout, _stderr = run_text(["git", "rev-parse", "HEAD"])
+    if returncode == 0 and stdout:
+        return stdout
+    return None
+
+
 def command_available(command):
     return shutil.which(command) is not None
 
@@ -421,6 +440,7 @@ def audit_axi4():
 def audit_ci():
     tool_report = load_tool_audit()
     ci_remote_report = load_json(REPO_ROOT / "result" / "verification" / "ci_remote_evidence.json")
+    git_head = current_git_head()
     workflow_path = REPO_ROOT / ".github" / "workflows" / "verification.yml"
     workflow_ok = False
     workflow_jobs = []
@@ -436,15 +456,30 @@ def audit_ci():
         {"github_cli_available": tool_capability(tool_report, "github_cli")},
         {"local_github_actions_runner_available": tool_capability(tool_report, "local_github_actions_runner")},
         {"ci_remote_status": (ci_remote_report or {}).get("status")},
-        {"ci_remote_report_pass": ci_remote_report is not None and ci_remote_report.get("status") == "pass"},
+        {"ci_remote_expected_head_sha": (ci_remote_report or {}).get("expected_head_sha")},
+        {"current_git_head": git_head},
         {"ci_remote_satisfied_runs": (ci_remote_report or {}).get("satisfied_runs")},
     ]
     missing = []
     if not workflow_ok:
         missing.append("Workflow file is missing required verification jobs.")
-    remote_ci_pass = ci_remote_report is not None and ci_remote_report.get("status") == "pass"
+    remote_ci_status_pass = ci_remote_report is not None and ci_remote_report.get("status") == "pass"
+    remote_ci_missing = []
+    if remote_ci_status_pass:
+        expected_head = ci_remote_report.get("expected_head_sha")
+        satisfied_runs = ci_remote_report.get("satisfied_runs") or {}
+        if git_head is None:
+            remote_ci_missing.append("Current git HEAD is not available for remote CI freshness checking.")
+        if expected_head != git_head:
+            remote_ci_missing.append("Remote CI evidence was not collected for the current git HEAD.")
+        for profile in ("smoke", "full"):
+            run = satisfied_runs.get(profile) or {}
+            if run.get("head_sha") != git_head:
+                remote_ci_missing.append(f"Remote {profile} evidence does not match the current git HEAD.")
+    remote_ci_pass = remote_ci_status_pass and not remote_ci_missing
+    evidence.append({"ci_remote_report_pass": remote_ci_pass})
     if not remote_ci_pass:
-        remote_missing = (ci_remote_report or {}).get("missing", [])
+        remote_missing = remote_ci_missing or (ci_remote_report or {}).get("missing", [])
         if remote_missing:
             missing.extend(remote_missing)
         else:
