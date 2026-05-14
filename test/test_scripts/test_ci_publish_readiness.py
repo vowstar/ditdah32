@@ -100,12 +100,34 @@ __pycache__/
 /result-*
 """
 
+THIRD_PARTY_TEXT = """\
+# Third-Party Components
+
+- cocotb-bus
+- cocotbext-axi
+- CoreMark
+- Dhrystone
+- non-certified
+"""
+
 
 def populate_project(path, workflow_text=WORKFLOW_YAML):
     (path / ".github" / "workflows").mkdir(parents=True, exist_ok=True)
+    (path / "doc").mkdir(parents=True, exist_ok=True)
+    (path / "test" / "cocotb_bus").mkdir(parents=True, exist_ok=True)
+    (path / "test" / "cocotbext" / "axi").mkdir(parents=True, exist_ok=True)
+    (path / "bench" / "coremark" / "upstream").mkdir(parents=True, exist_ok=True)
+    (path / "bench" / "dhrystone" / "upstream").mkdir(parents=True, exist_ok=True)
     (path / ".github" / "workflows" / "verification.yml").write_text(workflow_text, encoding="utf-8")
     (path / "Makefile").write_text(MAKEFILE_TEXT, encoding="utf-8")
     (path / ".gitignore").write_text(GITIGNORE_TEXT, encoding="utf-8")
+    (path / "LICENSE").write_text("MIT License\n", encoding="utf-8")
+    (path / "doc" / "third_party.md").write_text(THIRD_PARTY_TEXT, encoding="utf-8")
+    (path / "test" / "cocotb_bus" / "LICENSE").write_text("BSD-3-Clause\n", encoding="utf-8")
+    (path / "test" / "cocotbext" / "axi" / "LICENSE").write_text("MIT License\n", encoding="utf-8")
+    (path / "bench" / "coremark" / "upstream" / "LICENSE.md").write_text("Apache License\n", encoding="utf-8")
+    (path / "bench" / "dhrystone" / "upstream" / "README_C").write_text("Dhrystone\n", encoding="utf-8")
+    (path / "bench" / "dhrystone" / "upstream" / "RATIONALE").write_text("Measurement Rules\n", encoding="utf-8")
 
 
 def fake_git_success(repo_root):
@@ -175,3 +197,16 @@ def test_ci_publish_readiness_catches_missing_full_artifact_path(tmp_path, monke
     workflow_item = next(item for item in report["checklist"] if item["name"] == "github_workflow")
     assert not workflow_item["passed"]
     assert "Full artifact does not upload result/formal/**." in workflow_item["missing"]
+
+
+def test_ci_publish_readiness_catches_missing_third_party_manifest(tmp_path, monkeypatch):
+    populate_project(tmp_path)
+    (tmp_path / "doc" / "third_party.md").unlink()
+    monkeypatch.setattr(ci_publish_readiness, "REPO_ROOT", tmp_path)
+    monkeypatch.setattr(ci_publish_readiness, "run_text", fake_git_success(tmp_path))
+
+    report = ci_publish_readiness.build_report()
+    assert report["status"] == "blocked"
+    notices_item = next(item for item in report["checklist"] if item["name"] == "third_party_notices")
+    assert not notices_item["passed"]
+    assert any("doc/third_party.md" in item for item in notices_item["missing"])

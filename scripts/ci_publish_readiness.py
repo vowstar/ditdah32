@@ -184,6 +184,45 @@ def audit_makefile():
     )
 
 
+def audit_third_party_notices():
+    required_paths = {
+        "root_project_license": REPO_ROOT / "LICENSE",
+        "third_party_manifest": REPO_ROOT / "doc" / "third_party.md",
+        "cocotb_bus_license": REPO_ROOT / "test" / "cocotb_bus" / "LICENSE",
+        "cocotbext_axi_license": REPO_ROOT / "test" / "cocotbext" / "axi" / "LICENSE",
+        "coremark_license": REPO_ROOT / "bench" / "coremark" / "upstream" / "LICENSE.md",
+        "dhrystone_readme": REPO_ROOT / "bench" / "dhrystone" / "upstream" / "README_C",
+        "dhrystone_rationale": REPO_ROOT / "bench" / "dhrystone" / "upstream" / "RATIONALE",
+    }
+    missing = [
+        f"Required license or third-party notice file is missing: {rel(path)}"
+        for path in required_paths.values()
+        if not path.exists()
+    ]
+
+    manifest = required_paths["third_party_manifest"]
+    manifest_text = manifest.read_text(encoding="utf-8") if manifest.exists() else ""
+    required_manifest_terms = [
+        "cocotb-bus",
+        "cocotbext-axi",
+        "CoreMark",
+        "Dhrystone",
+        "non-certified",
+    ]
+    for term in required_manifest_terms:
+        if term not in manifest_text:
+            missing.append(f"Third-party manifest does not mention {term}.")
+
+    return check_item(
+        "third_party_notices",
+        not missing,
+        {
+            "required_files": {name: rel(path) for name, path in required_paths.items()},
+        },
+        missing,
+    )
+
+
 def audit_workflow():
     path = REPO_ROOT / ".github" / "workflows" / "verification.yml"
     if not path.exists():
@@ -268,6 +307,7 @@ def build_report(repo=None):
         audit_git_state(repo),
         audit_gitignore(),
         audit_makefile(),
+        audit_third_party_notices(),
         audit_workflow(),
     ]
     missing = []
