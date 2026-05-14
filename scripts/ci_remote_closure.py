@@ -127,6 +127,43 @@ def needs_publish_authorization(missing):
     return any("repository" in entry and ("not accessible" in entry or "Could not resolve" in entry) for entry in missing)
 
 
+def write_markdown(path, report):
+    lines = [
+        "# DitDah32 Remote CI Closure",
+        "",
+        f"Status: `{report['status']}`",
+        f"Expected HEAD: `{report.get('expected_head_sha')}`",
+        f"Expected HEAD source: `{report.get('expected_head_source')}`",
+        "",
+        "| Step | Status | Log |",
+        "| --- | --- | --- |",
+    ]
+    for step in report.get("steps", []):
+        lines.append(f"| `{step['name']}` | `{step['status']}` | `{step.get('log')}` |")
+    if not report.get("steps"):
+        lines.append("| None | None | None |")
+
+    lines.extend(["", "## Remaining Blockers", ""])
+    if report.get("missing"):
+        for entry in report["missing"]:
+            lines.append(f"- {entry}")
+    else:
+        lines.append("None")
+
+    lines.extend(["", "## Authorized Next Commands", ""])
+    if report.get("next_authorized_commands"):
+        lines.append("Run only after external publication is authorized:")
+        lines.append("")
+        lines.append("```bash")
+        lines.extend(report["next_authorized_commands"])
+        lines.append("```")
+    else:
+        lines.append("None")
+
+    lines.append("")
+    path.write_text("\n".join(lines), encoding="utf-8")
+
+
 def write_fail_report(out_dir, started, steps, reason, expected_head_sha=None, expected_head_source=None):
     status = "fail"
     missing = collect_missing()
@@ -146,8 +183,11 @@ def write_fail_report(out_dir, started, steps, reason, expected_head_sha=None, e
         "completion_status": read_status("result/verification/completion_audit.json"),
     }
     report_path = out_dir / "ci_remote_closure.json"
+    md_path = out_dir / "ci_remote_closure.md"
     report_path.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    write_markdown(md_path, report)
     print(f"ci remote closure {status}: {rel(report_path)}")
+    print(f"markdown: {rel(md_path)}")
     return 1
 
 
@@ -257,8 +297,11 @@ def main():
         "completion_status": read_status("result/verification/completion_audit.json"),
     }
     report_path = out_dir / "ci_remote_closure.json"
+    md_path = out_dir / "ci_remote_closure.md"
     report_path.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    write_markdown(md_path, report)
     print(f"ci remote closure {status}: {rel(report_path)}")
+    print(f"markdown: {rel(md_path)}")
     return 0 if status == "pass" else 1
 
 

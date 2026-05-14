@@ -86,6 +86,9 @@ def test_ci_remote_closure_skip_dispatch_collects_and_audits_existing_runs(tmp_p
     assert report["completion_status"] == "complete"
     assert report["missing"] == []
     assert report["next_authorized_commands"] == []
+    markdown = (out_dir / "ci_remote_closure.md").read_text(encoding="utf-8")
+    assert "Status: `pass`" in markdown
+    assert "## Remaining Blockers\n\nNone" in markdown
 
 
 def test_ci_remote_closure_stops_when_dispatch_fails(tmp_path, monkeypatch):
@@ -206,6 +209,10 @@ def test_ci_remote_closure_reports_authorized_publish_command_for_missing_repo(t
         'make ci-remote-publish CI_REMOTE_PUBLISH_ARGS="--confirm-create --confirm-push"',
         'make ci-remote-closure CI_REMOTE_CLOSURE_ARGS="--repo owner/missing"',
     ]
+    markdown = (out_dir / "ci_remote_closure.md").read_text(encoding="utf-8")
+    assert "Status: `fail`" in markdown
+    assert "## Authorized Next Commands" in markdown
+    assert 'make ci-remote-closure CI_REMOTE_CLOSURE_ARGS="--repo owner/missing"' in markdown
 
 
 def test_ci_remote_closure_stops_when_preflight_fails(tmp_path, monkeypatch):
