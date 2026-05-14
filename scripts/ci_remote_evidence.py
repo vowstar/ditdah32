@@ -4,6 +4,7 @@
 import argparse
 import json
 import os
+import re
 import shutil
 import subprocess
 import time
@@ -143,15 +144,29 @@ def job_summary(repo, run_id):
     ], ""
 
 
+def normalize_profile_name(text):
+    return re.sub(r"[^a-z0-9]", "", str(text).lower())
+
+
+def job_matches_profile(job, profile):
+    return normalize_profile_name(job.get("name")) == normalize_profile_name(profile)
+
+
+def find_profile_job(jobs, profile):
+    for job in jobs or []:
+        if job_matches_profile(job, profile):
+            return job
+    return None
+
+
 def classify_run(run, jobs, artifacts):
-    names = {str(job.get("name", "")).lower(): job for job in jobs}
     artifact_text = " ".join(artifacts).lower()
     title = str(run.get("displayTitle", "")).lower()
     event = str(run.get("event", "")).lower()
 
     classifications = []
     for profile in ("smoke", "full", "signoff"):
-        job = names.get(profile)
+        job = find_profile_job(jobs, profile)
         has_artifact = profile in artifact_text
         title_matches = profile in title
         if job or has_artifact or title_matches or (profile == "smoke" and event in {"push", "pull_request"}):
@@ -263,7 +278,11 @@ def main():
             if run.get("head_sha") != expected_head_sha:
                 continue
             for item in run.get("classifications", []):
-                if item.get("profile") == profile and item.get("artifact_present"):
+                if (
+                    item.get("profile") == profile
+                    and item.get("artifact_present")
+                    and item.get("job_conclusion") == "success"
+                ):
                     satisfied[profile] = run
                     break
             if satisfied[profile] is not None:

@@ -188,6 +188,77 @@ def test_ci_remote_evidence_rejects_artifacts_from_the_wrong_head(tmp_path, monk
     assert any("expected HEAD new" in item for item in report["missing"])
 
 
+def test_ci_remote_evidence_rejects_artifact_without_matching_profile_job(tmp_path, monkeypatch):
+    def fake_run_json(cmd, cwd=ROOT):
+        if cmd[:3] == ["gh", "repo", "view"]:
+            return 0, {
+                "nameWithOwner": "owner/repo",
+                "url": "https://github.com/owner/repo",
+                "defaultBranchRef": {"name": "main"},
+                "visibility": "PRIVATE",
+            }, ""
+        if cmd[:3] == ["gh", "run", "list"]:
+            return 0, [
+                {
+                    "databaseId": 11,
+                    "displayTitle": "Smoke",
+                    "conclusion": "success",
+                    "status": "completed",
+                    "event": "workflow_dispatch",
+                    "headSha": "abc",
+                    "headBranch": "main",
+                    "url": "https://github.com/owner/repo/actions/runs/11",
+                    "createdAt": "2026-05-15T00:00:00Z",
+                    "updatedAt": "2026-05-15T00:01:00Z",
+                    "workflowName": "DitDah32 Verification",
+                },
+                {
+                    "databaseId": 22,
+                    "displayTitle": "Full",
+                    "conclusion": "success",
+                    "status": "completed",
+                    "event": "workflow_dispatch",
+                    "headSha": "abc",
+                    "headBranch": "main",
+                    "url": "https://github.com/owner/repo/actions/runs/22",
+                    "createdAt": "2026-05-15T00:02:00Z",
+                    "updatedAt": "2026-05-15T00:03:00Z",
+                    "workflowName": "DitDah32 Verification",
+                },
+            ], ""
+        if cmd[:3] == ["gh", "run", "view"]:
+            run_id = cmd[3]
+            name = "Full" if run_id == "11" else "Full"
+            return 0, {"jobs": [{"name": name, "status": "completed", "conclusion": "success"}]}, ""
+        if cmd[:2] == ["gh", "api"]:
+            artifact_name = "ditdah32-smoke-11" if "/11/" in cmd[2] else "ditdah32-full-22"
+            return 0, {"artifacts": [{"name": artifact_name}]}, ""
+        raise AssertionError(f"unexpected command: {cmd}")
+
+    monkeypatch.setattr(ci_remote_evidence.shutil, "which", lambda name: "/usr/bin/gh" if name == "gh" else None)
+    monkeypatch.setattr(ci_remote_evidence, "run_json", fake_run_json)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "ci_remote_evidence.py",
+            "--repo",
+            "owner/repo",
+            "--head-sha",
+            "abc",
+            "--out-dir",
+            str(tmp_path),
+        ],
+    )
+
+    assert ci_remote_evidence.main() == 1
+    report = json.loads((tmp_path / "ci_remote_evidence.json").read_text(encoding="utf-8"))
+    assert report["status"] == "missing"
+    assert report["satisfied_runs"]["smoke"] is None
+    assert report["satisfied_runs"]["full"]["run_id"] == 22
+    assert any("No successful remote smoke run" in item for item in report["missing"])
+
+
 def test_ci_remote_dispatch_does_not_dispatch_when_repository_is_missing(tmp_path, monkeypatch):
     monkeypatch.setattr(ci_remote_dispatch.shutil, "which", lambda name: "/usr/bin/gh" if name == "gh" else None)
     monkeypatch.setattr(ci_remote_dispatch, "repository_probe", lambda repo: {"status": "missing", "error": "not found"})
