@@ -186,6 +186,16 @@ def unsupported_reason(expected, base):
     return "terminal ebreak trap or WFI sleep point is required for Spike timeout comparison"
 
 
+def trace_ends_at_wfi(expected):
+    return bool(expected and expected[-1].get("insn") == "0x10500073")
+
+
+def timeout_signal_for_trace(expected):
+    if trace_ends_at_wfi(expected):
+        return "TERM"
+    return "INT"
+
+
 def compare_prefix(expected, actual, base):
     reason = unsupported_reason(expected, base)
     if reason is not None:
@@ -222,7 +232,9 @@ def run_artifact(name, isa_dir, out_dir, base, timeout_seconds, skip_unsupported
     words = read_words(hex_path)
     expected = run_model(words, base, len(words) * 4 + 32)
     effective_timeout_seconds = timeout_seconds
-    if expected and expected[-1].get("insn") == "0x10500073":
+    terminal_wfi = trace_ends_at_wfi(expected)
+    timeout_signal = timeout_signal_for_trace(expected)
+    if terminal_wfi:
         effective_timeout_seconds = max(timeout_seconds, 5.0)
     expected_path = traces_dir / f"{name}.expected.jsonl"
     actual_path = traces_dir / f"{name}.spike.jsonl"
@@ -253,7 +265,7 @@ def run_artifact(name, isa_dir, out_dir, base, timeout_seconds, skip_unsupported
             raise RuntimeError("missing timeout command")
         command = [
             timeout_cmd,
-            "--signal=INT",
+            f"--signal={timeout_signal}",
             "--kill-after=2s",
             f"{effective_timeout_seconds}s",
             "spike",
@@ -287,6 +299,7 @@ def run_artifact(name, isa_dir, out_dir, base, timeout_seconds, skip_unsupported
         "duration_seconds": round(time.monotonic() - start, 3),
         "base": hex32(base),
         "timeout_seconds": effective_timeout_seconds,
+        "timeout_signal": timeout_signal,
         "spike_returncode": returncode,
         "spike_timed_out": timed_out,
         "expected_trace": str(expected_path.relative_to(REPO_ROOT)),
