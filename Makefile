@@ -1,4 +1,4 @@
-.PHONY: audit-ci-action-refs audit-ci-publish-readiness audit-ci-remote audit-completion audit-gaps audit-tools build bench bench-score ci-remote-closure ci-remote-dispatch coverage formal signoff-coverage test test-model test-isa test-scripts test-isa-rtl verify verify-iss verify-riscv-dv verify-rvfi verify-rvfi-lite verify-sail-highmem verify-sail-matrix verify-sail-smoke verify-smoke verify-rtl verify-signoff verify-spike-highmem verify-spike-rv32e-strict verify-spike-smoke verify-spike-matrix clean
+.PHONY: audit-ci-action-refs audit-ci-publish-readiness audit-ci-remote audit-completion audit-gaps audit-tools build bench bench-score ci-remote-closure ci-remote-dispatch ci-remote-publish coverage formal signoff-coverage test test-model test-isa test-scripts test-isa-rtl verify verify-iss verify-riscv-dv verify-rvfi verify-rvfi-lite verify-sail-highmem verify-sail-matrix verify-sail-smoke verify-smoke verify-rtl verify-signoff verify-spike-highmem verify-spike-rv32e-strict verify-spike-smoke verify-spike-matrix clean
 
 BENCH_FREQ_MHZ ?= 100
 CI_ACTION_REF_ARGS ?=
@@ -6,6 +6,7 @@ CI_PUBLISH_READINESS_ARGS ?=
 CI_REMOTE_ARGS ?=
 CI_REMOTE_DISPATCH_ARGS ?= --profiles smoke full ci-evidence --wait
 CI_REMOTE_CLOSURE_ARGS ?=
+CI_REMOTE_PUBLISH_ARGS ?=
 
 audit-tools:
 	python3 scripts/tool_availability_audit.py --out-dir result/verification
@@ -24,6 +25,9 @@ ci-remote-dispatch:
 
 ci-remote-closure:
 	python3 scripts/ci_remote_closure.py --out-dir result/verification $(CI_REMOTE_CLOSURE_ARGS)
+
+ci-remote-publish:
+	python3 scripts/ci_remote_publish.py --out-dir result/verification $(CI_REMOTE_PUBLISH_ARGS)
 
 audit-gaps: audit-tools
 	python3 scripts/open_gap_audit.py --out-dir result/verification
