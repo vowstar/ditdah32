@@ -98,6 +98,7 @@ def build_report():
     signoff = load_json(REPO_ROOT / "result" / "verification" / "signoff.json")
     open_gaps = load_json(REPO_ROOT / "result" / "verification" / "open_gaps.json")
     ci_remote = load_json(REPO_ROOT / "result" / "verification" / "ci_remote_evidence.json")
+    ci_remote_preflight = load_json(REPO_ROOT / "result" / "verification" / "ci_remote_preflight.json")
     git_state = current_git_state()
     started = time.time()
 
@@ -127,6 +128,7 @@ def build_report():
     if git_state.get("dirty") is not False:
         signoff_missing.append("Current git workspace has uncommitted changes after local signoff.")
     signoff_fresh = signoff_pass and not signoff_missing
+    preflight_pass = ci_remote_preflight is not None and ci_remote_preflight.get("status") == "pass"
     ci_pass = ci_remote is not None and ci_remote.get("status") == "pass"
     all_gaps_closed = open_gap_summary.get("not_closed") == 0
 
@@ -193,6 +195,26 @@ def build_report():
             ],
             gap_statuses.get("certified_benchmarks", {}).get("closed") is True,
             gap_statuses.get("certified_benchmarks", {}).get("missing", []),
+        ),
+        checklist_item(
+            "remote_preflight",
+            "Local remote-CI preflight passes for GitHub auth, publish readiness, and workflow action references.",
+            [
+                artifact("result/verification/ci_remote_preflight.json", ci_remote_preflight is not None),
+                artifact("result/verification/ci_remote_preflight.md", (REPO_ROOT / "result" / "verification" / "ci_remote_preflight.md").exists()),
+                {"ci_remote_preflight_status": (ci_remote_preflight or {}).get("status")},
+                {"components": [
+                    {
+                        "name": item.get("name"),
+                        "status": item.get("status"),
+                        "passed": item.get("passed"),
+                        "missing": item.get("missing", []),
+                    }
+                    for item in (ci_remote_preflight or {}).get("components", [])
+                ]},
+            ],
+            preflight_pass,
+            [] if preflight_pass else ((ci_remote_preflight or {}).get("missing", []) or ["Remote CI preflight report is missing or not passing."]),
         ),
         checklist_item(
             "remote_ci",

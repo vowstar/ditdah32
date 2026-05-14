@@ -51,6 +51,19 @@ def populate_completion_repo(tmp_path, ci_status="pass", not_closed=0):
     write_json(tmp_path / "result" / "axi" / "axi_lite_backpressure.json", {"status": "pass"})
     write_json(tmp_path / "result" / "bench" / "benchmark_scores.json", {"status": "pass"})
     write_text(tmp_path / "result" / "verification" / "open_gaps.md")
+    write_text(tmp_path / "result" / "verification" / "ci_remote_preflight.md")
+    write_json(
+        tmp_path / "result" / "verification" / "ci_remote_preflight.json",
+        {
+            "status": "pass",
+            "components": [
+                {"name": "github_auth", "status": "pass", "passed": True, "missing": []},
+                {"name": "publish_readiness", "status": "pass", "passed": True, "missing": []},
+                {"name": "action_refs", "status": "pass", "passed": True, "missing": []},
+            ],
+            "missing": [],
+        },
+    )
 
     ci_gap = closed_gap("ci_regression")
     ci_missing = []
@@ -157,3 +170,27 @@ def test_completion_audit_rejects_stale_local_signoff(tmp_path, monkeypatch):
     failed_items = {item["name"]: item for item in report["checklist"] if not item["passed"]}
     assert set(failed_items) == {"local_signoff"}
     assert "Local signoff report was not generated from the current git HEAD." in failed_items["local_signoff"]["missing"]
+
+
+def test_completion_audit_reports_incomplete_when_remote_preflight_is_missing(tmp_path, monkeypatch):
+    populate_completion_repo(tmp_path, ci_status="pass", not_closed=0)
+    (tmp_path / "result" / "verification" / "ci_remote_preflight.json").unlink()
+    monkeypatch.setattr(completion_audit, "REPO_ROOT", tmp_path)
+    monkeypatch.setattr(
+        completion_audit,
+        "current_git_state",
+        lambda: {
+            "available": True,
+            "head": "abc123",
+            "branch": "main",
+            "dirty": False,
+            "status_porcelain": "",
+            "error": None,
+        },
+    )
+
+    report = completion_audit.build_report()
+    assert report["status"] == "incomplete"
+    failed_items = {item["name"]: item for item in report["checklist"] if not item["passed"]}
+    assert set(failed_items) == {"remote_preflight"}
+    assert "Remote CI preflight report is missing or not passing." in failed_items["remote_preflight"]["missing"]
