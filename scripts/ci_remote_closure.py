@@ -49,6 +49,24 @@ def read_status(path):
         return json.load(json_file).get("status")
 
 
+def write_fail_report(out_dir, started, steps, reason):
+    status = "fail"
+    report = {
+        "status": status,
+        "duration_seconds": round(time.monotonic() - started, 3),
+        "steps": steps,
+        "reason": reason,
+        "ci_remote_preflight_status": read_status("result/verification/ci_remote_preflight.json"),
+        "ci_remote_status": read_status("result/verification/ci_remote_evidence.json"),
+        "open_gap_status": read_status("result/verification/open_gaps.json"),
+        "completion_status": read_status("result/verification/completion_audit.json"),
+    }
+    report_path = out_dir / "ci_remote_closure.json"
+    report_path.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    print(f"ci remote closure {status}: {rel(report_path)}")
+    return 1
+
+
 def main():
     parser = argparse.ArgumentParser(description="Run the remote CI closure sequence for DitDah32")
     parser.add_argument("--repo", help="GitHub repository as owner/name. Defaults to GITHUB_REPOSITORY or git origin in child tools.")
@@ -66,7 +84,25 @@ def main():
     steps = []
     repo_args = ["--repo", args.repo] if args.repo else []
     workflow_args = ["--workflow", args.workflow]
+    local_workflow_args = ["--workflow", args.workflow] if (REPO_ROOT / args.workflow).exists() else []
     ref_args = ["--ref", args.ref] if args.ref else []
+
+    steps.append(
+        run_step(
+            "ci_remote_preflight",
+            [
+                "python3",
+                "scripts/ci_remote_preflight.py",
+                "--out-dir",
+                "result/verification",
+                *repo_args,
+                *local_workflow_args,
+            ],
+            out_dir,
+        )
+    )
+    if steps[-1]["status"] != "pass":
+        return write_fail_report(out_dir, started, steps, "Remote CI preflight failed.")
 
     if not args.skip_dispatch:
         steps.append(
@@ -92,17 +128,7 @@ def main():
             )
         )
         if steps[-1]["status"] != "pass":
-            status = "fail"
-            report = {
-                "status": status,
-                "duration_seconds": round(time.monotonic() - started, 3),
-                "steps": steps,
-                "reason": "Remote workflow dispatch or wait failed.",
-            }
-            report_path = out_dir / "ci_remote_closure.json"
-            report_path.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-            print(f"ci remote closure {status}: {rel(report_path)}")
-            return 1
+            return write_fail_report(out_dir, started, steps, "Remote workflow dispatch or wait failed.")
 
     steps.append(
         run_step(
@@ -126,6 +152,7 @@ def main():
         "status": status,
         "duration_seconds": round(time.monotonic() - started, 3),
         "steps": steps,
+        "ci_remote_preflight_status": read_status("result/verification/ci_remote_preflight.json"),
         "ci_remote_status": read_status("result/verification/ci_remote_evidence.json"),
         "open_gap_status": read_status("result/verification/open_gaps.json"),
         "completion_status": read_status("result/verification/completion_audit.json"),
