@@ -3,6 +3,7 @@
 
 import argparse
 import json
+import os
 import subprocess
 import time
 from pathlib import Path
@@ -41,6 +42,30 @@ def run_step(name, command, out_dir):
     }
 
 
+def run_text(command):
+    completed = subprocess.run(
+        command,
+        cwd=REPO_ROOT,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        check=False,
+    )
+    return completed.returncode, completed.stdout.strip(), completed.stderr.strip()
+
+
+def infer_head_sha(cli_head_sha):
+    if cli_head_sha:
+        return cli_head_sha, "argument"
+    env_sha = os.environ.get("GITHUB_SHA")
+    if env_sha:
+        return env_sha, "GITHUB_SHA"
+    returncode, stdout, _stderr = run_text(["git", "rev-parse", "HEAD"])
+    if returncode == 0 and stdout:
+        return stdout, "git_head"
+    return None, "missing"
+
+
 def read_status(path):
     full_path = REPO_ROOT / path
     if not full_path.exists():
@@ -49,11 +74,13 @@ def read_status(path):
         return json.load(json_file).get("status")
 
 
-def write_fail_report(out_dir, started, steps, reason):
+def write_fail_report(out_dir, started, steps, reason, expected_head_sha=None, expected_head_source=None):
     status = "fail"
     report = {
         "status": status,
         "duration_seconds": round(time.monotonic() - started, 3),
+        "expected_head_sha": expected_head_sha,
+        "expected_head_source": expected_head_source,
         "steps": steps,
         "reason": reason,
         "ci_remote_preflight_status": read_status("result/verification/ci_remote_preflight.json"),
@@ -72,6 +99,7 @@ def main():
     parser.add_argument("--repo", help="GitHub repository as owner/name. Defaults to GITHUB_REPOSITORY or git origin in child tools.")
     parser.add_argument("--workflow", default="verification.yml")
     parser.add_argument("--ref", help="Branch or tag containing the workflow file.")
+    parser.add_argument("--head-sha", help="Expected commit SHA for remote dispatch and evidence closure. Defaults to GITHUB_SHA or local git HEAD.")
     parser.add_argument("--skip-dispatch", action="store_true", help="Only collect evidence and audit existing remote runs.")
     parser.add_argument("--dispatch-timeout-seconds", type=float, default=7200.0)
     parser.add_argument("--out-dir", type=Path, default=REPO_ROOT / "result" / "verification")
@@ -82,10 +110,15 @@ def main():
 
     started = time.monotonic()
     steps = []
+    expected_head_sha, expected_head_source = infer_head_sha(args.head_sha)
+    if expected_head_sha is None:
+        return write_fail_report(out_dir, started, steps, "Expected commit SHA inference failed.", expected_head_sha, expected_head_source)
+
     repo_args = ["--repo", args.repo] if args.repo else []
     workflow_args = ["--workflow", args.workflow]
     local_workflow_args = ["--workflow", args.workflow] if (REPO_ROOT / args.workflow).exists() else []
     ref_args = ["--ref", args.ref] if args.ref else []
+    head_args = ["--head-sha", expected_head_sha]
 
     steps.append(
         run_step(
@@ -102,7 +135,7 @@ def main():
         )
     )
     if steps[-1]["status"] != "pass":
-        return write_fail_report(out_dir, started, steps, "Remote CI preflight failed.")
+        return write_fail_report(out_dir, started, steps, "Remote CI preflight failed.", expected_head_sha, expected_head_source)
 
     if not args.skip_dispatch:
         steps.append(
@@ -116,6 +149,7 @@ def main():
                     *repo_args,
                     *workflow_args,
                     *ref_args,
+                    *head_args,
                     "--profiles",
                     "smoke",
                     "full",
@@ -128,7 +162,7 @@ def main():
             )
         )
         if steps[-1]["status"] != "pass":
-            return write_fail_report(out_dir, started, steps, "Remote workflow dispatch or wait failed.")
+            return write_fail_report(out_dir, started, steps, "Remote workflow dispatch or wait failed.", expected_head_sha, expected_head_source)
 
     steps.append(
         run_step(
@@ -140,6 +174,7 @@ def main():
                 "result/verification",
                 *repo_args,
                 *workflow_args,
+                *head_args,
             ],
             out_dir,
         )
@@ -151,6 +186,8 @@ def main():
     report = {
         "status": status,
         "duration_seconds": round(time.monotonic() - started, 3),
+        "expected_head_sha": expected_head_sha,
+        "expected_head_source": expected_head_source,
         "steps": steps,
         "ci_remote_preflight_status": read_status("result/verification/ci_remote_preflight.json"),
         "ci_remote_status": read_status("result/verification/ci_remote_evidence.json"),

@@ -54,6 +54,8 @@ def test_ci_remote_closure_skip_dispatch_collects_and_audits_existing_runs(tmp_p
             "ci_remote_closure.py",
             "--repo",
             "owner/repo",
+            "--head-sha",
+            "abc123",
             "--skip-dispatch",
             "--out-dir",
             str(out_dir),
@@ -63,6 +65,7 @@ def test_ci_remote_closure_skip_dispatch_collects_and_audits_existing_runs(tmp_p
     assert ci_remote_closure.main() == 0
     report = json.loads((out_dir / "ci_remote_closure.json").read_text(encoding="utf-8"))
     assert report["status"] == "pass"
+    assert report["expected_head_sha"] == "abc123"
     assert [step["name"] for step in report["steps"]] == [
         "ci_remote_preflight",
         "ci_remote_evidence",
@@ -75,6 +78,8 @@ def test_ci_remote_closure_skip_dispatch_collects_and_audits_existing_runs(tmp_p
         "open_gap_audit.py",
         "completion_audit.py",
     ]
+    evidence_command = commands[1]
+    assert evidence_command[evidence_command.index("--head-sha") + 1] == "abc123"
     assert report["ci_remote_preflight_status"] == "pass"
     assert report["ci_remote_status"] == "pass"
     assert report["open_gap_status"] == "no_open_gaps"
@@ -105,6 +110,8 @@ def test_ci_remote_closure_stops_when_dispatch_fails(tmp_path, monkeypatch):
             "ci_remote_closure.py",
             "--repo",
             "owner/missing",
+            "--head-sha",
+            "def456",
             "--dispatch-timeout-seconds",
             "1",
             "--out-dir",
@@ -115,11 +122,14 @@ def test_ci_remote_closure_stops_when_dispatch_fails(tmp_path, monkeypatch):
     assert ci_remote_closure.main() == 1
     report = json.loads((out_dir / "ci_remote_closure.json").read_text(encoding="utf-8"))
     assert report["status"] == "fail"
+    assert report["expected_head_sha"] == "def456"
     assert report["reason"] == "Remote workflow dispatch or wait failed."
     assert [step["name"] for step in report["steps"]] == ["ci_remote_preflight", "ci_remote_dispatch"]
     assert report["steps"][0]["status"] == "pass"
     assert report["steps"][1]["status"] == "fail"
     assert [Path(cmd[1]).name for cmd in commands] == ["ci_remote_preflight.py", "ci_remote_dispatch.py"]
+    dispatch_command = commands[1]
+    assert dispatch_command[dispatch_command.index("--head-sha") + 1] == "def456"
 
 
 def test_ci_remote_closure_stops_when_preflight_fails(tmp_path, monkeypatch):
@@ -142,6 +152,8 @@ def test_ci_remote_closure_stops_when_preflight_fails(tmp_path, monkeypatch):
             "ci_remote_closure.py",
             "--repo",
             "owner/repo",
+            "--head-sha",
+            "fedcba",
             "--out-dir",
             str(out_dir),
         ],
@@ -150,6 +162,7 @@ def test_ci_remote_closure_stops_when_preflight_fails(tmp_path, monkeypatch):
     assert ci_remote_closure.main() == 1
     report = json.loads((out_dir / "ci_remote_closure.json").read_text(encoding="utf-8"))
     assert report["status"] == "fail"
+    assert report["expected_head_sha"] == "fedcba"
     assert report["reason"] == "Remote CI preflight failed."
     assert [step["name"] for step in report["steps"]] == ["ci_remote_preflight"]
     assert [Path(cmd[1]).name for cmd in commands] == ["ci_remote_preflight.py"]
