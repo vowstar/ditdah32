@@ -66,16 +66,62 @@ def infer_head_sha(cli_head_sha):
     return None, "missing"
 
 
-def read_status(path):
+def read_report(path):
     full_path = REPO_ROOT / path
     if not full_path.exists():
-        return None
+        return {}
     with full_path.open("r", encoding="utf-8") as json_file:
-        return json.load(json_file).get("status")
+        return json.load(json_file)
+
+
+def read_status(path):
+    return read_report(path).get("status")
+
+
+def dedupe(items):
+    seen = set()
+    result = []
+    for item in items:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
+
+
+def collect_missing():
+    missing = []
+    for label, path in (
+        ("remote_ci", "result/verification/ci_remote_evidence.json"),
+        ("open_gap_audit", "result/verification/open_gaps.json"),
+        ("completion_audit", "result/verification/completion_audit.json"),
+    ):
+        report = read_report(path)
+        for entry in report.get("missing", []):
+            missing.append(f"{label}: {entry}")
+    return dedupe(missing)
+
+
+def remote_repository():
+    ci_remote = read_report("result/verification/ci_remote_evidence.json")
+    return ci_remote.get("repository")
+
+
+def authorized_next_commands(repo):
+    closure_args = f'--repo {repo}' if repo else "--repo owner/repo"
+    return [
+        'make ci-remote-publish CI_REMOTE_PUBLISH_ARGS="--confirm-create --confirm-push"',
+        f'make ci-remote-closure CI_REMOTE_CLOSURE_ARGS="{closure_args}"',
+    ]
+
+
+def needs_publish_authorization(missing):
+    return any("repository" in entry and ("not accessible" in entry or "Could not resolve" in entry) for entry in missing)
 
 
 def write_fail_report(out_dir, started, steps, reason, expected_head_sha=None, expected_head_source=None):
     status = "fail"
+    missing = collect_missing()
+    repo = remote_repository()
     report = {
         "status": status,
         "duration_seconds": round(time.monotonic() - started, 3),
@@ -83,6 +129,8 @@ def write_fail_report(out_dir, started, steps, reason, expected_head_sha=None, e
         "expected_head_source": expected_head_source,
         "steps": steps,
         "reason": reason,
+        "missing": missing,
+        "next_authorized_commands": authorized_next_commands(repo) if needs_publish_authorization(missing) else [],
         "ci_remote_preflight_status": read_status("result/verification/ci_remote_preflight.json"),
         "ci_remote_status": read_status("result/verification/ci_remote_evidence.json"),
         "open_gap_status": read_status("result/verification/open_gaps.json"),
@@ -183,12 +231,17 @@ def main():
     steps.append(run_step("completion_audit", ["python3", "scripts/completion_audit.py", "--out-dir", "result/verification"], out_dir))
 
     status = "pass" if all(step["status"] == "pass" for step in steps) else "fail"
+    missing = collect_missing()
+    repo = remote_repository()
     report = {
         "status": status,
         "duration_seconds": round(time.monotonic() - started, 3),
         "expected_head_sha": expected_head_sha,
         "expected_head_source": expected_head_source,
         "steps": steps,
+        "reason": None if status == "pass" else "Remote CI closure incomplete.",
+        "missing": [] if status == "pass" else missing,
+        "next_authorized_commands": authorized_next_commands(repo) if status != "pass" and needs_publish_authorization(missing) else [],
         "ci_remote_preflight_status": read_status("result/verification/ci_remote_preflight.json"),
         "ci_remote_status": read_status("result/verification/ci_remote_evidence.json"),
         "open_gap_status": read_status("result/verification/open_gaps.json"),

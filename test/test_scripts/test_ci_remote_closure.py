@@ -84,6 +84,8 @@ def test_ci_remote_closure_skip_dispatch_collects_and_audits_existing_runs(tmp_p
     assert report["ci_remote_status"] == "pass"
     assert report["open_gap_status"] == "no_open_gaps"
     assert report["completion_status"] == "complete"
+    assert report["missing"] == []
+    assert report["next_authorized_commands"] == []
 
 
 def test_ci_remote_closure_stops_when_dispatch_fails(tmp_path, monkeypatch):
@@ -130,6 +132,79 @@ def test_ci_remote_closure_stops_when_dispatch_fails(tmp_path, monkeypatch):
     assert [Path(cmd[1]).name for cmd in commands] == ["ci_remote_preflight.py", "ci_remote_dispatch.py"]
     dispatch_command = commands[1]
     assert dispatch_command[dispatch_command.index("--head-sha") + 1] == "def456"
+
+
+def test_ci_remote_closure_reports_authorized_publish_command_for_missing_repo(tmp_path, monkeypatch):
+    repo_root = tmp_path / "repo"
+    verification_dir = repo_root / "result" / "verification"
+    out_dir = tmp_path / "closure"
+
+    def fake_run(cmd, cwd, stdout, stderr, check):
+        assert cwd == repo_root
+        script = Path(cmd[1]).name
+        if script == "ci_remote_preflight.py":
+            write_json(verification_dir / "ci_remote_preflight.json", {"status": "pass"})
+            return completed(cmd)
+        if script == "ci_remote_evidence.py":
+            write_json(
+                verification_dir / "ci_remote_evidence.json",
+                {
+                    "status": "missing",
+                    "repository": "owner/missing",
+                    "missing": [
+                        "GitHub repository owner/missing is not accessible: not found",
+                        "No successful remote smoke run for expected HEAD def456 with uploaded artifact evidence was found.",
+                    ],
+                },
+            )
+            return completed(cmd, returncode=1)
+        if script == "open_gap_audit.py":
+            write_json(
+                verification_dir / "open_gaps.json",
+                {
+                    "status": "open_gaps_present",
+                    "missing": ["Open or partial gaps remain: 1 / 6"],
+                },
+            )
+            return completed(cmd)
+        if script == "completion_audit.py":
+            write_json(
+                verification_dir / "completion_audit.json",
+                {
+                    "status": "incomplete",
+                    "missing": ["remote_ci: repository missing"],
+                },
+            )
+            return completed(cmd, returncode=1)
+        raise AssertionError(f"unexpected command: {cmd}")
+
+    monkeypatch.setattr(ci_remote_closure, "REPO_ROOT", repo_root)
+    monkeypatch.setattr(ci_remote_closure.subprocess, "run", fake_run)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "ci_remote_closure.py",
+            "--repo",
+            "owner/missing",
+            "--head-sha",
+            "def456",
+            "--skip-dispatch",
+            "--out-dir",
+            str(out_dir),
+        ],
+    )
+
+    assert ci_remote_closure.main() == 1
+    report = json.loads((out_dir / "ci_remote_closure.json").read_text(encoding="utf-8"))
+    assert report["status"] == "fail"
+    assert report["reason"] == "Remote CI closure incomplete."
+    assert "remote_ci: GitHub repository owner/missing is not accessible: not found" in report["missing"]
+    assert "open_gap_audit: Open or partial gaps remain: 1 / 6" in report["missing"]
+    assert report["next_authorized_commands"] == [
+        'make ci-remote-publish CI_REMOTE_PUBLISH_ARGS="--confirm-create --confirm-push"',
+        'make ci-remote-closure CI_REMOTE_CLOSURE_ARGS="--repo owner/missing"',
+    ]
 
 
 def test_ci_remote_closure_stops_when_preflight_fails(tmp_path, monkeypatch):
