@@ -33,6 +33,13 @@
                 mill --no-daemon '__.assembly'
                 runHook postBuild
               '';
+
+              # The assembly target does not use espresso, and keeping it in
+              # nativeBuildInputs makes fresh CI runners fetch an unrelated
+              # fixed-output source before any DitDah32 smoke test can run.
+              nativeBuildInputs = builtins.filter
+                (pkg: (pkg.pname or pkg.name or "") != "espresso")
+                (old.nativeBuildInputs or []);
             });
           };
         });
