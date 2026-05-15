@@ -36,7 +36,9 @@ jobs:
   smoke:
     steps:
       - uses: actions/checkout@v6
-      - run: nix develop --option sandbox false -c sh -c 'make verify-smoke && make audit-gaps'
+      - uses: actions/setup-python@v6
+      - run: python3 -m pip install --upgrade pip pytest pyyaml
+      - run: make verify-ci-smoke
       - uses: actions/upload-artifact@v6
         with:
           name: ditdah32-smoke-${{ github.run_id }}
@@ -65,7 +67,9 @@ jobs:
   ci-evidence:
     steps:
       - uses: actions/checkout@v6
-      - run: nix develop --option sandbox false -c sh -c 'make audit-ci-remote && make audit-gaps'
+      - uses: actions/setup-python@v6
+      - run: python3 -m pip install --upgrade pip pyyaml
+      - run: make audit-ci-remote && make audit-gaps
       - uses: actions/upload-artifact@v6
         with:
           name: ditdah32-ci-evidence-${{ github.run_id }}
@@ -85,6 +89,8 @@ audit-gaps:
 \tpython3 scripts/open_gap_audit.py --out-dir result/verification
 audit-completion:
 \tpython3 scripts/completion_audit.py --out-dir result/verification
+verify-ci-smoke:
+\tpython3 scripts/run_verification_campaign.py --profile ci-smoke
 verify-smoke:
 \tpython3 scripts/run_verification_campaign.py --profile smoke
 verify:

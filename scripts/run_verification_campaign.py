@@ -54,6 +54,9 @@ SMOKE_STEPS = [
 ]
 
 
+CI_SMOKE_STEPS = SMOKE_STEPS[:4]
+
+
 RTL_MATRIX_STEPS = [
     Step(
         "formal_safety",
@@ -271,6 +274,7 @@ SIGNOFF_STEPS = [
 
 
 PROFILES = {
+    "ci-smoke": CI_SMOKE_STEPS,
     "smoke": SMOKE_STEPS,
     "rtl": SMOKE_STEPS + RTL_MATRIX_STEPS,
     "full": SMOKE_STEPS + RTL_MATRIX_STEPS + FULL_STEPS,

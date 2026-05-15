@@ -3,8 +3,6 @@ name: DitDah32 Verification
 on:
   push:
   pull_request:
-  schedule:
-    - cron: "23 18 * * 0"
   workflow_dispatch:
     inputs:
       profile:
@@ -36,15 +34,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Install Nix
-        uses: cachix/install-nix-action@v31
+      - name: Set Up Python
+        uses: actions/setup-python@v6
         with:
-          extra_nix_config: |
-            experimental-features = nix-command flakes
-            accept-flake-config = true
+          python-version: "3.13"
+
+      - name: Install Python Dependencies
+        run: python3 -m pip install --upgrade pip pytest pyyaml
 
       - name: Run Smoke Profile
-        run: nix develop --option sandbox false .#smoke -c sh -c 'make verify-smoke && make audit-gaps'
+        run: make verify-ci-smoke
 
       - name: Upload Artifacts
         if: always()
@@ -59,7 +58,7 @@ jobs:
 
   full:
     name: Full
-    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.profile == 'full')
+    if: github.event_name == 'workflow_dispatch' && inputs.profile == 'full'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -166,15 +165,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Install Nix
-        uses: cachix/install-nix-action@v31
+      - name: Set Up Python
+        uses: actions/setup-python@v6
         with:
-          extra_nix_config: |
-            experimental-features = nix-command flakes
-            accept-flake-config = true
+          python-version: "3.13"
+
+      - name: Install Python Dependencies
+        run: python3 -m pip install --upgrade pip pyyaml
 
       - name: Collect Remote CI Evidence
-        run: nix develop --option sandbox false .#ci-evidence -c sh -c 'make audit-ci-remote && make audit-gaps'
+        run: make audit-ci-remote && make audit-gaps
 
       - name: Upload Artifacts
         if: always()

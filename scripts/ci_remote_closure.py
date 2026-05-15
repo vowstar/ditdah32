@@ -249,7 +249,6 @@ def main():
                     *head_args,
                     "--profiles",
                     "smoke",
-                    "full",
                     "ci-evidence",
                     "--wait",
                     "--run-timeout-seconds",

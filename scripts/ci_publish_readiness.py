@@ -157,6 +157,7 @@ def audit_makefile():
         "ci-remote-closure",
         "audit-gaps",
         "audit-completion",
+        "verify-ci-smoke",
         "verify-smoke",
         "verify",
     }
@@ -166,6 +167,7 @@ def audit_makefile():
         "scripts/ci_remote_closure.py",
         "scripts/open_gap_audit.py",
         "scripts/completion_audit.py",
+        "scripts/run_verification_campaign.py --profile ci-smoke",
         "scripts/run_verification_campaign.py --profile smoke",
         "scripts/run_verification_campaign.py --profile full",
     }
@@ -250,8 +252,8 @@ def audit_workflow():
     smoke_run = find_run_text(jobs.get("smoke", {}))
     full_run = find_run_text(jobs.get("full", {}))
     ci_run = find_run_text(jobs.get("ci-evidence", {}))
-    if "make verify-smoke" not in smoke_run:
-        missing.append("Smoke workflow job does not run make verify-smoke.")
+    if "make verify-ci-smoke" not in smoke_run:
+        missing.append("Smoke workflow job does not run make verify-ci-smoke.")
     if "make verify" not in full_run:
         missing.append("Full workflow job does not run make verify.")
     if "make audit-ci-remote" not in ci_run:

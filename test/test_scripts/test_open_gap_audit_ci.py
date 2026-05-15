@@ -52,9 +52,9 @@ def test_audit_ci_closes_when_remote_evidence_passes(tmp_path, monkeypatch):
         {
             "status": "pass",
             "expected_head_sha": "abc123",
+            "required_profiles": ["smoke"],
             "satisfied_runs": {
                 "smoke": {"run_id": 11, "url": "https://github.com/owner/repo/actions/runs/11", "head_sha": "abc123"},
-                "full": {"run_id": 22, "url": "https://github.com/owner/repo/actions/runs/22", "head_sha": "abc123"},
             },
         },
     )
@@ -72,10 +72,10 @@ def test_audit_ci_remains_partial_when_remote_evidence_is_missing(tmp_path, monk
         tmp_path,
         {
             "status": "missing",
-            "missing": ["No successful remote full run with uploaded artifact evidence was found."],
+            "missing": ["No successful remote smoke run with uploaded artifact evidence was found."],
+            "required_profiles": ["smoke"],
             "satisfied_runs": {
-                "smoke": {"run_id": 11, "url": "https://github.com/owner/repo/actions/runs/11"},
-                "full": None,
+                "smoke": None,
             },
         },
     )
@@ -85,7 +85,7 @@ def test_audit_ci_remains_partial_when_remote_evidence_is_missing(tmp_path, monk
     gap = open_gap_audit.audit_ci()
     assert gap["status"] == "partial"
     assert gap["closed"] is False
-    assert gap["missing"] == ["No successful remote full run with uploaded artifact evidence was found."]
+    assert gap["missing"] == ["No successful remote smoke run with uploaded artifact evidence was found."]
 
 
 def test_audit_ci_rejects_remote_evidence_from_stale_head(tmp_path, monkeypatch):
@@ -94,9 +94,9 @@ def test_audit_ci_rejects_remote_evidence_from_stale_head(tmp_path, monkeypatch)
         {
             "status": "pass",
             "expected_head_sha": "old456",
+            "required_profiles": ["smoke"],
             "satisfied_runs": {
                 "smoke": {"run_id": 11, "url": "https://github.com/owner/repo/actions/runs/11", "head_sha": "old456"},
-                "full": {"run_id": 22, "url": "https://github.com/owner/repo/actions/runs/22", "head_sha": "old456"},
             },
         },
     )
@@ -108,4 +108,3 @@ def test_audit_ci_rejects_remote_evidence_from_stale_head(tmp_path, monkeypatch)
     assert gap["closed"] is False
     assert "Remote CI evidence was not collected for the current git HEAD." in gap["missing"]
     assert "Remote smoke evidence does not match the current git HEAD." in gap["missing"]
-    assert "Remote full evidence does not match the current git HEAD." in gap["missing"]

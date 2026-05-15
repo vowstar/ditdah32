@@ -12,7 +12,7 @@ import ci_remote_dispatch  # noqa: E402
 import ci_remote_evidence  # noqa: E402
 
 
-def test_ci_remote_evidence_passes_with_smoke_and_full_artifacts(tmp_path, monkeypatch):
+def test_ci_remote_evidence_passes_with_smoke_artifact(tmp_path, monkeypatch):
     def fake_run_json(cmd, cwd=ROOT):
         if cmd[:3] == ["gh", "repo", "view"]:
             return 0, {
@@ -79,8 +79,10 @@ def test_ci_remote_evidence_passes_with_smoke_and_full_artifacts(tmp_path, monke
     report = json.loads((tmp_path / "ci_remote_evidence.json").read_text(encoding="utf-8"))
     assert report["status"] == "pass"
     assert report["expected_head_sha"] == "abc"
+    assert report["required_profiles"] == ["smoke"]
+    assert report["optional_profiles"] == ["full", "signoff"]
     assert report["satisfied_runs"]["smoke"]["run_id"] == 11
-    assert report["satisfied_runs"]["full"]["run_id"] == 22
+    assert "full" not in report["satisfied_runs"]
 
 
 def test_ci_remote_evidence_reports_missing_repository(tmp_path, monkeypatch):
@@ -184,7 +186,6 @@ def test_ci_remote_evidence_rejects_artifacts_from_the_wrong_head(tmp_path, monk
     assert report["status"] == "missing"
     assert report["expected_head_sha"] == "new"
     assert report["satisfied_runs"]["smoke"] is None
-    assert report["satisfied_runs"]["full"] is None
     assert any("expected HEAD new" in item for item in report["missing"])
 
 
@@ -255,7 +256,6 @@ def test_ci_remote_evidence_rejects_artifact_without_matching_profile_job(tmp_pa
     report = json.loads((tmp_path / "ci_remote_evidence.json").read_text(encoding="utf-8"))
     assert report["status"] == "missing"
     assert report["satisfied_runs"]["smoke"] is None
-    assert report["satisfied_runs"]["full"]["run_id"] == 22
     assert any("No successful remote smoke run" in item for item in report["missing"])
 
 

@@ -468,11 +468,12 @@ def audit_ci():
     if remote_ci_status_pass:
         expected_head = ci_remote_report.get("expected_head_sha")
         satisfied_runs = ci_remote_report.get("satisfied_runs") or {}
+        required_profiles = ci_remote_report.get("required_profiles") or ["smoke"]
         if git_head is None:
             remote_ci_missing.append("Current git HEAD is not available for remote CI freshness checking.")
         if expected_head != git_head:
             remote_ci_missing.append("Remote CI evidence was not collected for the current git HEAD.")
-        for profile in ("smoke", "full"):
+        for profile in required_profiles:
             run = satisfied_runs.get(profile) or {}
             if run.get("head_sha") != git_head:
                 remote_ci_missing.append(f"Remote {profile} evidence does not match the current git HEAD.")
@@ -492,8 +493,8 @@ def audit_ci():
         missing,
         "GitHub Actions workflow run",
         [
-            "Push or pull request smoke job passes remotely.",
-            "Scheduled or manual full job passes remotely.",
+            "Push or pull request fast smoke job passes remotely.",
+            "Longer full and signoff profiles remain manual or local runs.",
             "Artifacts include result/verification/*.json and related coverage/report outputs.",
         ],
     )

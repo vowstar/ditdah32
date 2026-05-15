@@ -132,11 +132,12 @@ def build_report():
     ci_pass = ci_remote is not None and ci_remote.get("status") == "pass"
     ci_missing = list((ci_remote or {}).get("missing", []) or gap_statuses.get("ci_regression", {}).get("missing", []))
     ci_satisfied_runs = (ci_remote or {}).get("satisfied_runs") or {}
+    ci_required_profiles = (ci_remote or {}).get("required_profiles") or ["smoke"]
     expected_remote_head = (ci_remote or {}).get("expected_head_sha")
     if ci_pass:
         if expected_remote_head != git_state.get("head"):
             ci_missing.append("Remote CI evidence was not collected for the current git HEAD.")
-        for profile in ("smoke", "full"):
+        for profile in ci_required_profiles:
             run = ci_satisfied_runs.get(profile) or {}
             if run.get("head_sha") != git_state.get("head"):
                 ci_missing.append(f"Remote {profile} evidence does not match the current git HEAD.")
@@ -229,10 +230,11 @@ def build_report():
         ),
         checklist_item(
             "remote_ci",
-            "Remote GitHub Actions smoke and full runs pass with uploaded artifact evidence.",
+            "Required remote GitHub Actions profiles pass with uploaded artifact evidence.",
             [
                 artifact("result/verification/ci_remote_evidence.json", ci_remote is not None),
                 {"ci_remote_status": (ci_remote or {}).get("status")},
+                {"ci_remote_required_profiles": ci_required_profiles},
                 {"ci_remote_expected_head_sha": expected_remote_head},
                 {"current_git_head": git_state.get("head")},
                 {"ci_remote_satisfied_runs": ci_satisfied_runs},

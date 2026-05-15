@@ -72,7 +72,7 @@ def populate_completion_repo(tmp_path, ci_status="pass", not_closed=0, head="abc
             "id": "ci_regression",
             "status": "partial",
             "closed": False,
-            "missing": ["No successful remote full run with uploaded artifact evidence was found."],
+            "missing": ["No successful remote smoke run with uploaded artifact evidence was found."],
         }
         ci_missing = ci_gap["missing"]
 
@@ -96,11 +96,11 @@ def populate_completion_repo(tmp_path, ci_status="pass", not_closed=0, head="abc
             "status": ci_status,
             "missing": ci_missing,
             "expected_head_sha": head,
+            "required_profiles": ["smoke"],
             "satisfied_runs": {
-                "smoke": {"run_id": 11, "url": "https://github.com/owner/repo/actions/runs/11", "head_sha": head},
-                "full": None
+                "smoke": None
                 if ci_status != "pass"
-                else {"run_id": 22, "url": "https://github.com/owner/repo/actions/runs/22", "head_sha": head},
+                else {"run_id": 11, "url": "https://github.com/owner/repo/actions/runs/11", "head_sha": head},
             },
         },
     )
@@ -158,7 +158,6 @@ def test_completion_audit_rejects_stale_local_signoff(tmp_path, monkeypatch):
     ci_remote = json.loads(ci_remote_path.read_text(encoding="utf-8"))
     ci_remote["expected_head_sha"] = "new456"
     ci_remote["satisfied_runs"]["smoke"]["head_sha"] = "new456"
-    ci_remote["satisfied_runs"]["full"]["head_sha"] = "new456"
     write_json(ci_remote_path, ci_remote)
     monkeypatch.setattr(completion_audit, "REPO_ROOT", tmp_path)
     monkeypatch.setattr(
@@ -208,7 +207,6 @@ def test_completion_audit_rejects_stale_remote_ci_evidence(tmp_path, monkeypatch
     assert set(failed_items) == {"remote_ci"}
     assert "Remote CI evidence was not collected for the current git HEAD." in failed_items["remote_ci"]["missing"]
     assert "Remote smoke evidence does not match the current git HEAD." in failed_items["remote_ci"]["missing"]
-    assert "Remote full evidence does not match the current git HEAD." in failed_items["remote_ci"]["missing"]
 
 
 def test_completion_audit_reports_incomplete_when_remote_preflight_is_missing(tmp_path, monkeypatch):

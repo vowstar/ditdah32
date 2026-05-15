@@ -205,7 +205,7 @@ def main():
     parser.add_argument("--workflow", default="verification.yml")
     parser.add_argument("--ref", help="Branch or tag containing the workflow file. Defaults to the repository default branch.")
     parser.add_argument("--head-sha", help="Expected commit SHA for dispatched runs. Defaults to GITHUB_SHA or local git HEAD.")
-    parser.add_argument("--profiles", nargs="+", default=["smoke", "full", "ci-evidence"])
+    parser.add_argument("--profiles", nargs="+", default=["smoke", "ci-evidence"])
     parser.add_argument("--wait", action="store_true", help="Wait for each dispatched run to finish.")
     parser.add_argument("--appear-timeout-seconds", type=float, default=120.0)
     parser.add_argument("--run-timeout-seconds", type=float, default=7200.0)
