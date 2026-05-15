@@ -44,7 +44,7 @@ jobs:
             accept-flake-config = true
 
       - name: Run Smoke Profile
-        run: nix develop --option sandbox false -c sh -c 'make verify-smoke && make audit-gaps'
+        run: nix develop --option sandbox false .#smoke -c sh -c 'make verify-smoke && make audit-gaps'
 
       - name: Upload Artifacts
         if: always()
@@ -73,7 +73,7 @@ jobs:
             accept-flake-config = true
 
       - name: Run Full Profile
-        run: nix develop --option sandbox false -c sh -c 'make verify && make audit-gaps'
+        run: nix develop --option sandbox false .#full -c sh -c 'make verify && make audit-gaps'
 
       - name: Upload Artifacts
         if: always()
@@ -174,7 +174,7 @@ jobs:
             accept-flake-config = true
 
       - name: Collect Remote CI Evidence
-        run: nix develop --option sandbox false -c sh -c 'make audit-ci-remote && make audit-gaps'
+        run: nix develop --option sandbox false .#ci-evidence -c sh -c 'make audit-ci-remote && make audit-gaps'
 
       - name: Upload Artifacts
         if: always()

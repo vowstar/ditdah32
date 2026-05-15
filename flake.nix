@@ -237,6 +237,75 @@ EOF
           echo "unknown riscv-formal wrapper command: $1" >&2
           exit 2
         '';
+
+        rtlShellEnv = {
+          CIRCT_INSTALL_PATH = pkgs.circt-install;
+          MLIR_INSTALL_PATH = pkgs.mlir-install;
+          JEXTRACT_INSTALL_PATH = pkgs.jextract-21;
+          JAVA_TOOL_OPTIONS = "--enable-preview -Djextract.decls.per.header=65535";
+          RISCV_PREFIX = "riscv32-none-elf-";
+          ZAOZI_JAR = zaozi-jar;
+        };
+
+        rtlShellHook = ''
+          export PATH="${pythonEnv}/bin:${pkgs.pkgsCross.riscv32-embedded.stdenv.cc}/bin:${pkgs.pkgsCross.riscv32-embedded.buildPackages.binutils}/bin:$PATH"
+          echo "========================================"
+          echo "DitDah32 Zaozi Development Environment"
+          echo "========================================"
+          echo "Build Verilog:  build-ditdah32"
+          echo "Run tests:      cd test/test_ditdah32 && make"
+          echo "========================================"
+        '';
+
+        mkRtlShell = buildInputs: pkgs.mkShell {
+          inherit buildInputs;
+          env = rtlShellEnv;
+          shellHook = rtlShellHook;
+        };
+
+        smokeBuildInputs = [
+          buildScript
+          pkgs.scala-cli
+          pkgs.circt-install
+          pkgs.mlir-install
+          pkgs.jextract-21
+          pkgs.pkgsCross.riscv32-embedded.stdenv.cc
+          pkgs.pkgsCross.riscv32-embedded.buildPackages.binutils
+          pythonEnv
+        ];
+
+        fullBuildInputs = smokeBuildInputs ++ [
+          pkgs.iverilog
+          pkgs.verilator
+          pkgs.yosys
+          pkgs.z3
+        ];
+
+        ciEvidenceBuildInputs = [
+          pkgs.gh
+          pythonEnv
+        ];
+
+        defaultBuildInputs = [
+          buildScript
+          riscvDvScript
+          riscvDvRunPyScript
+          riscvFormalScript
+          pkgs.scala-cli
+          pkgs.circt-install
+          pkgs.mlir-install
+          pkgs.jextract-21
+          pkgs.mill
+          pkgs.iverilog
+          pkgs.verilator
+          pkgs.yosys
+          pkgs.z3
+          pkgs.spike
+          pkgs.sail-riscv
+          pkgs.pkgsCross.riscv32-embedded.stdenv.cc
+          pkgs.pkgsCross.riscv32-embedded.buildPackages.binutils
+          pythonEnv
+        ];
       in
       {
         packages.default = pkgs.runCommand "ditdah32-verilog" {
@@ -280,46 +349,13 @@ EOF
           program = "${buildScript}/bin/build-ditdah32";
         };
 
-        devShells.default = pkgs.mkShell {
-          buildInputs = [
-            buildScript
-            riscvDvScript
-            riscvDvRunPyScript
-            riscvFormalScript
-            pkgs.scala-cli
-            pkgs.circt-install
-            pkgs.mlir-install
-            pkgs.jextract-21
-            pkgs.mill
-            pkgs.iverilog
-            pkgs.verilator
-            pkgs.yosys
-            pkgs.z3
-            pkgs.spike
-            pkgs.sail-riscv
-            pkgs.pkgsCross.riscv32-embedded.stdenv.cc
-            pkgs.pkgsCross.riscv32-embedded.buildPackages.binutils
-            pythonEnv
-          ];
-
-          env = {
-            CIRCT_INSTALL_PATH = pkgs.circt-install;
-            MLIR_INSTALL_PATH = pkgs.mlir-install;
-            JEXTRACT_INSTALL_PATH = pkgs.jextract-21;
-            JAVA_TOOL_OPTIONS = "--enable-preview -Djextract.decls.per.header=65535";
-            RISCV_PREFIX = "riscv32-none-elf-";
-            ZAOZI_JAR = zaozi-jar;
+        devShells = {
+          smoke = mkRtlShell smokeBuildInputs;
+          full = mkRtlShell fullBuildInputs;
+          ci-evidence = pkgs.mkShell {
+            buildInputs = ciEvidenceBuildInputs;
           };
-
-          shellHook = ''
-            export PATH="${pythonEnv}/bin:${pkgs.pkgsCross.riscv32-embedded.stdenv.cc}/bin:${pkgs.pkgsCross.riscv32-embedded.buildPackages.binutils}/bin:$PATH"
-            echo "========================================"
-            echo "DitDah32 Zaozi Development Environment"
-            echo "========================================"
-            echo "Build Verilog:  build-ditdah32"
-            echo "Run tests:      cd test/test_ditdah32 && make"
-            echo "========================================"
-          '';
+          default = mkRtlShell defaultBuildInputs;
         };
       }
     );
