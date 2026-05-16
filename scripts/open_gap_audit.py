@@ -415,6 +415,7 @@ def audit_rvfi():
         "bus_dmem",
         "bus_dmem_io_read",
         "bus_dmem_io_write",
+        "bus_dmem_io_order",
         "hang",
         "ill",
     ]:
@@ -425,7 +426,6 @@ def audit_rvfi():
     for group in [
         "instruction_semantics",
         "bus_fault",
-        "bus_dmem_io_order",
         "fault",
         "csr_full",
         "interrupt_full_csr_side_effects",
@@ -463,6 +463,7 @@ def audit_rvfi():
                 "bus_dmem",
                 "bus_dmem_io_read",
                 "bus_dmem_io_write",
+                "bus_dmem_io_order",
                 "hang",
                 "ill",
             ]
@@ -472,7 +473,6 @@ def audit_rvfi():
             for group in [
                 "instruction_semantics",
                 "bus_fault",
-                "bus_dmem_io_order",
                 "fault",
                 "csr_full",
                 "interrupt_full_csr_side_effects",
