@@ -46,7 +46,7 @@
 
         ditdah32Config = {
           resetVector = 0;
-          enableTrace = true;
+          enableTrace = false;
         };
 
         zaozi-jar = "${pkgs.zaozi.zaozi-assembly}/share/java/elaborator.jar";
@@ -146,11 +146,52 @@
 
           JAVA_LIBRARY_PATH="${javaLibraryPath}"
           OUTPUT_DIR="''${OUTPUT_DIR:-$PWD/result}"
+          ENABLE_TRACE="''${DITDAH32_ENABLE_TRACE:-${if ditdah32Config.enableTrace then "true" else "false"}}"
+
+          while [ "$#" -gt 0 ]; do
+            case "$1" in
+              --trace)
+                ENABLE_TRACE=true
+                ;;
+              --no-trace)
+                ENABLE_TRACE=false
+                ;;
+              --help)
+                cat <<'EOF'
+Usage: build-ditdah32 [--trace|--no-trace]
+
+Generate DitDah32 Verilog into OUTPUT_DIR, defaulting to ./result.
+The default production build omits architectural trace ports. Use --trace
+or DITDAH32_ENABLE_TRACE=1 for RTL simulation, trace comparison, and RVFI.
+EOF
+                exit 0
+                ;;
+              *)
+                echo "unknown build-ditdah32 option: $1" >&2
+                exit 2
+                ;;
+            esac
+            shift
+          done
+
+          case "$ENABLE_TRACE" in
+            1|true|TRUE|yes|YES|on|ON)
+              ENABLE_TRACE=true
+              ;;
+            0|false|FALSE|no|NO|off|OFF)
+              ENABLE_TRACE=false
+              ;;
+            *)
+              echo "invalid DITDAH32_ENABLE_TRACE value: $ENABLE_TRACE" >&2
+              exit 2
+              ;;
+          esac
 
           mkdir -p "$OUTPUT_DIR"
 
           echo "=== Building DitDah32 with zaozi ==="
           echo "OUTPUT_DIR: $OUTPUT_DIR"
+          echo "ENABLE_TRACE: $ENABLE_TRACE"
 
           scala-cli run \
             ${commonScalaArgs} \
@@ -158,7 +199,7 @@
             ditdah32/src/DitDah32.scala \
             -- config "$OUTPUT_DIR/ditdah32_config.json" \
             --resetVector ${toString ditdah32Config.resetVector} \
-            --enableTrace ${if ditdah32Config.enableTrace then "true" else "false"}
+            --enableTrace "$ENABLE_TRACE"
 
           scala-cli run \
             ${commonScalaArgs} \

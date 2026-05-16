@@ -1,4 +1,4 @@
-.PHONY: audit-ci-action-refs audit-ci-github-auth audit-ci-publish-readiness audit-ci-remote audit-ci-remote-preflight audit-completion audit-gaps audit-tools build bench bench-score ci-remote-closure ci-remote-dispatch ci-remote-publish coverage formal signoff-coverage test test-model test-isa test-scripts test-isa-rtl verify verify-ci-smoke verify-iss verify-riscv-dv verify-rvfi verify-rvfi-lite verify-sail-highmem verify-sail-matrix verify-sail-smoke verify-smoke verify-rtl verify-signoff verify-spike-highmem verify-spike-rv32e-strict verify-spike-smoke verify-spike-matrix clean
+.PHONY: audit-ci-action-refs audit-ci-github-auth audit-ci-publish-readiness audit-ci-remote audit-ci-remote-preflight audit-completion audit-gaps audit-tools audit-trace-config build build-trace bench bench-score ci-remote-closure ci-remote-dispatch ci-remote-publish coverage formal signoff-coverage test test-model test-isa test-scripts test-isa-rtl verify verify-ci-smoke verify-iss verify-riscv-dv verify-rvfi verify-rvfi-lite verify-sail-highmem verify-sail-matrix verify-sail-smoke verify-smoke verify-rtl verify-signoff verify-spike-highmem verify-spike-rv32e-strict verify-spike-smoke verify-spike-matrix clean
 
 BENCH_FREQ_MHZ ?= 100
 CI_ACTION_REF_ARGS ?=
@@ -40,35 +40,41 @@ ci-remote-publish:
 audit-gaps: audit-tools
 	python3 scripts/open_gap_audit.py --out-dir result/verification
 
+audit-trace-config:
+	python3 scripts/trace_config_audit.py --out-dir result/verification
+
 audit-completion:
 	python3 scripts/completion_audit.py --out-dir result/verification
 
 build:
-	build-ditdah32
+	build-ditdah32 --no-trace
+
+build-trace:
+	build-ditdah32 --trace
 
 bench:
 	python3 scripts/build_benchmarks.py --out-dir result/bench
 
-bench-score: bench build
+bench-score: bench build-trace
 	DITDAH32_BENCH_FREQ_MHZ=$(BENCH_FREQ_MHZ) $(MAKE) -C test/test_ditdah32 TESTCASE=coremark_profile_binary_passes_on_rtl,dhrystone_one_run_binary_passes_on_rtl
 	python3 scripts/benchmark_score_summary.py --frequency-mhz $(BENCH_FREQ_MHZ)
 
 coverage:
 	python3 scripts/rv32ec_coverage.py --out-dir result/coverage
 
-formal:
+formal: build-trace
 	python3 scripts/run_formal.py --depth 24
 
-verify-rvfi-lite: build
+verify-rvfi-lite: build-trace
 	python3 scripts/run_rvfi_lite.py --depth 24
 
-verify-rvfi: build
+verify-rvfi: build-trace
 	python3 scripts/run_rvfi.py --depth 24
 
-verify-riscv-dv:
+verify-riscv-dv: build-trace
 	python3 scripts/run_riscv_dv.py --config test/riscv_dv/ditdah32_rv32ec.yaml
 
-signoff-coverage:
+signoff-coverage: build-trace
 	python3 scripts/run_signoff_coverage.py
 
 test-model:
@@ -80,11 +86,11 @@ test-isa:
 test-scripts:
 	python3 -m pytest test/test_scripts
 
-test-isa-rtl: test-isa build
+test-isa-rtl: test-isa build-trace
 	python3 scripts/rv32ec_isa_regress.py --out-dir result/isa
 	python3 scripts/run_rtl_isa_matrix.py --isa-dir result/isa --out-dir result/rtl_trace/isa_artifacts
 
-test: test-model test-isa test-scripts bench build
+test: test-model test-isa test-scripts bench build-trace
 	$(MAKE) -C test/test_ditdah32
 
 verify:
@@ -96,7 +102,7 @@ verify-ci-smoke:
 verify-signoff:
 	python3 scripts/run_verification_campaign.py --profile signoff
 
-verify-iss: test-isa build
+verify-iss: test-isa build-trace
 	python3 scripts/rv32ec_isa_regress.py --out-dir result/isa
 	python3 scripts/run_rtl_isa_matrix.py --isa-dir result/isa --out-dir result/rtl_trace/isa_artifacts
 	python3 scripts/run_sail_iss_smoke.py --isa-dir result/isa --out-dir result/iss/sail_matrix --all-compatible --ram-base 0x0 --memory-size 0x80100000 --rom-base 0x90000000 --clint-base 0xa0000000 --allow-low-data-memory
@@ -115,7 +121,7 @@ verify-spike-smoke: test-isa
 verify-spike-matrix: test-isa
 	python3 scripts/run_spike_iss_smoke.py --isa-dir result/isa --out-dir result/iss/spike_matrix --all-compatible
 
-verify-spike-highmem: test-isa
+verify-spike-highmem: test-isa build-trace
 	python3 scripts/rv32ec_isa_regress.py --out-dir result/iss/spike_artifacts --spike-compatible
 	python3 scripts/run_rtl_isa_matrix.py --isa-dir result/iss/spike_artifacts --out-dir result/rtl_trace/spike_highmem_artifacts
 	python3 scripts/run_spike_iss_smoke.py --isa-dir result/iss/spike_artifacts --out-dir result/iss/spike_highmem --all-compatible
@@ -129,7 +135,7 @@ verify-sail-smoke: test-isa
 verify-sail-matrix: test-isa
 	python3 scripts/run_sail_iss_smoke.py --isa-dir result/isa --out-dir result/iss/sail_matrix --all-compatible --ram-base 0x0 --memory-size 0x80100000 --rom-base 0x90000000 --clint-base 0xa0000000 --allow-low-data-memory
 
-verify-sail-highmem: test-isa
+verify-sail-highmem: test-isa build-trace
 	python3 scripts/rv32ec_isa_regress.py --out-dir result/iss/sail_artifacts --spike-compatible
 	python3 scripts/run_rtl_isa_matrix.py --isa-dir result/iss/sail_artifacts --out-dir result/rtl_trace/sail_highmem_artifacts
 	python3 scripts/run_sail_iss_smoke.py --isa-dir result/iss/sail_artifacts --out-dir result/iss/sail_highmem --all-compatible

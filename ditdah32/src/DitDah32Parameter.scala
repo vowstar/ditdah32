@@ -5,7 +5,7 @@ import me.jiuyang.zaozi.*
 
 case class DitDah32Parameter(
   resetVector: Int = 0,
-  enableTrace: Boolean = true
+  enableTrace: Boolean = false
 ) extends Parameter:
   require((resetVector & 0x3) == 0, "resetVector must be 32-bit aligned")
   require(resetVector >= 0, "resetVector must be non-negative in the initial scaffold")
