@@ -1023,19 +1023,11 @@ object DitDah32Module
     when((funct3 === 3.U(3)) | (funct3 === 7.U(3))) {
       csrWriteData := (csrReadData.asBits & (csrOperand.asBits ^ BigInt("ffffffff", 16).U(parameter.xlen).asBits)).bits(parameter.xlen - 1, 0).asUInt
     }
+    // RVFI csr_<name>_wdata reports the user-intended next value before
+    // any WARL legalization, matching the RVFI convention
+    // used by rvfi_csrw_check. Hardware-level WARL legalization is applied
+    // separately on postCommit* and the CSR register input below.
     csrTraceWriteData := csrWriteData
-    when(csrAddr === CsrAddr.MSTATUS.U(12)) {
-      csrTraceWriteData := writableMstatus(csrWriteData)
-    }
-    when(csrAddr === CsrAddr.MIE.U(12)) {
-      csrTraceWriteData := (csrWriteData.asBits & 0x888.U(parameter.xlen).asBits).bits(parameter.xlen - 1, 0).asUInt
-    }
-    when(csrAddr === CsrAddr.MTVEC.U(12)) {
-      csrTraceWriteData := (csrWriteData.asBits.bits(parameter.xlen - 1, 2) ## 0.U(2).asBits).asUInt
-    }
-    when(csrAddr === CsrAddr.MEPC.U(12)) {
-      csrTraceWriteData := (csrWriteData.asBits.bits(parameter.xlen - 1, 1) ## 0.U(1).asBits).asUInt
-    }
 
     postCommitMstatus := csrMstatus
     when(isCsr & csrWriteEnable & (csrAddr === CsrAddr.MSTATUS.U(12)) & !execTrap) {

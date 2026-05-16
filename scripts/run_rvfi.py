@@ -137,7 +137,7 @@ def run_external_riscv_formal(out_dir, logs_dir):
             "instruction_semantics": "The pinned riscv-formal suite has no RV32E instruction model list for isa rv32ec.",
             "bus_fault": "Non-faulting RVFI_BUS instruction/data/IO read/write/order checks are enabled; RVFI_BUS fault checks remain disabled until non-OKAY AXI responses are specified as RVFI bus faults.",
             "fault": "The riscv-formal fault check requires RVFI_MEM_FAULT signals and a memory-fault contract; the current wrapper does not drive rvfi_mem_fault or fault masks.",
-            "csr_full": "Selected CSR instruction checks and a CSR state subset are enabled; arbitrary WARL writes, read-only illegal-write behavior, and trap-entry CSR side effects remain staged.",
+            "csr_full": "CSR instruction checks (csrw_check) are enabled for the writable M-mode CSRs mstatus, mie, mtvec, mscratch, mepc, mcause, and mtval, alongside the CSR state subset for reserved-zero and read-only constant fields; read-only illegal-write trap behavior and full trap-entry CSR side effects remain staged for a future custom SVA layer.",
             "interrupt_full_csr_side_effects": "The interrupt-entry RVFI shape suite is enabled; full interrupt CSR side-effect and interrupt-fairness proofs remain staged.",
             "liveness_wfi_interrupt_fairness": "Bounded liveness is enabled for non-WFI retired instructions; WFI wakeup and interrupt-fairness liveness remain staged.",
         },
@@ -336,7 +336,7 @@ def main():
         "steps": steps,
         "limitations": [
             "This is a passing external riscv-formal consistency subset, not full instruction-semantic RVFI closure.",
-            "The enabled external property groups are pc_fwd, pc_bwd, reg, selected CSR instruction checks, CSR state subset checks, unique, causal, causal_io, causal_mem, non-faulting RVFI_BUS instruction/data/IO read/write/order checks, interrupt entry shape, bounded liveness, hang, ill, and cover.",
+            "The enabled external property groups are pc_fwd, pc_bwd, reg, CSR instruction checks for all writable M-mode CSRs, CSR state subset checks, unique, causal, causal_io, causal_mem, non-faulting RVFI_BUS instruction/data/IO read/write/order checks, interrupt entry shape, bounded liveness, hang, ill, and cover.",
             "Instruction-semantic checks are disabled because the pinned riscv-formal suite has no RV32E instruction model list for isa rv32ec.",
             "Instruction-semantic, arbitrary WARL CSR writes, read-only illegal-write behavior, trap-entry CSR side effects, memory-fault, RVFI_BUS fault, full interrupt CSR side-effect/fairness, and WFI/interrupt-fairness liveness remain disabled until DitDah32 exposes the remaining RVFI fields and environment contracts.",
         ],
