@@ -58,6 +58,7 @@ CSR_MCAUSE = 0x342
 CSR_MTVAL = 0x343
 CSR_MIP = 0x344
 CSR_UNIMPLEMENTED = 0x7C0
+CSR_FULL_MASK = 0xFFFF_FFFF
 MSTATUS_MIE = 1 << 3
 MSTATUS_MPIE = 1 << 7
 MSTATUS_MPP = 3 << 11
@@ -67,6 +68,7 @@ IRQ_EXTERNAL = 1 << 11
 MCAUSE_IRQ_SOFTWARE = 0x80000003
 MCAUSE_IRQ_TIMER = 0x80000007
 MCAUSE_IRQ_EXTERNAL = 0x8000000B
+TRACE_UNCHECKED = object()
 
 
 def u32(value):
@@ -517,6 +519,20 @@ async def collect_trace(dut, count, max_cycles=400):
                     "rd_we": int(dut.trace_rd_we.value),
                     "rd": int(dut.trace_rd.value),
                     "rd_wdata": int(dut.trace_rd_wdata.value),
+                    "rs1_addr": int(dut.trace_rs1_addr.value),
+                    "rs1_rdata": int(dut.trace_rs1_rdata.value),
+                    "rs2_addr": int(dut.trace_rs2_addr.value),
+                    "rs2_rdata": int(dut.trace_rs2_rdata.value),
+                    "mem_addr": int(dut.trace_mem_addr.value),
+                    "mem_rmask": int(dut.trace_mem_rmask.value),
+                    "mem_wmask": int(dut.trace_mem_wmask.value),
+                    "mem_rdata": int(dut.trace_mem_rdata.value),
+                    "mem_wdata": int(dut.trace_mem_wdata.value),
+                    "csr_addr": int(dut.trace_csr_addr.value),
+                    "csr_rmask": int(dut.trace_csr_rmask.value),
+                    "csr_wmask": int(dut.trace_csr_wmask.value),
+                    "csr_rdata": int(dut.trace_csr_rdata.value),
+                    "csr_wdata": int(dut.trace_csr_wdata.value),
                     "trap": int(dut.trace_trap.value),
                     "cause": int(dut.trace_trap_cause.value),
                 }
@@ -766,7 +782,31 @@ def write_axi_event_report(name, events):
     return report
 
 
-def assert_trace(trace, pc, instr, length=4, rd=None, rd_wdata=0, trap=False, cause=0, next_pc=None):
+def assert_trace(
+    trace,
+    pc,
+    instr,
+    length=4,
+    rd=None,
+    rd_wdata=0,
+    rs1=TRACE_UNCHECKED,
+    rs1_rdata=0,
+    rs2=TRACE_UNCHECKED,
+    rs2_rdata=0,
+    mem_addr=TRACE_UNCHECKED,
+    mem_rmask=TRACE_UNCHECKED,
+    mem_wmask=TRACE_UNCHECKED,
+    mem_rdata=0,
+    mem_wdata=0,
+    csr_addr=TRACE_UNCHECKED,
+    csr_rmask=TRACE_UNCHECKED,
+    csr_wmask=TRACE_UNCHECKED,
+    csr_rdata=0,
+    csr_wdata=0,
+    trap=False,
+    cause=0,
+    next_pc=None,
+):
     assert trace["pc"] == pc
     if next_pc is not None:
         assert trace["next_pc"] == next_pc
@@ -780,6 +820,28 @@ def assert_trace(trace, pc, instr, length=4, rd=None, rd_wdata=0, trap=False, ca
         assert trace["rd_we"] == 1
         assert trace["rd"] == rd
         assert trace["rd_wdata"] == u32(rd_wdata)
+    if rs1 is not TRACE_UNCHECKED:
+        assert trace["rs1_addr"] == rs1
+        assert trace["rs1_rdata"] == u32(rs1_rdata)
+    if rs2 is not TRACE_UNCHECKED:
+        assert trace["rs2_addr"] == rs2
+        assert trace["rs2_rdata"] == u32(rs2_rdata)
+    if mem_addr is not TRACE_UNCHECKED:
+        assert trace["mem_addr"] == u32(mem_addr)
+    if mem_rmask is not TRACE_UNCHECKED:
+        assert trace["mem_rmask"] == mem_rmask
+        assert trace["mem_rdata"] == (0 if mem_rmask == 0 else u32(mem_rdata))
+    if mem_wmask is not TRACE_UNCHECKED:
+        assert trace["mem_wmask"] == mem_wmask
+        assert trace["mem_wdata"] == (0 if mem_wmask == 0 else u32(mem_wdata))
+    if csr_addr is not TRACE_UNCHECKED:
+        assert trace["csr_addr"] == csr_addr
+    if csr_rmask is not TRACE_UNCHECKED:
+        assert trace["csr_rmask"] == u32(csr_rmask)
+        assert trace["csr_rdata"] == (0 if csr_rmask == 0 else u32(csr_rdata))
+    if csr_wmask is not TRACE_UNCHECKED:
+        assert trace["csr_wmask"] == u32(csr_wmask)
+        assert trace["csr_wdata"] == (0 if csr_wmask == 0 else u32(csr_wdata))
 
 
 def trap_cause_name(cause):
@@ -1093,6 +1155,53 @@ async def reset_and_fetch_nops(dut):
     ]
     assert [event["addr"] for event in instruction_reads[:3]] == [0, 4, 8]
     assert int(dut.trap.value) == 0
+
+
+@cocotb.test()
+async def rvfi_source_register_trace_reports_retired_operands(dut):
+    program = [
+        i_type(0x100, 0, 0x0, 1),
+        i_type(0x55, 0, 0x0, 2),
+        r_type(0x00, 2, 1, 0x0, 3),
+        s_type(0, 2, 1, 0x2),
+        i_type(0, 1, 0x2, 4, 0x03),
+        EBREAK,
+    ]
+    memory = await start_core(dut, pack_words(program))
+
+    traces = await with_timeout(collect_trace(dut, len(program), max_cycles=500), 20, "us")
+
+    assert_trace(traces[0], 0, program[0], rd=1, rd_wdata=0x100)
+    assert_trace(traces[1], 4, program[1], rd=2, rd_wdata=0x55)
+    assert_trace(traces[2], 8, program[2], rd=3, rd_wdata=0x155, rs1=1, rs1_rdata=0x100, rs2=2, rs2_rdata=0x55)
+    assert_trace(
+        traces[3],
+        12,
+        program[3],
+        rs1=1,
+        rs1_rdata=0x100,
+        rs2=2,
+        rs2_rdata=0x55,
+        mem_addr=0x100,
+        mem_rmask=0x0,
+        mem_wmask=0xF,
+        mem_wdata=0x55,
+    )
+    assert_trace(
+        traces[4],
+        16,
+        program[4],
+        rd=4,
+        rd_wdata=0x55,
+        rs1=1,
+        rs1_rdata=0x100,
+        mem_addr=0x100,
+        mem_rmask=0xF,
+        mem_wmask=0x0,
+        mem_rdata=0x55,
+    )
+    assert_trace(traces[5], 20, EBREAK, trap=True, cause=2)
+    assert memory.read_dword(0x100, byteorder="little") == 0x55
 
 
 @cocotb.test()
@@ -1489,15 +1598,97 @@ async def zicsr_machine_csrs_read_write_and_immediate_ops(dut):
     traces = await with_timeout(collect_trace(dut, len(program)), 20, "us")
 
     assert_trace(traces[0], 0, program[0], rd=1, rd_wdata=0x40)
-    assert_trace(traces[1], 4, program[1])
-    assert_trace(traces[2], 8, program[2], rd=2, rd_wdata=0x40)
-    assert_trace(traces[3], 12, program[3], rd=3, rd_wdata=0)
-    assert_trace(traces[4], 16, program[4], rd=4, rd_wdata=5)
-    assert_trace(traces[5], 20, program[5], rd=5, rd_wdata=5)
-    assert_trace(traces[6], 24, program[6], rd=6, rd_wdata=4)
+    assert_trace(
+        traces[1],
+        4,
+        program[1],
+        csr_addr=CSR_MTVEC,
+        csr_rmask=CSR_FULL_MASK,
+        csr_rdata=0,
+        csr_wmask=CSR_FULL_MASK,
+        csr_wdata=0x40,
+    )
+    assert_trace(
+        traces[2],
+        8,
+        program[2],
+        rd=2,
+        rd_wdata=0x40,
+        csr_addr=CSR_MTVEC,
+        csr_rmask=CSR_FULL_MASK,
+        csr_rdata=0x40,
+        csr_wmask=0,
+    )
+    assert_trace(
+        traces[3],
+        12,
+        program[3],
+        rd=3,
+        rd_wdata=0,
+        csr_addr=CSR_MSCRATCH,
+        csr_rmask=CSR_FULL_MASK,
+        csr_rdata=0,
+        csr_wmask=CSR_FULL_MASK,
+        csr_wdata=5,
+    )
+    assert_trace(
+        traces[4],
+        16,
+        program[4],
+        rd=4,
+        rd_wdata=5,
+        csr_addr=CSR_MSCRATCH,
+        csr_rmask=CSR_FULL_MASK,
+        csr_rdata=5,
+        csr_wmask=0,
+    )
+    assert_trace(
+        traces[5],
+        20,
+        program[5],
+        rd=5,
+        rd_wdata=5,
+        csr_addr=CSR_MSCRATCH,
+        csr_rmask=CSR_FULL_MASK,
+        csr_rdata=5,
+        csr_wmask=CSR_FULL_MASK,
+        csr_wdata=4,
+    )
+    assert_trace(
+        traces[6],
+        24,
+        program[6],
+        rd=6,
+        rd_wdata=4,
+        csr_addr=CSR_MSCRATCH,
+        csr_rmask=CSR_FULL_MASK,
+        csr_rdata=4,
+        csr_wmask=0,
+    )
     assert_trace(traces[7], 28, program[7], rd=7, rd_wdata=4)
-    assert_trace(traces[8], 32, program[8], rd=8, rd_wdata=4)
-    assert_trace(traces[9], 36, program[9], rd=9, rd_wdata=0)
+    assert_trace(
+        traces[8],
+        32,
+        program[8],
+        rd=8,
+        rd_wdata=4,
+        csr_addr=CSR_MSCRATCH,
+        csr_rmask=CSR_FULL_MASK,
+        csr_rdata=4,
+        csr_wmask=CSR_FULL_MASK,
+        csr_wdata=0,
+    )
+    assert_trace(
+        traces[9],
+        36,
+        program[9],
+        rd=9,
+        rd_wdata=0,
+        csr_addr=CSR_MSCRATCH,
+        csr_rmask=CSR_FULL_MASK,
+        csr_rdata=0,
+        csr_wmask=0,
+    )
     assert_trace(traces[10], 40, program[10], trap=True, cause=2)
 
 

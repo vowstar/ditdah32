@@ -40,6 +40,20 @@ module test_ditdah32;
     wire        trace_rd_we;
     wire [3:0]  trace_rd;
     wire [31:0] trace_rd_wdata;
+    wire [4:0]  trace_rs1_addr;
+    wire [31:0] trace_rs1_rdata;
+    wire [4:0]  trace_rs2_addr;
+    wire [31:0] trace_rs2_rdata;
+    wire [31:0] trace_mem_addr;
+    wire [3:0]  trace_mem_rmask;
+    wire [3:0]  trace_mem_wmask;
+    wire [31:0] trace_mem_rdata;
+    wire [31:0] trace_mem_wdata;
+    wire [11:0] trace_csr_addr;
+    wire [31:0] trace_csr_rmask;
+    wire [31:0] trace_csr_wmask;
+    wire [31:0] trace_csr_rdata;
+    wire [31:0] trace_csr_wdata;
     wire        trace_trap;
     wire [3:0]  trace_trap_cause;
 
@@ -96,6 +110,20 @@ module test_ditdah32;
         .trace_rd_we    (trace_rd_we),
         .trace_rd       (trace_rd),
         .trace_rd_wdata (trace_rd_wdata),
+        .trace_rs1_addr (trace_rs1_addr),
+        .trace_rs1_rdata(trace_rs1_rdata),
+        .trace_rs2_addr (trace_rs2_addr),
+        .trace_rs2_rdata(trace_rs2_rdata),
+        .trace_mem_addr (trace_mem_addr),
+        .trace_mem_rmask(trace_mem_rmask),
+        .trace_mem_wmask(trace_mem_wmask),
+        .trace_mem_rdata(trace_mem_rdata),
+        .trace_mem_wdata(trace_mem_wdata),
+        .trace_csr_addr(trace_csr_addr),
+        .trace_csr_rmask(trace_csr_rmask),
+        .trace_csr_wmask(trace_csr_wmask),
+        .trace_csr_rdata(trace_csr_rdata),
+        .trace_csr_wdata(trace_csr_wdata),
         .trace_trap     (trace_trap),
         .trace_trap_cause(trace_trap_cause)
     );

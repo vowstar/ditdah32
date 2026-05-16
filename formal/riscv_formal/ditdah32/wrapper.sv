@@ -4,27 +4,37 @@ module rvfi_wrapper (
     input clock,
     input reset,
     `RVFI_OUTPUTS
+    `RVFI_BUS_OUTPUTS
 );
-    (* keep *) `rvformal_rand_reg        axi_awready;
-    (* keep *) `rvformal_rand_reg        axi_wready;
-    (* keep *) `rvformal_rand_reg        axi_bvalid;
-    (* keep *) `rvformal_rand_reg [1:0]  axi_bresp;
-    (* keep *) `rvformal_rand_reg        axi_arready;
-    (* keep *) `rvformal_rand_reg        axi_rvalid;
     (* keep *) `rvformal_rand_reg [31:0] axi_rdata;
-    (* keep *) `rvformal_rand_reg [1:0]  axi_rresp;
+`ifdef DITDAH32_RVFI_ENABLE_IRQ
+    (* keep *) `rvformal_rand_reg irq_software;
+    (* keep *) `rvformal_rand_reg irq_timer;
+    (* keep *) `rvformal_rand_reg irq_external;
+`else
+    wire irq_software = 1'b0;
+    wire irq_timer = 1'b0;
+    wire irq_external = 1'b0;
+`endif
 
     wire        axi_awvalid;
     wire [31:0] axi_awaddr;
     wire [2:0]  axi_awprot;
+    wire        axi_awready;
     wire        axi_wvalid;
     wire [31:0] axi_wdata;
     wire [3:0]  axi_wstrb;
+    wire        axi_wready;
+    wire        axi_bvalid;
     wire        axi_bready;
+    wire [1:0]  axi_bresp;
     wire        axi_arvalid;
     wire [31:0] axi_araddr;
     wire [2:0]  axi_arprot;
+    wire        axi_arready;
+    wire        axi_rvalid;
     wire        axi_rready;
+    wire [1:0]  axi_rresp;
     wire        irq_pending;
     wire        trap;
     wire        core_busy;
@@ -37,6 +47,22 @@ module rvfi_wrapper (
     wire        trace_rd_we;
     wire [3:0]  trace_rd;
     wire [31:0] trace_rd_wdata;
+    wire [4:0]  trace_rs1_addr;
+    wire [31:0] trace_rs1_rdata;
+    wire [4:0]  trace_rs2_addr;
+    wire [31:0] trace_rs2_rdata;
+    wire [31:0] trace_mem_addr;
+    wire [3:0]  trace_mem_rmask;
+    wire [3:0]  trace_mem_wmask;
+    wire [31:0] trace_mem_rdata;
+    wire [31:0] trace_mem_wdata;
+`ifdef DITDAH32_RVFI_CSR_TRACE
+    wire [11:0] trace_csr_addr;
+    wire [31:0] trace_csr_rmask;
+    wire [31:0] trace_csr_wmask;
+    wire [31:0] trace_csr_rdata;
+    wire [31:0] trace_csr_wdata;
+`endif
     wire        trace_trap;
     wire [3:0]  trace_trap_cause;
 
@@ -62,9 +88,9 @@ module rvfi_wrapper (
         .axi_rready(axi_rready),
         .axi_rdata(axi_rdata),
         .axi_rresp(axi_rresp),
-        .irq_software(1'b0),
-        .irq_timer(1'b0),
-        .irq_external(1'b0),
+        .irq_software(irq_software),
+        .irq_timer(irq_timer),
+        .irq_external(irq_external),
         .irq_pending(irq_pending),
         .trap(trap),
         .core_busy(core_busy),
@@ -77,6 +103,22 @@ module rvfi_wrapper (
         .trace_rd_we(trace_rd_we),
         .trace_rd(trace_rd),
         .trace_rd_wdata(trace_rd_wdata),
+        .trace_rs1_addr(trace_rs1_addr),
+        .trace_rs1_rdata(trace_rs1_rdata),
+        .trace_rs2_addr(trace_rs2_addr),
+        .trace_rs2_rdata(trace_rs2_rdata),
+        .trace_mem_addr(trace_mem_addr),
+        .trace_mem_rmask(trace_mem_rmask),
+        .trace_mem_wmask(trace_mem_wmask),
+        .trace_mem_rdata(trace_mem_rdata),
+        .trace_mem_wdata(trace_mem_wdata),
+`ifdef DITDAH32_RVFI_CSR_TRACE
+        .trace_csr_addr(trace_csr_addr),
+        .trace_csr_rmask(trace_csr_rmask),
+        .trace_csr_wmask(trace_csr_wmask),
+        .trace_csr_rdata(trace_csr_rdata),
+        .trace_csr_wdata(trace_csr_wdata),
+`endif
         .trace_trap(trace_trap),
         .trace_trap_cause(trace_trap_cause)
     );
@@ -92,33 +134,179 @@ module rvfi_wrapper (
     reg write_w_seen = 1'b0;
     reg write_resp_pending = 1'b0;
     reg [63:0] rvfi_order_q = 64'd0;
+`ifdef RISCV_FORMAL_BUS
+    reg [31:0] bus_araddr_q = 32'd0;
+    reg        bus_ar_is_insn_q = 1'b0;
+    reg        bus_ar_is_data_q = 1'b0;
+    reg [31:0] bus_awaddr_q = 32'd0;
+    reg [31:0] bus_wdata_q = 32'd0;
+    reg [3:0]  bus_wstrb_q = 4'd0;
+`endif
 
-    assign rvfi_valid = trace_valid;
+`ifdef DITDAH32_RVFI_STANDARD_INTR
+    wire trace_interrupt_event =
+        trace_valid &&
+        trace_trap &&
+        trace_trap_cause == 4'h8 &&
+        trace_len == 3'd0 &&
+        trace_instr == 32'd0;
+    reg        rvfi_intr_pending = 1'b0;
+    reg [31:0] rvfi_intr_target_q = 32'd0;
+    wire       rvfi_visible_valid = trace_valid && !trace_interrupt_event;
+    wire       rvfi_intr_now = rvfi_visible_valid && rvfi_intr_pending;
+`else
+    wire       rvfi_visible_valid = trace_valid;
+    wire       rvfi_intr_now = 1'b0;
+`endif
+
+    assign axi_awready = 1'b1;
+    assign axi_wready = 1'b1;
+    assign axi_bvalid = write_resp_pending;
+    assign axi_bresp = 2'b00;
+    assign axi_arready = 1'b1;
+    assign axi_rvalid = read_outstanding;
+    assign axi_rresp = 2'b00;
+
+    assign rvfi_valid = rvfi_visible_valid;
     assign rvfi_order = rvfi_order_q;
     assign rvfi_insn = trace_instr;
     assign rvfi_trap = trace_trap;
     assign rvfi_halt = trap;
-    assign rvfi_intr = 1'b0;
+    assign rvfi_intr = rvfi_intr_now;
     assign rvfi_mode = 2'b11;
     assign rvfi_ixl = 2'b01;
-    assign rvfi_rs1_addr = 5'd0;
-    assign rvfi_rs2_addr = 5'd0;
-    assign rvfi_rs1_rdata = 32'd0;
-    assign rvfi_rs2_rdata = 32'd0;
+    assign rvfi_rs1_addr = trace_rs1_addr;
+    assign rvfi_rs2_addr = trace_rs2_addr;
+    assign rvfi_rs1_rdata = trace_rs1_addr == 5'd0 ? 32'd0 : trace_rs1_rdata;
+    assign rvfi_rs2_rdata = trace_rs2_addr == 5'd0 ? 32'd0 : trace_rs2_rdata;
     assign rvfi_rd_addr = trace_rd_we ? {1'b0, trace_rd} : 5'd0;
     assign rvfi_rd_wdata = trace_rd_we ? trace_rd_wdata : 32'd0;
     assign rvfi_pc_rdata = trace_pc;
     assign rvfi_pc_wdata = trace_next_pc;
-    assign rvfi_mem_addr = 32'd0;
-    assign rvfi_mem_rmask = 4'd0;
-    assign rvfi_mem_wmask = 4'd0;
-    assign rvfi_mem_rdata = 32'd0;
-    assign rvfi_mem_wdata = 32'd0;
+    assign rvfi_mem_addr = trace_mem_addr;
+    assign rvfi_mem_rmask = trace_mem_rmask;
+    assign rvfi_mem_wmask = trace_mem_wmask;
+    assign rvfi_mem_rdata = trace_mem_rmask == 4'd0 ? 32'd0 : trace_mem_rdata;
+    assign rvfi_mem_wdata = trace_mem_wmask == 4'd0 ? 32'd0 : trace_mem_wdata;
+
+`ifdef RISCV_FORMAL_BUS
+    wire rvfi_bus_read_valid = r_fire;
+    wire rvfi_bus_write_valid = b_fire;
+
+    assign rvfi_bus_valid = rvfi_bus_read_valid || rvfi_bus_write_valid;
+    assign rvfi_bus_insn = rvfi_bus_read_valid && bus_ar_is_insn_q;
+    assign rvfi_bus_data = (rvfi_bus_read_valid && bus_ar_is_data_q) || rvfi_bus_write_valid;
+    assign rvfi_bus_fault = rvfi_bus_read_valid ? |axi_rresp : rvfi_bus_write_valid ? |axi_bresp : 1'b0;
+    assign rvfi_bus_addr = rvfi_bus_read_valid ? bus_araddr_q : rvfi_bus_write_valid ? bus_awaddr_q : 32'd0;
+    assign rvfi_bus_rmask = rvfi_bus_read_valid ? 4'hf : 4'h0;
+    assign rvfi_bus_wmask = rvfi_bus_write_valid ? bus_wstrb_q : 4'h0;
+    assign rvfi_bus_rdata = rvfi_bus_read_valid ? axi_rdata : 32'd0;
+    assign rvfi_bus_wdata = rvfi_bus_write_valid ? bus_wdata_q : 32'd0;
+`endif
+
+`ifdef DITDAH32_RVFI_CSR_TRACE
+    wire [2:0] rvfi_csr_funct3 = rvfi_insn[14:12];
+    wire       rvfi_is_csr = rvfi_insn[6:0] == 7'b1110011 && rvfi_csr_funct3 != 3'b000;
+    wire       rvfi_csr_uses_rs1 = rvfi_is_csr && !rvfi_csr_funct3[2];
+
+    always @(*) begin
+        if (!reset && rvfi_valid && rvfi_is_csr) begin
+            assume(rvfi_insn[11:7] < 5'd16);
+            if (rvfi_csr_uses_rs1) begin
+                assume(rvfi_insn[19:15] < 5'd16);
+            end
+        end
+    end
+
+`ifdef RISCV_FORMAL_CSR_MSTATUS
+    assign rvfi_csr_mstatus_rmask = trace_csr_addr == 12'h300 ? trace_csr_rmask : 32'd0;
+    assign rvfi_csr_mstatus_wmask = trace_csr_addr == 12'h300 ? trace_csr_wmask : 32'd0;
+    assign rvfi_csr_mstatus_rdata = trace_csr_addr == 12'h300 ? trace_csr_rdata : 32'd0;
+    assign rvfi_csr_mstatus_wdata = trace_csr_addr == 12'h300 ? trace_csr_wdata : 32'd0;
+`endif
+`ifdef RISCV_FORMAL_CSR_MISA
+    assign rvfi_csr_misa_rmask = trace_csr_addr == 12'h301 ? trace_csr_rmask : 32'd0;
+    assign rvfi_csr_misa_wmask = trace_csr_addr == 12'h301 ? trace_csr_wmask : 32'd0;
+    assign rvfi_csr_misa_rdata = trace_csr_addr == 12'h301 ? trace_csr_rdata : 32'd0;
+    assign rvfi_csr_misa_wdata = trace_csr_addr == 12'h301 ? trace_csr_wdata : 32'd0;
+`endif
+`ifdef RISCV_FORMAL_CSR_MIE
+    assign rvfi_csr_mie_rmask = trace_csr_addr == 12'h304 ? trace_csr_rmask : 32'd0;
+    assign rvfi_csr_mie_wmask = trace_csr_addr == 12'h304 ? trace_csr_wmask : 32'd0;
+    assign rvfi_csr_mie_rdata = trace_csr_addr == 12'h304 ? trace_csr_rdata : 32'd0;
+    assign rvfi_csr_mie_wdata = trace_csr_addr == 12'h304 ? trace_csr_wdata : 32'd0;
+`endif
+`ifdef RISCV_FORMAL_CSR_MTVEC
+    assign rvfi_csr_mtvec_rmask = trace_csr_addr == 12'h305 ? trace_csr_rmask : 32'd0;
+    assign rvfi_csr_mtvec_wmask = trace_csr_addr == 12'h305 ? trace_csr_wmask : 32'd0;
+    assign rvfi_csr_mtvec_rdata = trace_csr_addr == 12'h305 ? trace_csr_rdata : 32'd0;
+    assign rvfi_csr_mtvec_wdata = trace_csr_addr == 12'h305 ? trace_csr_wdata : 32'd0;
+`endif
+`ifdef RISCV_FORMAL_CSR_MSCRATCH
+    assign rvfi_csr_mscratch_rmask = trace_csr_addr == 12'h340 ? trace_csr_rmask : 32'd0;
+    assign rvfi_csr_mscratch_wmask = trace_csr_addr == 12'h340 ? trace_csr_wmask : 32'd0;
+    assign rvfi_csr_mscratch_rdata = trace_csr_addr == 12'h340 ? trace_csr_rdata : 32'd0;
+    assign rvfi_csr_mscratch_wdata = trace_csr_addr == 12'h340 ? trace_csr_wdata : 32'd0;
+`endif
+`ifdef RISCV_FORMAL_CSR_MEPC
+    assign rvfi_csr_mepc_rmask = trace_csr_addr == 12'h341 ? trace_csr_rmask : 32'd0;
+    assign rvfi_csr_mepc_wmask = trace_csr_addr == 12'h341 ? trace_csr_wmask : 32'd0;
+    assign rvfi_csr_mepc_rdata = trace_csr_addr == 12'h341 ? trace_csr_rdata : 32'd0;
+    assign rvfi_csr_mepc_wdata = trace_csr_addr == 12'h341 ? trace_csr_wdata : 32'd0;
+`endif
+`ifdef RISCV_FORMAL_CSR_MCAUSE
+    assign rvfi_csr_mcause_rmask = trace_csr_addr == 12'h342 ? trace_csr_rmask : 32'd0;
+    assign rvfi_csr_mcause_wmask = trace_csr_addr == 12'h342 ? trace_csr_wmask : 32'd0;
+    assign rvfi_csr_mcause_rdata = trace_csr_addr == 12'h342 ? trace_csr_rdata : 32'd0;
+    assign rvfi_csr_mcause_wdata = trace_csr_addr == 12'h342 ? trace_csr_wdata : 32'd0;
+`endif
+`ifdef RISCV_FORMAL_CSR_MTVAL
+    assign rvfi_csr_mtval_rmask = trace_csr_addr == 12'h343 ? trace_csr_rmask : 32'd0;
+    assign rvfi_csr_mtval_wmask = trace_csr_addr == 12'h343 ? trace_csr_wmask : 32'd0;
+    assign rvfi_csr_mtval_rdata = trace_csr_addr == 12'h343 ? trace_csr_rdata : 32'd0;
+    assign rvfi_csr_mtval_wdata = trace_csr_addr == 12'h343 ? trace_csr_wdata : 32'd0;
+`endif
+`ifdef RISCV_FORMAL_CSR_MIP
+    assign rvfi_csr_mip_rmask = trace_csr_addr == 12'h344 ? trace_csr_rmask : 32'd0;
+    assign rvfi_csr_mip_wmask = trace_csr_addr == 12'h344 ? trace_csr_wmask : 32'd0;
+    assign rvfi_csr_mip_rdata = trace_csr_addr == 12'h344 ? trace_csr_rdata : 32'd0;
+    assign rvfi_csr_mip_wdata = trace_csr_addr == 12'h344 ? trace_csr_wdata : 32'd0;
+`endif
+`ifdef RISCV_FORMAL_CSR_MVENDORID
+    assign rvfi_csr_mvendorid_rmask = trace_csr_addr == 12'hf11 ? trace_csr_rmask : 32'd0;
+    assign rvfi_csr_mvendorid_wmask = trace_csr_addr == 12'hf11 ? trace_csr_wmask : 32'd0;
+    assign rvfi_csr_mvendorid_rdata = trace_csr_addr == 12'hf11 ? trace_csr_rdata : 32'd0;
+    assign rvfi_csr_mvendorid_wdata = trace_csr_addr == 12'hf11 ? trace_csr_wdata : 32'd0;
+`endif
+`ifdef RISCV_FORMAL_CSR_MARCHID
+    assign rvfi_csr_marchid_rmask = trace_csr_addr == 12'hf12 ? trace_csr_rmask : 32'd0;
+    assign rvfi_csr_marchid_wmask = trace_csr_addr == 12'hf12 ? trace_csr_wmask : 32'd0;
+    assign rvfi_csr_marchid_rdata = trace_csr_addr == 12'hf12 ? trace_csr_rdata : 32'd0;
+    assign rvfi_csr_marchid_wdata = trace_csr_addr == 12'hf12 ? trace_csr_wdata : 32'd0;
+`endif
+`ifdef RISCV_FORMAL_CSR_MIMPID
+    assign rvfi_csr_mimpid_rmask = trace_csr_addr == 12'hf13 ? trace_csr_rmask : 32'd0;
+    assign rvfi_csr_mimpid_wmask = trace_csr_addr == 12'hf13 ? trace_csr_wmask : 32'd0;
+    assign rvfi_csr_mimpid_rdata = trace_csr_addr == 12'hf13 ? trace_csr_rdata : 32'd0;
+    assign rvfi_csr_mimpid_wdata = trace_csr_addr == 12'hf13 ? trace_csr_wdata : 32'd0;
+`endif
+`ifdef RISCV_FORMAL_CSR_MHARTID
+    assign rvfi_csr_mhartid_rmask = trace_csr_addr == 12'hf14 ? trace_csr_rmask : 32'd0;
+    assign rvfi_csr_mhartid_wmask = trace_csr_addr == 12'hf14 ? trace_csr_wmask : 32'd0;
+    assign rvfi_csr_mhartid_rdata = trace_csr_addr == 12'hf14 ? trace_csr_rdata : 32'd0;
+    assign rvfi_csr_mhartid_wdata = trace_csr_addr == 12'hf14 ? trace_csr_wdata : 32'd0;
+`endif
+`endif
 
     always @(*) begin
         if (!reset) begin
             assume(!(axi_rvalid && !read_outstanding && !ar_fire));
             assume(!(axi_bvalid && !write_resp_pending && !(write_aw_seen && write_w_seen)));
+`ifdef DITDAH32_RVFI_STANDARD_INTR
+            if (rvfi_intr_now) begin
+                assert(rvfi_pc_rdata == rvfi_intr_target_q);
+            end
+`endif
         end
     end
 
@@ -129,10 +317,30 @@ module rvfi_wrapper (
             write_w_seen <= 1'b0;
             write_resp_pending <= 1'b0;
             rvfi_order_q <= 64'd0;
+`ifdef RISCV_FORMAL_BUS
+            bus_araddr_q <= 32'd0;
+            bus_ar_is_insn_q <= 1'b0;
+            bus_ar_is_data_q <= 1'b0;
+            bus_awaddr_q <= 32'd0;
+            bus_wdata_q <= 32'd0;
+            bus_wstrb_q <= 4'd0;
+`endif
+`ifdef DITDAH32_RVFI_STANDARD_INTR
+            rvfi_intr_pending <= 1'b0;
+            rvfi_intr_target_q <= 32'd0;
+`endif
         end else begin
-            if (trace_valid) begin
+            if (rvfi_visible_valid) begin
                 rvfi_order_q <= rvfi_order_q + 64'd1;
             end
+`ifdef DITDAH32_RVFI_STANDARD_INTR
+            if (trace_interrupt_event) begin
+                rvfi_intr_pending <= 1'b1;
+                rvfi_intr_target_q <= trace_next_pc;
+            end else if (rvfi_visible_valid) begin
+                rvfi_intr_pending <= 1'b0;
+            end
+`endif
 
             case ({ar_fire, r_fire})
                 2'b10: read_outstanding <= 1'b1;
@@ -146,6 +354,20 @@ module rvfi_wrapper (
             if (w_fire) begin
                 write_w_seen <= 1'b1;
             end
+`ifdef RISCV_FORMAL_BUS
+            if (ar_fire) begin
+                bus_araddr_q <= axi_araddr;
+                bus_ar_is_insn_q <= axi_arprot[2];
+                bus_ar_is_data_q <= !axi_arprot[2];
+            end
+            if (aw_fire) begin
+                bus_awaddr_q <= axi_awaddr;
+            end
+            if (w_fire) begin
+                bus_wdata_q <= axi_wdata;
+                bus_wstrb_q <= axi_wstrb;
+            end
+`endif
             if ((write_aw_seen || aw_fire) && (write_w_seen || w_fire)) begin
                 write_resp_pending <= 1'b1;
             end

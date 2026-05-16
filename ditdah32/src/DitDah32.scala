@@ -45,16 +45,30 @@ class DitDah32IO(parameter: DitDah32Parameter) extends HWBundle(parameter):
   val core_busy = Aligned(Bool())
   val core_sleep = Aligned(Bool())
 
-  val trace_valid      = Aligned(Bool())
-  val trace_pc         = Aligned(UInt(parameter.xlen))
-  val trace_next_pc    = Aligned(UInt(parameter.xlen))
-  val trace_instr      = Aligned(UInt(parameter.xlen))
-  val trace_len        = Aligned(UInt(3))
-  val trace_rd_we      = Aligned(Bool())
-  val trace_rd         = Aligned(UInt(parameter.registerIndexBits))
-  val trace_rd_wdata   = Aligned(UInt(parameter.xlen))
-  val trace_trap       = Aligned(Bool())
-  val trace_trap_cause = Aligned(UInt(4))
+  val trace_valid      = Option.when(parameter.enableTrace)(Aligned(Bool()))
+  val trace_pc         = Option.when(parameter.enableTrace)(Aligned(UInt(parameter.xlen)))
+  val trace_next_pc    = Option.when(parameter.enableTrace)(Aligned(UInt(parameter.xlen)))
+  val trace_instr      = Option.when(parameter.enableTrace)(Aligned(UInt(parameter.xlen)))
+  val trace_len        = Option.when(parameter.enableTrace)(Aligned(UInt(3)))
+  val trace_rd_we      = Option.when(parameter.enableTrace)(Aligned(Bool()))
+  val trace_rd         = Option.when(parameter.enableTrace)(Aligned(UInt(parameter.registerIndexBits)))
+  val trace_rd_wdata   = Option.when(parameter.enableTrace)(Aligned(UInt(parameter.xlen)))
+  val trace_rs1_addr   = Option.when(parameter.enableTrace)(Aligned(UInt(5)))
+  val trace_rs1_rdata  = Option.when(parameter.enableTrace)(Aligned(UInt(parameter.xlen)))
+  val trace_rs2_addr   = Option.when(parameter.enableTrace)(Aligned(UInt(5)))
+  val trace_rs2_rdata  = Option.when(parameter.enableTrace)(Aligned(UInt(parameter.xlen)))
+  val trace_mem_addr   = Option.when(parameter.enableTrace)(Aligned(UInt(parameter.xlen)))
+  val trace_mem_rmask  = Option.when(parameter.enableTrace)(Aligned(UInt(4)))
+  val trace_mem_wmask  = Option.when(parameter.enableTrace)(Aligned(UInt(4)))
+  val trace_mem_rdata  = Option.when(parameter.enableTrace)(Aligned(UInt(parameter.xlen)))
+  val trace_mem_wdata  = Option.when(parameter.enableTrace)(Aligned(UInt(parameter.xlen)))
+  val trace_csr_addr   = Option.when(parameter.enableTrace)(Aligned(UInt(12)))
+  val trace_csr_rmask  = Option.when(parameter.enableTrace)(Aligned(UInt(parameter.xlen)))
+  val trace_csr_wmask  = Option.when(parameter.enableTrace)(Aligned(UInt(parameter.xlen)))
+  val trace_csr_rdata  = Option.when(parameter.enableTrace)(Aligned(UInt(parameter.xlen)))
+  val trace_csr_wdata  = Option.when(parameter.enableTrace)(Aligned(UInt(parameter.xlen)))
+  val trace_trap       = Option.when(parameter.enableTrace)(Aligned(Bool()))
+  val trace_trap_cause = Option.when(parameter.enableTrace)(Aligned(UInt(4)))
 
 class DitDah32Probe(parameter: DitDah32Parameter)
     extends DVBundle[DitDah32Parameter, DitDah32Layers](parameter)
@@ -332,6 +346,10 @@ object DitDah32Module
     val memFunct3Reg     = RegInit(0.U(3))
     val memStoreDataReg  = RegInit(0.U(parameter.xlen))
     val memStoreBeReg    = RegInit(0.U(4))
+    val memTraceRs1AddrReg  = Option.when(parameter.enableTrace)(RegInit(0.U(5)))
+    val memTraceRs1RdataReg = Option.when(parameter.enableTrace)(RegInit(0.U(parameter.xlen)))
+    val memTraceRs2AddrReg  = Option.when(parameter.enableTrace)(RegInit(0.U(5)))
+    val memTraceRs2RdataReg = Option.when(parameter.enableTrace)(RegInit(0.U(parameter.xlen)))
     val irqCauseReg      = RegInit(0.U(parameter.xlen))
     val csrMstatus       = RegInit(0.U(parameter.xlen))
     val csrMie           = RegInit(0.U(parameter.xlen))
@@ -340,16 +358,31 @@ object DitDah32Module
     val csrMepc          = RegInit(0.U(parameter.xlen))
     val csrMcause        = RegInit(0.U(parameter.xlen))
     val csrMtval         = RegInit(0.U(parameter.xlen))
-    val traceValidReg      = RegInit(false.B)
-    val tracePcReg         = RegInit(0.U(parameter.xlen))
-    val traceNextPcReg     = RegInit(0.U(parameter.xlen))
-    val traceInstrReg      = RegInit(0.U(parameter.xlen))
-    val traceLenReg        = RegInit(0.U(3))
-    val traceRdWeReg       = RegInit(false.B)
-    val traceRdReg         = RegInit(0.U(parameter.registerIndexBits))
-    val traceRdWdataReg    = RegInit(0.U(parameter.xlen))
-    val traceTrapReg       = RegInit(false.B)
-    val traceTrapCauseReg  = RegInit(0.U(4))
+    val trapEventReg       = RegInit(false.B)
+    val traceValidReg      = Option.when(parameter.enableTrace)(RegInit(false.B))
+    val tracePcReg         = Option.when(parameter.enableTrace)(RegInit(0.U(parameter.xlen)))
+    val traceNextPcReg     = Option.when(parameter.enableTrace)(RegInit(0.U(parameter.xlen)))
+    val traceInstrReg      = Option.when(parameter.enableTrace)(RegInit(0.U(parameter.xlen)))
+    val traceLenReg        = Option.when(parameter.enableTrace)(RegInit(0.U(3)))
+    val traceRdWeReg       = Option.when(parameter.enableTrace)(RegInit(false.B))
+    val traceRdReg         = Option.when(parameter.enableTrace)(RegInit(0.U(parameter.registerIndexBits)))
+    val traceRdWdataReg    = Option.when(parameter.enableTrace)(RegInit(0.U(parameter.xlen)))
+    val traceRs1AddrReg    = Option.when(parameter.enableTrace)(RegInit(0.U(5)))
+    val traceRs1RdataReg   = Option.when(parameter.enableTrace)(RegInit(0.U(parameter.xlen)))
+    val traceRs2AddrReg    = Option.when(parameter.enableTrace)(RegInit(0.U(5)))
+    val traceRs2RdataReg   = Option.when(parameter.enableTrace)(RegInit(0.U(parameter.xlen)))
+    val traceMemAddrReg    = Option.when(parameter.enableTrace)(RegInit(0.U(parameter.xlen)))
+    val traceMemRmaskReg   = Option.when(parameter.enableTrace)(RegInit(0.U(4)))
+    val traceMemWmaskReg   = Option.when(parameter.enableTrace)(RegInit(0.U(4)))
+    val traceMemRdataReg   = Option.when(parameter.enableTrace)(RegInit(0.U(parameter.xlen)))
+    val traceMemWdataReg   = Option.when(parameter.enableTrace)(RegInit(0.U(parameter.xlen)))
+    val traceCsrAddrReg    = Option.when(parameter.enableTrace)(RegInit(0.U(12)))
+    val traceCsrRmaskReg   = Option.when(parameter.enableTrace)(RegInit(0.U(parameter.xlen)))
+    val traceCsrWmaskReg   = Option.when(parameter.enableTrace)(RegInit(0.U(parameter.xlen)))
+    val traceCsrRdataReg   = Option.when(parameter.enableTrace)(RegInit(0.U(parameter.xlen)))
+    val traceCsrWdataReg   = Option.when(parameter.enableTrace)(RegInit(0.U(parameter.xlen)))
+    val traceTrapReg       = Option.when(parameter.enableTrace)(RegInit(false.B))
+    val traceTrapCauseReg  = Option.when(parameter.enableTrace)(RegInit(0.U(4)))
     val x1  = RegInit(0.U(parameter.xlen))
     val x2  = RegInit(0.U(parameter.xlen))
     val x3  = RegInit(0.U(parameter.xlen))
@@ -459,6 +492,7 @@ object DitDah32Module
     val loadByte          = Wire(UInt(8))
     val loadHalf          = Wire(UInt(16))
     val loadWdata         = Wire(UInt(parameter.xlen))
+    val loadMemMask       = Wire(UInt(4))
     val rs1SignedOrder    = Wire(UInt(parameter.xlen))
     val rs2SignedOrder    = Wire(UInt(parameter.xlen))
     val imm12SignedOrder  = Wire(UInt(parameter.xlen))
@@ -485,6 +519,7 @@ object DitDah32Module
     val csrAddr           = Wire(UInt(12))
     val csrOperand        = Wire(UInt(parameter.xlen))
     val csrWriteData      = Wire(UInt(parameter.xlen))
+    val csrTraceWriteData = Wire(UInt(parameter.xlen))
     val csrWriteEnable    = Wire(Bool())
     val csrUsesRs1        = Wire(Bool())
     val csrIllegal        = Wire(Bool())
@@ -988,6 +1023,19 @@ object DitDah32Module
     when((funct3 === 3.U(3)) | (funct3 === 7.U(3))) {
       csrWriteData := (csrReadData.asBits & (csrOperand.asBits ^ BigInt("ffffffff", 16).U(parameter.xlen).asBits)).bits(parameter.xlen - 1, 0).asUInt
     }
+    csrTraceWriteData := csrWriteData
+    when(csrAddr === CsrAddr.MSTATUS.U(12)) {
+      csrTraceWriteData := writableMstatus(csrWriteData)
+    }
+    when(csrAddr === CsrAddr.MIE.U(12)) {
+      csrTraceWriteData := (csrWriteData.asBits & 0x888.U(parameter.xlen).asBits).bits(parameter.xlen - 1, 0).asUInt
+    }
+    when(csrAddr === CsrAddr.MTVEC.U(12)) {
+      csrTraceWriteData := (csrWriteData.asBits.bits(parameter.xlen - 1, 2) ## 0.U(2).asBits).asUInt
+    }
+    when(csrAddr === CsrAddr.MEPC.U(12)) {
+      csrTraceWriteData := (csrWriteData.asBits.bits(parameter.xlen - 1, 1) ## 0.U(1).asBits).asUInt
+    }
 
     postCommitMstatus := csrMstatus
     when(isCsr & csrWriteEnable & (csrAddr === CsrAddr.MSTATUS.U(12)) & !execTrap) {
@@ -1099,6 +1147,19 @@ object DitDah32Module
     }
     when(memFunct3Reg === 5.U(3)) {
       loadWdata := (0.U(16).asBits ## loadHalf.asBits).asUInt
+    }
+    loadMemMask := 0.U(4)
+    when((memFunct3Reg === 0.U(3)) | (memFunct3Reg === 4.U(3))) {
+      when(memAddrReg.asBits.bits(1, 0).asUInt === 0.U(2)) { loadMemMask := 1.U(4) }
+      when(memAddrReg.asBits.bits(1, 0).asUInt === 1.U(2)) { loadMemMask := 2.U(4) }
+      when(memAddrReg.asBits.bits(1, 0).asUInt === 2.U(2)) { loadMemMask := 4.U(4) }
+      when(memAddrReg.asBits.bits(1, 0).asUInt === 3.U(2)) { loadMemMask := 8.U(4) }
+    }
+    when((memFunct3Reg === 1.U(3)) | (memFunct3Reg === 5.U(3))) {
+      loadMemMask := memAddrReg.asBits.bit(1).?(0xc.U(4), 3.U(4))
+    }
+    when(memFunct3Reg === 2.U(3)) {
+      loadMemMask := 0xf.U(4)
     }
     rs2Shamt := rs2Data.asBits.bits(4, 0).asUInt
     rs1SignedOrder := ((~(rs1Data.asBits.bits(parameter.xlen - 1, parameter.xlen - 1))) ## rs1Data.asBits.bits(parameter.xlen - 2, 0)).asUInt
@@ -1347,20 +1408,34 @@ object DitDah32Module
     io.axi_rready  := loadAcceptsResponse | fetchAcceptsResponse
 
     io.irq_pending := irqIndividuallyPending
-    io.trap      := stateTrap | traceTrapReg
+    io.trap      := stateTrap | trapEventReg
     io.core_busy := stateRun | stateStraddle | stateLoad | stateStore | stateIrq
     io.core_sleep := stateSleep
 
-    io.trace_valid      := traceValidReg
-    io.trace_pc         := tracePcReg
-    io.trace_next_pc    := traceNextPcReg
-    io.trace_instr      := traceInstrReg
-    io.trace_len        := traceLenReg
-    io.trace_rd_we      := traceRdWeReg
-    io.trace_rd         := traceRdReg
-    io.trace_rd_wdata   := traceRdWdataReg
-    io.trace_trap       := traceTrapReg
-    io.trace_trap_cause := traceTrapCauseReg
+    traceValidReg.foreach(reg => io.trace_valid.foreach(_ := reg))
+    tracePcReg.foreach(reg => io.trace_pc.foreach(_ := reg))
+    traceNextPcReg.foreach(reg => io.trace_next_pc.foreach(_ := reg))
+    traceInstrReg.foreach(reg => io.trace_instr.foreach(_ := reg))
+    traceLenReg.foreach(reg => io.trace_len.foreach(_ := reg))
+    traceRdWeReg.foreach(reg => io.trace_rd_we.foreach(_ := reg))
+    traceRdReg.foreach(reg => io.trace_rd.foreach(_ := reg))
+    traceRdWdataReg.foreach(reg => io.trace_rd_wdata.foreach(_ := reg))
+    traceRs1AddrReg.foreach(reg => io.trace_rs1_addr.foreach(_ := reg))
+    traceRs1RdataReg.foreach(reg => io.trace_rs1_rdata.foreach(_ := reg))
+    traceRs2AddrReg.foreach(reg => io.trace_rs2_addr.foreach(_ := reg))
+    traceRs2RdataReg.foreach(reg => io.trace_rs2_rdata.foreach(_ := reg))
+    traceMemAddrReg.foreach(reg => io.trace_mem_addr.foreach(_ := reg))
+    traceMemRmaskReg.foreach(reg => io.trace_mem_rmask.foreach(_ := reg))
+    traceMemWmaskReg.foreach(reg => io.trace_mem_wmask.foreach(_ := reg))
+    traceMemRdataReg.foreach(reg => io.trace_mem_rdata.foreach(_ := reg))
+    traceMemWdataReg.foreach(reg => io.trace_mem_wdata.foreach(_ := reg))
+    traceCsrAddrReg.foreach(reg => io.trace_csr_addr.foreach(_ := reg))
+    traceCsrRmaskReg.foreach(reg => io.trace_csr_rmask.foreach(_ := reg))
+    traceCsrWmaskReg.foreach(reg => io.trace_csr_wmask.foreach(_ := reg))
+    traceCsrRdataReg.foreach(reg => io.trace_csr_rdata.foreach(_ := reg))
+    traceCsrWdataReg.foreach(reg => io.trace_csr_wdata.foreach(_ := reg))
+    traceTrapReg.foreach(reg => io.trace_trap.foreach(_ := reg))
+    traceTrapCauseReg.foreach(reg => io.trace_trap_cause.foreach(_ := reg))
 
     when(stateReset) {
       state := CoreState.RUN.U(3)
@@ -1369,12 +1444,27 @@ object DitDah32Module
       storeAwDone := false.B
       storeWDone := false.B
     }.otherwise {
-      traceValidReg := false.B
-      traceRdWeReg := false.B
-      traceRdReg := 0.U(parameter.registerIndexBits)
-      traceRdWdataReg := 0.U(parameter.xlen)
-      traceTrapReg := false.B
-      traceTrapCauseReg := 0.U(4)
+      trapEventReg := false.B
+      traceValidReg.foreach(_ := false.B)
+      traceRdWeReg.foreach(_ := false.B)
+      traceRdReg.foreach(_ := 0.U(parameter.registerIndexBits))
+      traceRdWdataReg.foreach(_ := 0.U(parameter.xlen))
+      traceRs1AddrReg.foreach(_ := 0.U(5))
+      traceRs1RdataReg.foreach(_ := 0.U(parameter.xlen))
+      traceRs2AddrReg.foreach(_ := 0.U(5))
+      traceRs2RdataReg.foreach(_ := 0.U(parameter.xlen))
+      traceMemAddrReg.foreach(_ := 0.U(parameter.xlen))
+      traceMemRmaskReg.foreach(_ := 0.U(4))
+      traceMemWmaskReg.foreach(_ := 0.U(4))
+      traceMemRdataReg.foreach(_ := 0.U(parameter.xlen))
+      traceMemWdataReg.foreach(_ := 0.U(parameter.xlen))
+      traceCsrAddrReg.foreach(_ := 0.U(12))
+      traceCsrRmaskReg.foreach(_ := 0.U(parameter.xlen))
+      traceCsrWmaskReg.foreach(_ := 0.U(parameter.xlen))
+      traceCsrRdataReg.foreach(_ := 0.U(parameter.xlen))
+      traceCsrWdataReg.foreach(_ := 0.U(parameter.xlen))
+      traceTrapReg.foreach(_ := false.B)
+      traceTrapCauseReg.foreach(_ := 0.U(4))
 
       when(fetchArFire) {
         fetchOutstanding := true.B
@@ -1398,16 +1488,21 @@ object DitDah32Module
       when(stateIrq) {
         state := CoreState.RUN.U(3)
         pc := trapVector
-        traceValidReg := true.B
-        tracePcReg := csrMepc
-        traceNextPcReg := trapVector
-        traceInstrReg := 0.U(parameter.xlen)
-        traceLenReg := 0.U(3)
-        traceRdWeReg := false.B
-        traceRdReg := 0.U(parameter.registerIndexBits)
-        traceRdWdataReg := 0.U(parameter.xlen)
-        traceTrapReg := true.B
-        traceTrapCauseReg := TrapCause.INTERRUPT.U(4)
+        traceValidReg.foreach(_ := true.B)
+        tracePcReg.foreach(_ := csrMepc)
+        traceNextPcReg.foreach(_ := trapVector)
+        traceInstrReg.foreach(_ := 0.U(parameter.xlen))
+        traceLenReg.foreach(_ := 0.U(3))
+        traceRdWeReg.foreach(_ := false.B)
+        traceRdReg.foreach(_ := 0.U(parameter.registerIndexBits))
+        traceRdWdataReg.foreach(_ := 0.U(parameter.xlen))
+        traceRs1AddrReg.foreach(_ := 0.U(5))
+        traceRs1RdataReg.foreach(_ := 0.U(parameter.xlen))
+        traceRs2AddrReg.foreach(_ := 0.U(5))
+        traceRs2RdataReg.foreach(_ := 0.U(parameter.xlen))
+        trapEventReg := true.B
+        traceTrapReg.foreach(_ := true.B)
+        traceTrapCauseReg.foreach(_ := TrapCause.INTERRUPT.U(4))
       }
 
       when(stateSleep) {
@@ -1428,46 +1523,61 @@ object DitDah32Module
         state := CoreState.TRAP.U(3)
         csrMcause := 5.U(parameter.xlen)
         csrMtval := pc
-        traceValidReg := true.B
-        tracePcReg := pc
-        traceNextPcReg := pc
-        traceInstrReg := 0.U(parameter.xlen)
-        traceLenReg := 4.U(3)
-        traceRdWeReg := false.B
-        traceRdReg := 0.U(parameter.registerIndexBits)
-        traceRdWdataReg := 0.U(parameter.xlen)
-        traceTrapReg := true.B
-        traceTrapCauseReg := TrapCause.AXI_ERROR.U(4)
+        traceValidReg.foreach(_ := true.B)
+        tracePcReg.foreach(_ := pc)
+        traceNextPcReg.foreach(_ := pc)
+        traceInstrReg.foreach(_ := 0.U(parameter.xlen))
+        traceLenReg.foreach(_ := 4.U(3))
+        traceRdWeReg.foreach(_ := false.B)
+        traceRdReg.foreach(_ := 0.U(parameter.registerIndexBits))
+        traceRdWdataReg.foreach(_ := 0.U(parameter.xlen))
+        traceRs1AddrReg.foreach(_ := 0.U(5))
+        traceRs1RdataReg.foreach(_ := 0.U(parameter.xlen))
+        traceRs2AddrReg.foreach(_ := 0.U(5))
+        traceRs2RdataReg.foreach(_ := 0.U(parameter.xlen))
+        trapEventReg := true.B
+        traceTrapReg.foreach(_ := true.B)
+        traceTrapCauseReg.foreach(_ := TrapCause.AXI_ERROR.U(4))
       }
 
       when(loadResponseError) {
         state := CoreState.TRAP.U(3)
-        traceValidReg := true.B
-        tracePcReg := memPcReg
-        traceNextPcReg := memPcReg
-        traceInstrReg := memInstrReg
-        traceLenReg := memLenReg
-        traceRdWeReg := false.B
-        traceRdReg := 0.U(parameter.registerIndexBits)
-        traceRdWdataReg := 0.U(parameter.xlen)
-        traceTrapReg := true.B
-        traceTrapCauseReg := TrapCause.AXI_ERROR.U(4)
+        traceValidReg.foreach(_ := true.B)
+        tracePcReg.foreach(_ := memPcReg)
+        traceNextPcReg.foreach(_ := memPcReg)
+        traceInstrReg.foreach(_ := memInstrReg)
+        traceLenReg.foreach(_ := memLenReg)
+        traceRdWeReg.foreach(_ := false.B)
+        traceRdReg.foreach(_ := 0.U(parameter.registerIndexBits))
+        traceRdWdataReg.foreach(_ := 0.U(parameter.xlen))
+        traceRs1AddrReg.foreach(_ := 0.U(5))
+        traceRs1RdataReg.foreach(_ := 0.U(parameter.xlen))
+        traceRs2AddrReg.foreach(_ := 0.U(5))
+        traceRs2RdataReg.foreach(_ := 0.U(parameter.xlen))
+        trapEventReg := true.B
+        traceTrapReg.foreach(_ := true.B)
+        traceTrapCauseReg.foreach(_ := TrapCause.AXI_ERROR.U(4))
       }
 
       when(storeResponseError) {
         storeAwDone := false.B
         storeWDone := false.B
         state := CoreState.TRAP.U(3)
-        traceValidReg := true.B
-        tracePcReg := memPcReg
-        traceNextPcReg := memPcReg
-        traceInstrReg := memInstrReg
-        traceLenReg := memLenReg
-        traceRdWeReg := false.B
-        traceRdReg := 0.U(parameter.registerIndexBits)
-        traceRdWdataReg := 0.U(parameter.xlen)
-        traceTrapReg := true.B
-        traceTrapCauseReg := TrapCause.AXI_ERROR.U(4)
+        traceValidReg.foreach(_ := true.B)
+        tracePcReg.foreach(_ := memPcReg)
+        traceNextPcReg.foreach(_ := memPcReg)
+        traceInstrReg.foreach(_ := memInstrReg)
+        traceLenReg.foreach(_ := memLenReg)
+        traceRdWeReg.foreach(_ := false.B)
+        traceRdReg.foreach(_ := 0.U(parameter.registerIndexBits))
+        traceRdWdataReg.foreach(_ := 0.U(parameter.xlen))
+        traceRs1AddrReg.foreach(_ := 0.U(5))
+        traceRs1RdataReg.foreach(_ := 0.U(parameter.xlen))
+        traceRs2AddrReg.foreach(_ := 0.U(5))
+        traceRs2RdataReg.foreach(_ := 0.U(parameter.xlen))
+        trapEventReg := true.B
+        traceTrapReg.foreach(_ := true.B)
+        traceTrapCauseReg.foreach(_ := TrapCause.AXI_ERROR.U(4))
       }
 
       when(loadResponseOk) {
@@ -1475,16 +1585,25 @@ object DitDah32Module
         fetched  := true.B
         pc       := memNextPcReg
         state    := CoreState.RUN.U(3)
-        traceValidReg    := true.B
-        tracePcReg       := memPcReg
-        traceNextPcReg   := memNextPcReg
-        traceInstrReg    := memInstrReg
-        traceLenReg      := memLenReg
-        traceRdWeReg     := memRdReg =/= 0.U(5)
-        traceRdReg       := memRdReg.asBits.bits(3, 0).asUInt
-        traceRdWdataReg  := (memRdReg =/= 0.U(5)).?(loadWdata, 0.U(parameter.xlen))
-        traceTrapReg     := false.B
-        traceTrapCauseReg := 0.U(4)
+        traceValidReg.foreach(_ := true.B)
+        tracePcReg.foreach(_ := memPcReg)
+        traceNextPcReg.foreach(_ := memNextPcReg)
+        traceInstrReg.foreach(_ := memInstrReg)
+        traceLenReg.foreach(_ := memLenReg)
+        traceRdWeReg.foreach(_ := memRdReg =/= 0.U(5))
+        traceRdReg.foreach(_ := memRdReg.asBits.bits(3, 0).asUInt)
+        traceRdWdataReg.foreach(_ := (memRdReg =/= 0.U(5)).?(loadWdata, 0.U(parameter.xlen)))
+        memTraceRs1AddrReg.foreach(mem => traceRs1AddrReg.foreach(_ := mem))
+        memTraceRs1RdataReg.foreach(mem => traceRs1RdataReg.foreach(_ := mem))
+        memTraceRs2AddrReg.foreach(mem => traceRs2AddrReg.foreach(_ := mem))
+        memTraceRs2RdataReg.foreach(mem => traceRs2RdataReg.foreach(_ := mem))
+        traceMemAddrReg.foreach(_ := (memAddrReg.asBits.bits(parameter.xlen - 1, 2) ## 0.U(2).asBits).asUInt)
+        traceMemRmaskReg.foreach(_ := loadMemMask)
+        traceMemWmaskReg.foreach(_ := 0.U(4))
+        traceMemRdataReg.foreach(_ := io.axi_rdata)
+        traceMemWdataReg.foreach(_ := 0.U(parameter.xlen))
+        traceTrapReg.foreach(_ := false.B)
+        traceTrapCauseReg.foreach(_ := 0.U(4))
 
         writeGpr(memRdReg =/= 0.U(5), memRdReg, loadWdata, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15)
 
@@ -1505,16 +1624,25 @@ object DitDah32Module
         fetched  := true.B
         pc       := memNextPcReg
         state    := CoreState.RUN.U(3)
-        traceValidReg    := true.B
-        tracePcReg       := memPcReg
-        traceNextPcReg   := memNextPcReg
-        traceInstrReg    := memInstrReg
-        traceLenReg      := memLenReg
-        traceRdWeReg     := false.B
-        traceRdReg       := 0.U(parameter.registerIndexBits)
-        traceRdWdataReg  := 0.U(parameter.xlen)
-        traceTrapReg     := false.B
-        traceTrapCauseReg := 0.U(4)
+        traceValidReg.foreach(_ := true.B)
+        tracePcReg.foreach(_ := memPcReg)
+        traceNextPcReg.foreach(_ := memNextPcReg)
+        traceInstrReg.foreach(_ := memInstrReg)
+        traceLenReg.foreach(_ := memLenReg)
+        traceRdWeReg.foreach(_ := false.B)
+        traceRdReg.foreach(_ := 0.U(parameter.registerIndexBits))
+        traceRdWdataReg.foreach(_ := 0.U(parameter.xlen))
+        memTraceRs1AddrReg.foreach(mem => traceRs1AddrReg.foreach(_ := mem))
+        memTraceRs1RdataReg.foreach(mem => traceRs1RdataReg.foreach(_ := mem))
+        memTraceRs2AddrReg.foreach(mem => traceRs2AddrReg.foreach(_ := mem))
+        memTraceRs2RdataReg.foreach(mem => traceRs2RdataReg.foreach(_ := mem))
+        traceMemAddrReg.foreach(_ := (memAddrReg.asBits.bits(parameter.xlen - 1, 2) ## 0.U(2).asBits).asUInt)
+        traceMemRmaskReg.foreach(_ := 0.U(4))
+        traceMemWmaskReg.foreach(_ := memStoreBeReg)
+        traceMemRdataReg.foreach(_ := 0.U(parameter.xlen))
+        traceMemWdataReg.foreach(_ := memStoreDataReg)
+        traceTrapReg.foreach(_ := false.B)
+        traceTrapCauseReg.foreach(_ := 0.U(4))
 
         when(irqTrapPending) {
           state := CoreState.IRQ.U(3)
@@ -1533,11 +1661,11 @@ object DitDah32Module
           when(!execWaitsForMem) {
             pc       := execNextPc
             state    := CoreState.RUN.U(3)
-            traceValidReg := true.B
-            tracePcReg    := pc
-            traceNextPcReg := execNextPc
-            traceInstrReg := straddledInstr
-            traceLenReg   := 4.U(3)
+            traceValidReg.foreach(_ := true.B)
+            tracePcReg.foreach(_ := pc)
+            traceNextPcReg.foreach(_ := execNextPc)
+            traceInstrReg.foreach(_ := straddledInstr)
+            traceLenReg.foreach(_ := 4.U(3))
           }
         }
       }.otherwise {
@@ -1550,11 +1678,11 @@ object DitDah32Module
             fetched  := true.B
             when(!execWaitsForMem) {
               pc       := execNextPc
-              traceValidReg := true.B
-              tracePcReg    := pc
-              traceNextPcReg := execNextPc
-              traceInstrReg := selectedInstr
-              traceLenReg   := instrCompressed.?(2.U(3), 4.U(3))
+              traceValidReg.foreach(_ := true.B)
+              tracePcReg.foreach(_ := pc)
+              traceNextPcReg.foreach(_ := execNextPc)
+              traceInstrReg.foreach(_ := selectedInstr)
+              traceLenReg.foreach(_ := instrCompressed.?(2.U(3), 4.U(3)))
             }
           }
         }
@@ -1570,6 +1698,10 @@ object DitDah32Module
         memFunct3Reg    := funct3
         memStoreDataReg := storeData
         memStoreBeReg   := storeBe
+        memTraceRs1AddrReg.foreach(_ := execUsesRs1.?(rs1Index, 0.U(5)))
+        memTraceRs1RdataReg.foreach(_ := execUsesRs1.?(rs1Data, 0.U(parameter.xlen)))
+        memTraceRs2AddrReg.foreach(_ := execUsesRs2.?(rs2Index, 0.U(5)))
+        memTraceRs2RdataReg.foreach(_ := execUsesRs2.?(rs2Data, 0.U(parameter.xlen)))
         memOutstanding  := false.B
         storeAwDone     := false.B
         storeWDone      := false.B
@@ -1582,12 +1714,26 @@ object DitDah32Module
       }
 
       when(commitNow & !execWaitsForMem) {
-        traceTrapReg       := execTrap
-        traceTrapCauseReg  := execTrapCause
-        traceRdWeReg       := execWriteRd
-        traceRdReg         := rdIndex.asBits.bits(3, 0).asUInt
-        traceRdWdataReg    := execWriteRd.?(execWdata, 0.U(parameter.xlen))
-        traceNextPcReg     := execTrap.?(trapVector, execNextPc)
+        trapEventReg := execTrap
+        traceTrapReg.foreach(_ := execTrap)
+        traceTrapCauseReg.foreach(_ := execTrapCause)
+        traceRdWeReg.foreach(_ := execWriteRd)
+        traceRdReg.foreach(_ := rdIndex.asBits.bits(3, 0).asUInt)
+        traceRdWdataReg.foreach(_ := execWriteRd.?(execWdata, 0.U(parameter.xlen)))
+        traceRs1AddrReg.foreach(_ := (execUsesRs1 & !execTrap).?(rs1Index, 0.U(5)))
+        traceRs1RdataReg.foreach(_ := (execUsesRs1 & !execTrap).?(rs1Data, 0.U(parameter.xlen)))
+        traceRs2AddrReg.foreach(_ := (execUsesRs2 & !execTrap).?(rs2Index, 0.U(5)))
+        traceRs2RdataReg.foreach(_ := (execUsesRs2 & !execTrap).?(rs2Data, 0.U(parameter.xlen)))
+        traceNextPcReg.foreach(_ := execTrap.?(trapVector, execNextPc))
+        when(isCsr & !execTrap) {
+          traceCsrAddrReg.foreach(_ := csrAddr)
+          traceCsrRmaskReg.foreach(_ := BigInt("ffffffff", 16).U(parameter.xlen))
+          traceCsrRdataReg.foreach(_ := csrReadData)
+          when(csrWriteEnable) {
+            traceCsrWmaskReg.foreach(_ := BigInt("ffffffff", 16).U(parameter.xlen))
+            traceCsrWdataReg.foreach(_ := csrTraceWriteData)
+          }
+        }
 
         writeGpr(execWriteRd, rdIndex, execWdata, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15)
 

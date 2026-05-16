@@ -44,6 +44,20 @@ module DitDah32RvfiLite;
     wire        trace_rd_we;
     wire [3:0]  trace_rd;
     wire [31:0] trace_rd_wdata;
+    wire [4:0]  trace_rs1_addr;
+    wire [31:0] trace_rs1_rdata;
+    wire [4:0]  trace_rs2_addr;
+    wire [31:0] trace_rs2_rdata;
+    wire [31:0] trace_mem_addr;
+    wire [3:0]  trace_mem_rmask;
+    wire [3:0]  trace_mem_wmask;
+    wire [31:0] trace_mem_rdata;
+    wire [31:0] trace_mem_wdata;
+    wire [11:0] trace_csr_addr;
+    wire [31:0] trace_csr_rmask;
+    wire [31:0] trace_csr_wmask;
+    wire [31:0] trace_csr_rdata;
+    wire [31:0] trace_csr_wdata;
     wire        trace_trap;
     wire [3:0]  trace_trap_cause;
 
@@ -84,6 +98,20 @@ module DitDah32RvfiLite;
         .trace_rd_we(trace_rd_we),
         .trace_rd(trace_rd),
         .trace_rd_wdata(trace_rd_wdata),
+        .trace_rs1_addr(trace_rs1_addr),
+        .trace_rs1_rdata(trace_rs1_rdata),
+        .trace_rs2_addr(trace_rs2_addr),
+        .trace_rs2_rdata(trace_rs2_rdata),
+        .trace_mem_addr(trace_mem_addr),
+        .trace_mem_rmask(trace_mem_rmask),
+        .trace_mem_wmask(trace_mem_wmask),
+        .trace_mem_rdata(trace_mem_rdata),
+        .trace_mem_wdata(trace_mem_wdata),
+        .trace_csr_addr(trace_csr_addr),
+        .trace_csr_rmask(trace_csr_rmask),
+        .trace_csr_wmask(trace_csr_wmask),
+        .trace_csr_rdata(trace_csr_rdata),
+        .trace_csr_wdata(trace_csr_wdata),
         .trace_trap(trace_trap),
         .trace_trap_cause(trace_trap_cause)
     );
@@ -113,19 +141,19 @@ module DitDah32RvfiLite;
     wire       rvfi_intr = trace_valid && trace_trap && trace_trap_cause == 4'h8;
     wire [1:0] rvfi_mode = 2'b11;
     wire [1:0] rvfi_ixl = 2'b01;
-    wire [4:0] rvfi_rs1_addr = 5'd0;
-    wire [4:0] rvfi_rs2_addr = 5'd0;
-    wire [31:0] rvfi_rs1_rdata = 32'd0;
-    wire [31:0] rvfi_rs2_rdata = 32'd0;
+    wire [4:0] rvfi_rs1_addr = trace_rs1_addr;
+    wire [4:0] rvfi_rs2_addr = trace_rs2_addr;
+    wire [31:0] rvfi_rs1_rdata = trace_rs1_addr == 5'd0 ? 32'd0 : trace_rs1_rdata;
+    wire [31:0] rvfi_rs2_rdata = trace_rs2_addr == 5'd0 ? 32'd0 : trace_rs2_rdata;
     wire [4:0] rvfi_rd_addr = trace_rd_we ? {1'b0, trace_rd} : 5'd0;
     wire [31:0] rvfi_rd_wdata = trace_rd_we ? trace_rd_wdata : 32'd0;
     wire [31:0] rvfi_pc_rdata = trace_pc;
     wire [31:0] rvfi_pc_wdata = trace_next_pc;
-    wire [31:0] rvfi_mem_addr = 32'd0;
-    wire [3:0] rvfi_mem_rmask = 4'd0;
-    wire [3:0] rvfi_mem_wmask = 4'd0;
-    wire [31:0] rvfi_mem_rdata = 32'd0;
-    wire [31:0] rvfi_mem_wdata = 32'd0;
+    wire [31:0] rvfi_mem_addr = trace_mem_addr;
+    wire [3:0] rvfi_mem_rmask = trace_mem_rmask;
+    wire [3:0] rvfi_mem_wmask = trace_mem_wmask;
+    wire [31:0] rvfi_mem_rdata = trace_mem_rmask == 4'd0 ? 32'd0 : trace_mem_rdata;
+    wire [31:0] rvfi_mem_wdata = trace_mem_wmask == 4'd0 ? 32'd0 : trace_mem_wdata;
 
     always @(*) begin
         if (!reset) begin
@@ -186,21 +214,36 @@ module DitDah32RvfiLite;
             assert(rvfi_pc_wdata == trace_next_pc);
             assert(rvfi_mode == 2'b11);
             assert(rvfi_ixl == 2'b01);
-            assert(rvfi_rs1_addr == 5'd0);
-            assert(rvfi_rs2_addr == 5'd0);
-            assert(rvfi_rs1_rdata == 32'd0);
-            assert(rvfi_rs2_rdata == 32'd0);
-            assert(rvfi_mem_addr == 32'd0);
-            assert(rvfi_mem_rmask == 4'd0);
-            assert(rvfi_mem_wmask == 4'd0);
-            assert(rvfi_mem_rdata == 32'd0);
-            assert(rvfi_mem_wdata == 32'd0);
+            assert(rvfi_rs1_addr == trace_rs1_addr);
+            assert(rvfi_rs2_addr == trace_rs2_addr);
+            assert(rvfi_rs1_rdata == (trace_rs1_addr == 5'd0 ? 32'd0 : trace_rs1_rdata));
+            assert(rvfi_rs2_rdata == (trace_rs2_addr == 5'd0 ? 32'd0 : trace_rs2_rdata));
+            assert(rvfi_mem_addr == trace_mem_addr);
+            assert(rvfi_mem_rmask == trace_mem_rmask);
+            assert(rvfi_mem_wmask == trace_mem_wmask);
+            assert(rvfi_mem_rdata == (trace_mem_rmask == 4'd0 ? 32'd0 : trace_mem_rdata));
+            assert(rvfi_mem_wdata == (trace_mem_wmask == 4'd0 ? 32'd0 : trace_mem_wdata));
 
             if (rvfi_valid) begin
                 assert(trace_len == 3'd0 || trace_len == 3'd2 || trace_len == 3'd4);
                 assert(rvfi_pc_wdata[0] == 1'b0);
                 assert(!(rvfi_trap && trace_rd_we));
                 assert(rvfi_rd_addr < 5'd16);
+                assert(rvfi_rs1_addr < 5'd16);
+                assert(rvfi_rs2_addr < 5'd16);
+                assert(!(rvfi_mem_rmask != 4'd0 && rvfi_mem_wmask != 4'd0));
+                if (rvfi_mem_rmask == 4'd0) begin
+                    assert(rvfi_mem_rdata == 32'd0);
+                end
+                if (rvfi_mem_wmask == 4'd0) begin
+                    assert(rvfi_mem_wdata == 32'd0);
+                end
+                if (rvfi_rs1_addr == 5'd0) begin
+                    assert(rvfi_rs1_rdata == 32'd0);
+                end
+                if (rvfi_rs2_addr == 5'd0) begin
+                    assert(rvfi_rs2_rdata == 32'd0);
+                end
                 if (trace_rd_we) begin
                     assert(rvfi_rd_addr != 5'd0);
                     assert(rvfi_rd_wdata == trace_rd_wdata);
