@@ -112,14 +112,34 @@ def run_external_riscv_formal(out_dir, logs_dir):
         "name": "external_riscv_formal_suite",
         "status": "missing",
         "tool": probe,
-        "property_groups": ["pc_fwd", "pc_bwd", "unique", "cover"],
+        "property_groups": [
+            "pc_fwd",
+            "pc_bwd",
+            "reg",
+            "csr_selected",
+            "csr_state_subset",
+            "unique",
+            "causal",
+            "causal_io",
+            "causal_mem",
+            "bus_imem",
+            "bus_dmem",
+            "bus_dmem_io_read",
+            "bus_dmem_io_write",
+            "interrupt_entry_shape",
+            "liveness_bounded",
+            "hang",
+            "ill",
+            "cover",
+        ],
         "disabled_property_groups": {
             "instruction_semantics": "The pinned riscv-formal suite has no RV32E instruction model list for isa rv32ec.",
-            "reg": "DitDah32 does not yet expose retired rs1/rs2 address and data on top-level trace pins.",
-            "memory": "DitDah32 does not yet expose retired memory address, mask, and data on top-level trace pins.",
-            "csr": "DitDah32 does not yet expose RVFI CSR read/write masks and data.",
-            "interrupt": "The wrapper ties interrupt inputs low for the current RV32EC consistency subset.",
-            "liveness": "The current nondeterministic AXI environment has no bounded fairness contract for liveness closure.",
+            "bus_fault": "Non-faulting RVFI_BUS instruction/data/IO read/write checks are enabled; RVFI_BUS fault checks remain disabled until non-OKAY AXI responses are specified as RVFI bus faults.",
+            "bus_dmem_io_order": "RVFI_BUS IO read/write checks are enabled; the bus_dmem_io_order check remains a manual long-run target because the depth-24 local probe exceeded the bounded probe timeout.",
+            "fault": "The riscv-formal fault check requires RVFI_MEM_FAULT signals and a memory-fault contract; the current wrapper does not drive rvfi_mem_fault or fault masks.",
+            "csr_full": "Selected CSR instruction checks and a CSR state subset are enabled; arbitrary WARL writes, read-only illegal-write behavior, and trap-entry CSR side effects remain staged.",
+            "interrupt_full_csr_side_effects": "The interrupt-entry RVFI shape suite is enabled; full interrupt CSR side-effect and interrupt-fairness proofs remain staged.",
+            "liveness_wfi_interrupt_fairness": "Bounded liveness is enabled for non-WFI retired instructions; WFI wakeup and interrupt-fairness liveness remain staged.",
         },
     }
     if not probe["available"]:
@@ -147,40 +167,120 @@ def run_external_riscv_formal(out_dir, logs_dir):
 
     config_dir = REPO_ROOT / "formal" / "riscv_formal" / "ditdah32"
     shutil.copy2(config_dir / "checks.cfg", core_dir / "checks.cfg")
+    shutil.copy2(config_dir / "checks_bus.cfg", core_dir / "checks_bus.cfg")
+    shutil.copy2(config_dir / "checks_csr.cfg", core_dir / "checks_csr.cfg")
+    shutil.copy2(config_dir / "checks_csr_state.cfg", core_dir / "checks_csr_state.cfg")
+    shutil.copy2(config_dir / "checks_liveness.cfg", core_dir / "checks_liveness.cfg")
+    shutil.copy2(config_dir / "checks_order.cfg", core_dir / "checks_order.cfg")
+    shutil.copy2(config_dir / "checks_interrupt.cfg", core_dir / "checks_interrupt.cfg")
     shutil.copy2(config_dir / "wrapper.sv", core_dir / "wrapper.sv")
     shutil.copy2(REPO_ROOT / "result" / "DitDah32.sv", core_dir / "DitDah32.sv")
 
-    gen_step = run(["riscv-formal", "genchecks"], logs_dir / "riscv_formal_genchecks.log", cwd=core_dir)
     step["source_path"] = str(source)
     step["work_root"] = rel(work_root)
     step["core_dir"] = rel(core_dir)
-    step["genchecks"] = gen_step
-    if gen_step["status"] != "pass":
-        step["status"] = "fail"
-        step["reason"] = "riscv-formal genchecks failed."
-        return step
 
-    checks_dir = core_dir / "checks"
-    generated_sby = sorted(checks_dir.glob("*.sby"))
-    make_step = run(["make", "-C", "checks", "-j1"], logs_dir / "riscv_formal_make.log", cwd=core_dir)
-    step["make"] = make_step
-    step["generated_checks"] = [path.stem for path in generated_sby]
-    step["check_statuses"] = collect_check_statuses(checks_dir)
+    def run_config(config_name, checks_name, log_prefix, property_groups):
+        gen_command = ["riscv-formal", "genchecks"]
+        if config_name != "checks":
+            gen_command.append(config_name)
+        gen_step = run(gen_command, logs_dir / f"{log_prefix}_genchecks.log", cwd=core_dir)
+        suite = {
+            "name": log_prefix,
+            "config": f"{config_name}.cfg",
+            "checks_dir": rel(core_dir / checks_name),
+            "property_groups": property_groups,
+            "genchecks": gen_step,
+            "status": "fail",
+        }
+        if gen_step["status"] != "pass":
+            suite["reason"] = "riscv-formal genchecks failed."
+            return suite
 
-    failed_checks = [
-        check for check in step["check_statuses"]
-        if not check["status"].upper().startswith(("PASS", "DONE"))
+        checks_dir = core_dir / checks_name
+        generated_sby = sorted(checks_dir.glob("*.sby"))
+        make_step = run(["make", "-C", checks_name, "-j1"], logs_dir / f"{log_prefix}_make.log", cwd=core_dir)
+        statuses = collect_check_statuses(checks_dir)
+        failed_checks = [
+            check for check in statuses
+            if not check["status"].upper().startswith(("PASS", "DONE"))
+        ]
+        suite["make"] = make_step
+        suite["generated_checks"] = [path.stem for path in generated_sby]
+        suite["check_statuses"] = statuses
+
+        if make_step["status"] == "pass" and generated_sby and not failed_checks:
+            suite["status"] = "pass"
+        elif not generated_sby:
+            suite["reason"] = "No riscv-formal checks were generated."
+        elif failed_checks:
+            suite["reason"] = "One or more generated riscv-formal checks did not pass."
+        else:
+            suite["reason"] = "Generated riscv-formal make step failed."
+        return suite
+
+    suites = [
+        run_config(
+            "checks",
+            "checks",
+            "riscv_formal_consistency",
+            ["pc_fwd", "pc_bwd", "reg", "unique", "causal_mem", "cover"],
+        ),
+        run_config(
+            "checks_bus",
+            "checks_bus",
+            "riscv_formal_bus_nonfault",
+            ["bus_imem", "bus_dmem", "bus_dmem_io_read", "bus_dmem_io_write"],
+        ),
+        run_config(
+            "checks_csr",
+            "checks_csr",
+            "riscv_formal_csr_selected",
+            ["csrw_selected"],
+        ),
+        run_config(
+            "checks_csr_state",
+            "checks_csr_state",
+            "riscv_formal_csr_state_subset",
+            ["csr_state_subset"],
+        ),
+        run_config(
+            "checks_liveness",
+            "checks_liveness",
+            "riscv_formal_liveness_bounded",
+            ["liveness_bounded"],
+        ),
+        run_config(
+            "checks_interrupt",
+            "checks_interrupt",
+            "riscv_formal_interrupt_entry_shape",
+            ["interrupt_entry_shape"],
+        ),
+        run_config(
+            "checks_order",
+            "checks_order",
+            "riscv_formal_order_and_illegal",
+            ["causal", "causal_io", "hang", "ill"],
+        ),
     ]
-    if make_step["status"] == "pass" and generated_sby and not failed_checks:
+    step["suites"] = suites
+    step["generated_checks"] = [
+        check
+        for suite in suites
+        for check in suite.get("generated_checks", [])
+    ]
+    step["check_statuses"] = [
+        {**check, "suite": suite["name"]}
+        for suite in suites
+        for check in suite.get("check_statuses", [])
+    ]
+
+    failed_suites = [suite for suite in suites if suite["status"] != "pass"]
+    if suites and not failed_suites:
         step["status"] = "pass"
     else:
         step["status"] = "fail"
-        if not generated_sby:
-            step["reason"] = "No riscv-formal checks were generated."
-        elif failed_checks:
-            step["reason"] = "One or more generated riscv-formal checks did not pass."
-        else:
-            step["reason"] = "Generated riscv-formal make step failed."
+        step["reason"] = "One or more riscv-formal suites did not pass."
     return step
 
 
@@ -236,9 +336,9 @@ def main():
         "steps": steps,
         "limitations": [
             "This is a passing external riscv-formal consistency subset, not full instruction-semantic RVFI closure.",
-            "The enabled external property groups are pc_fwd, pc_bwd, unique, and cover.",
+            "The enabled external property groups are pc_fwd, pc_bwd, reg, selected CSR instruction checks, CSR state subset checks, unique, causal, causal_io, causal_mem, non-faulting RVFI_BUS instruction/data/IO read/write checks, interrupt entry shape, bounded liveness, hang, ill, and cover.",
             "Instruction-semantic checks are disabled because the pinned riscv-formal suite has no RV32E instruction model list for isa rv32ec.",
-            "Register-read, memory, CSR, interrupt, and liveness groups are disabled until DitDah32 exposes the required RVFI fields and environment contracts.",
+            "Instruction-semantic, arbitrary WARL CSR writes, read-only illegal-write behavior, trap-entry CSR side effects, memory-fault, RVFI_BUS fault and long-run IO-order groups, full interrupt CSR side-effect/fairness, and WFI/interrupt-fairness liveness remain disabled until DitDah32 exposes the remaining RVFI fields and environment contracts.",
         ],
     }
     report_path = out_dir / "rvfi.json"

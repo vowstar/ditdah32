@@ -137,18 +137,29 @@ the cycle that the trace trap item is emitted.
 
 ## Trace Model
 
-Each committed or trapping instruction produces one architectural trace item:
+Trace is a verification-only architectural observation interface. Production
+builds default to `enableTrace=false` and must not expose `trace_*` or direct
+`rvfi_*` top-level ports. RTL simulation, trace comparison, RVFI-lite, and the
+riscv-formal wrapper use a trace-enabled verification build generated with
+`enableTrace=true`.
+
+In a trace-enabled verification build, each committed or trapping instruction
+produces one architectural trace item:
 
 - PC.
 - next PC.
 - raw instruction bits.
 - instruction length in bytes.
 - optional register writeback.
+- retired source register addresses and pre-state read data for operands that
+  the instruction actually reads.
 - optional memory access.
+- optional retired CSR access address, read mask/data, and write mask/data for
+  committed CSR instructions.
 - trap flag and trap cause.
 
-The trace is the primary equivalence boundary between the RTL and the reference
-model.
+The trace is the primary verification equivalence boundary between the RTL and
+the reference model.
 
 ## Current Scaffold Requirement
 
@@ -195,5 +206,7 @@ slice for RV32E plus RV32EC compressed integer instructions:
 ## Open Requirements
 
 - Full AXI4 burst or ID support, if a later integration requires it.
-- Full RVFI compatibility with riscv-formal, if a later signoff requires the
-  external RVFI protocol rather than the current RVFI-lite trace adapter.
+- Remaining full RVFI compatibility with riscv-formal, beyond the current
+  verification-only consistency, selected CSR, CSR state subset, non-faulting
+  RVFI_BUS, bounded liveness, interrupt-entry shape, causal, hang, and
+  illegal-instruction subsets.

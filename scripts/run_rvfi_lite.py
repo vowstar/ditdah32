@@ -11,9 +11,10 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 LIMITATIONS = [
     "RVFI-lite derives retirement from DitDah32 trace pins, not a complete riscv-formal RVFI implementation.",
-    "rvfi_pc_wdata is driven by trace_next_pc but has not been checked by the external riscv-formal property suite.",
-    "rvfi_rs1/rs2 fields are not available because the current trace interface does not expose register-read operands.",
-    "rvfi_mem_* fields are not available because memory trace metadata is reconstructed in cocotb, not exposed as RTL pins.",
+    "rvfi_pc_wdata is driven by trace_next_pc and the external riscv-formal subset checks PC consistency separately.",
+    "rvfi_rs1/rs2 fields are driven by retired source-operand trace pins and are checked by the external riscv-formal reg group.",
+    "rvfi_mem_* fields are driven by retired memory trace pins; non-faulting RVFI_BUS checks run in make verify-rvfi.",
+    "trace_csr_* fields are connected for elaboration, but RVFI-lite does not prove CSR semantics; selected CSR and CSR state subset checks run in make verify-rvfi.",
     "This check proves adapter consistency only; it does not run the external riscv-formal property suite.",
 ]
 

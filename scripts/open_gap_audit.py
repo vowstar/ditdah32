@@ -318,6 +318,12 @@ def audit_rvfi():
     has_rvfi_lite_file = (REPO_ROOT / "formal" / "ditdah32_rvfi_lite.sv").exists()
     has_riscv_formal_wrapper = (REPO_ROOT / "formal" / "riscv_formal" / "ditdah32" / "wrapper.sv").exists()
     has_riscv_formal_cfg = (REPO_ROOT / "formal" / "riscv_formal" / "ditdah32" / "checks.cfg").exists()
+    has_riscv_formal_bus_cfg = (REPO_ROOT / "formal" / "riscv_formal" / "ditdah32" / "checks_bus.cfg").exists()
+    has_riscv_formal_csr_cfg = (REPO_ROOT / "formal" / "riscv_formal" / "ditdah32" / "checks_csr.cfg").exists()
+    has_riscv_formal_csr_state_cfg = (REPO_ROOT / "formal" / "riscv_formal" / "ditdah32" / "checks_csr_state.cfg").exists()
+    has_riscv_formal_liveness_cfg = (REPO_ROOT / "formal" / "riscv_formal" / "ditdah32" / "checks_liveness.cfg").exists()
+    has_riscv_formal_order_cfg = (REPO_ROOT / "formal" / "riscv_formal" / "ditdah32" / "checks_order.cfg").exists()
+    has_riscv_formal_interrupt_cfg = (REPO_ROOT / "formal" / "riscv_formal" / "ditdah32" / "checks_interrupt.cfg").exists()
     riscv_formal_available = tool_capability(tool_report, "riscv_formal_suite")
     symbiyosys_available = tool_capability(tool_report, "symbiyosys_available")
     evidence = [
@@ -326,6 +332,12 @@ def audit_rvfi():
         artifact("formal/ditdah32_rvfi_lite.sv", has_rvfi_lite_file),
         artifact("formal/riscv_formal/ditdah32/wrapper.sv", has_riscv_formal_wrapper),
         artifact("formal/riscv_formal/ditdah32/checks.cfg", has_riscv_formal_cfg),
+        artifact("formal/riscv_formal/ditdah32/checks_bus.cfg", has_riscv_formal_bus_cfg),
+        artifact("formal/riscv_formal/ditdah32/checks_csr.cfg", has_riscv_formal_csr_cfg),
+        artifact("formal/riscv_formal/ditdah32/checks_csr_state.cfg", has_riscv_formal_csr_state_cfg),
+        artifact("formal/riscv_formal/ditdah32/checks_liveness.cfg", has_riscv_formal_liveness_cfg),
+        artifact("formal/riscv_formal/ditdah32/checks_order.cfg", has_riscv_formal_order_cfg),
+        artifact("formal/riscv_formal/ditdah32/checks_interrupt.cfg", has_riscv_formal_interrupt_cfg),
         artifact("scripts/run_formal.py"),
         artifact("scripts/run_rvfi_lite.py"),
         artifact("scripts/run_rvfi.py"),
@@ -337,6 +349,12 @@ def audit_rvfi():
         {"rvfi_lite_file_present": has_rvfi_lite_file},
         {"riscv_formal_wrapper_present": has_riscv_formal_wrapper},
         {"riscv_formal_config_present": has_riscv_formal_cfg},
+        {"riscv_formal_bus_config_present": has_riscv_formal_bus_cfg},
+        {"riscv_formal_csr_config_present": has_riscv_formal_csr_cfg},
+        {"riscv_formal_csr_state_config_present": has_riscv_formal_csr_state_cfg},
+        {"riscv_formal_liveness_config_present": has_riscv_formal_liveness_cfg},
+        {"riscv_formal_order_config_present": has_riscv_formal_order_cfg},
+        {"riscv_formal_interrupt_config_present": has_riscv_formal_interrupt_cfg},
         {"symbiyosys_available": symbiyosys_available},
         {"riscv_formal_suite_available": riscv_formal_available},
         {"rvfi_lite_limitations": (rvfi_lite_report or {}).get("limitations", [])},
@@ -358,6 +376,18 @@ def audit_rvfi():
         missing.append("No DitDah32 riscv-formal wrapper exists.")
     if not has_riscv_formal_cfg:
         missing.append("No DitDah32 riscv-formal checks.cfg exists.")
+    if not has_riscv_formal_bus_cfg:
+        missing.append("No DitDah32 riscv-formal checks_bus.cfg exists.")
+    if not has_riscv_formal_csr_cfg:
+        missing.append("No DitDah32 riscv-formal checks_csr.cfg exists.")
+    if not has_riscv_formal_csr_state_cfg:
+        missing.append("No DitDah32 riscv-formal checks_csr_state.cfg exists.")
+    if not has_riscv_formal_liveness_cfg:
+        missing.append("No DitDah32 riscv-formal checks_liveness.cfg exists.")
+    if not has_riscv_formal_order_cfg:
+        missing.append("No DitDah32 riscv-formal checks_order.cfg exists.")
+    if not has_riscv_formal_interrupt_cfg:
+        missing.append("No DitDah32 riscv-formal checks_interrupt.cfg exists.")
     if not has_rvfi_lite_target:
         missing.append("No make verify-rvfi-lite target exists.")
     if not has_rvfi_target:
@@ -370,8 +400,39 @@ def audit_rvfi():
         missing.append("No passing external riscv-formal report exists.")
     if rvfi_report_pass and not external_property_groups:
         missing.append("Passing RVFI report does not list enabled external property groups.")
+    if rvfi_report_pass and "csr_selected" not in external_property_groups:
+        missing.append("Passing RVFI report does not list the selected CSR property group.")
+    if rvfi_report_pass and "csr_state_subset" not in external_property_groups:
+        missing.append("Passing RVFI report does not list the CSR state subset property group.")
+    if rvfi_report_pass and "liveness_bounded" not in external_property_groups:
+        missing.append("Passing RVFI report does not list the bounded liveness property group.")
+    if rvfi_report_pass and "interrupt_entry_shape" not in external_property_groups:
+        missing.append("Passing RVFI report does not list the interrupt entry shape property group.")
+    for group in [
+        "causal",
+        "causal_io",
+        "bus_imem",
+        "bus_dmem",
+        "bus_dmem_io_read",
+        "bus_dmem_io_write",
+        "hang",
+        "ill",
+    ]:
+        if rvfi_report_pass and group not in external_property_groups:
+            missing.append(f"Passing RVFI report does not list the {group} property group.")
     if rvfi_report_pass and not disabled_property_groups:
         missing.append("Passing RVFI report does not document disabled property groups.")
+    for group in [
+        "instruction_semantics",
+        "bus_fault",
+        "bus_dmem_io_order",
+        "fault",
+        "csr_full",
+        "interrupt_full_csr_side_effects",
+        "liveness_wfi_interrupt_fairness",
+    ]:
+        if rvfi_report_pass and group not in disabled_property_groups:
+            missing.append(f"Passing RVFI report does not document the disabled {group} property group.")
     closed = (
         local_formal_pass
         and rvfi_lite_pass
@@ -379,11 +440,45 @@ def audit_rvfi():
         and has_rvfi_lite_target
         and has_riscv_formal_wrapper
         and has_riscv_formal_cfg
+        and has_riscv_formal_bus_cfg
+        and has_riscv_formal_csr_cfg
+        and has_riscv_formal_csr_state_cfg
+        and has_riscv_formal_liveness_cfg
+        and has_riscv_formal_order_cfg
+        and has_riscv_formal_interrupt_cfg
         and riscv_formal_available
         and symbiyosys_available
         and rvfi_report_pass
         and bool(external_property_groups)
-        and bool(disabled_property_groups)
+        and "csr_selected" in external_property_groups
+        and "csr_state_subset" in external_property_groups
+        and "liveness_bounded" in external_property_groups
+        and "interrupt_entry_shape" in external_property_groups
+        and all(
+            group in external_property_groups
+            for group in [
+                "causal",
+                "causal_io",
+                "bus_imem",
+                "bus_dmem",
+                "bus_dmem_io_read",
+                "bus_dmem_io_write",
+                "hang",
+                "ill",
+            ]
+        )
+        and all(
+            group in disabled_property_groups
+            for group in [
+                "instruction_semantics",
+                "bus_fault",
+                "bus_dmem_io_order",
+                "fault",
+                "csr_full",
+                "interrupt_full_csr_side_effects",
+                "liveness_wfi_interrupt_fairness",
+            ]
+        )
     )
     return make_gap(
         "rvfi_riscv_formal",

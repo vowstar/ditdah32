@@ -48,8 +48,8 @@ SMOKE_STEPS = [
     ),
     Step(
         "rtl_build",
-        ["build-ditdah32"],
-        "Generate DitDah32 Verilog from Zaozi source.",
+        ["build-ditdah32", "--trace"],
+        "Generate trace-enabled DitDah32 Verilog from Zaozi source for RTL verification.",
     ),
 ]
 
@@ -253,7 +253,12 @@ SIGNOFF_STEPS = [
     Step(
         "rvfi_standard",
         ["python3", "scripts/run_rvfi.py", "--depth", "24"],
-        "Run the external riscv-formal consistency subset and record disabled property groups.",
+        "Run the external riscv-formal consistency, selected CSR, CSR state, non-faulting RVFI_BUS, interrupt entry shape, bounded liveness, causal, hang, and illegal-instruction subsets and record disabled property groups.",
+    ),
+    Step(
+        "trace_config_audit",
+        ["python3", "scripts/trace_config_audit.py", "--out-dir", "result/verification"],
+        "Build and audit production no-trace and verification trace-enabled RTL configurations.",
     ),
     Step(
         "signoff_coverage",
