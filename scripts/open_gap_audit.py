@@ -406,6 +406,8 @@ def audit_rvfi():
         missing.append("Passing RVFI report does not list the CSR state subset property group.")
     if rvfi_report_pass and "liveness_bounded" not in external_property_groups:
         missing.append("Passing RVFI report does not list the bounded liveness property group.")
+    if rvfi_report_pass and "wfi_wake" not in external_property_groups:
+        missing.append("Passing RVFI report does not list the WFI bounded-wake property group.")
     if rvfi_report_pass and "interrupt_entry_shape" not in external_property_groups:
         missing.append("Passing RVFI report does not list the interrupt entry shape property group.")
     for group in [
@@ -429,7 +431,6 @@ def audit_rvfi():
         "fault",
         "csr_full",
         "interrupt_full_csr_side_effects",
-        "liveness_wfi_interrupt_fairness",
     ]:
         if rvfi_report_pass and group not in disabled_property_groups:
             missing.append(f"Passing RVFI report does not document the disabled {group} property group.")
@@ -453,6 +454,7 @@ def audit_rvfi():
         and "csr_selected" in external_property_groups
         and "csr_state_subset" in external_property_groups
         and "liveness_bounded" in external_property_groups
+        and "wfi_wake" in external_property_groups
         and "interrupt_entry_shape" in external_property_groups
         and all(
             group in external_property_groups
@@ -476,7 +478,6 @@ def audit_rvfi():
                 "fault",
                 "csr_full",
                 "interrupt_full_csr_side_effects",
-                "liveness_wfi_interrupt_fairness",
             ]
         )
     )

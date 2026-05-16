@@ -1798,6 +1798,85 @@ async def wfi_sleeps_until_enabled_software_interrupt_and_mret_returns(dut):
 
 
 @cocotb.test()
+async def wfi_sleeps_until_enabled_machine_timer_interrupt_and_mret_returns(dut):
+    program_by_pc = {
+        0x00: i_type(0x40, 0, 0x0, 1),
+        0x04: csrrw(CSR_MTVEC, 1, 0),
+        0x08: i_type(0x80, 0, 0x0, 2),
+        0x0C: csrrw(CSR_MIE, 2, 0),
+        0x10: csrrsi(CSR_MSTATUS, 8, 0),
+        0x14: WFI,
+        0x18: i_type(1, 0, 0x0, 3),
+        0x1C: EBREAK,
+        0x40: csrrs(CSR_MCAUSE, 0, 4),
+        0x44: csrrs(CSR_MEPC, 0, 5),
+        0x48: MRET,
+    }
+    image = sparse_image((pc, pack_words([instr])) for pc, instr in program_by_pc.items())
+    await start_core(dut, image)
+
+    prefix = await with_timeout(collect_trace(dut, 6), 20, "us")
+    assert_trace(prefix[5], 0x14, WFI)
+
+    for _ in range(5):
+        await RisingEdge(dut.clk)
+        await Timer(1, unit="ns")
+        assert int(dut.core_sleep.value) == 1
+        assert int(dut.axi_arvalid.value) == 0
+
+    dut.irq_timer.value = 1
+    suffix = await with_timeout(collect_trace(dut, 3, max_cycles=200), 20, "us")
+    dut.irq_timer.value = 0
+    tail = await with_timeout(collect_trace(dut, 2, max_cycles=120), 20, "us")
+
+    assert_trace(suffix[0], 0x18, 0, length=0, trap=True, cause=INTERRUPT_CAUSE)
+    assert_trace(suffix[1], 0x40, program_by_pc[0x40], rd=4, rd_wdata=MCAUSE_IRQ_TIMER)
+    assert_trace(suffix[2], 0x44, program_by_pc[0x44], rd=5, rd_wdata=0x18)
+    assert_trace(tail[0], 0x48, MRET)
+    assert_trace(tail[1], 0x18, program_by_pc[0x18], rd=3, rd_wdata=1)
+
+
+@cocotb.test()
+async def wfi_sleeps_until_enabled_machine_external_interrupt_and_mret_returns(dut):
+    program_by_pc = {
+        0x00: i_type(0x40, 0, 0x0, 1),
+        0x04: csrrw(CSR_MTVEC, 1, 0),
+        0x08: u_type(0x1000, 2, 0x37),
+        0x0C: i_type(-0x800, 2, 0x0, 2),
+        0x10: csrrw(CSR_MIE, 2, 0),
+        0x14: csrrsi(CSR_MSTATUS, 8, 0),
+        0x18: WFI,
+        0x1C: i_type(1, 0, 0x0, 3),
+        0x20: EBREAK,
+        0x40: csrrs(CSR_MCAUSE, 0, 4),
+        0x44: csrrs(CSR_MEPC, 0, 5),
+        0x48: MRET,
+    }
+    image = sparse_image((pc, pack_words([instr])) for pc, instr in program_by_pc.items())
+    await start_core(dut, image)
+
+    prefix = await with_timeout(collect_trace(dut, 7), 20, "us")
+    assert_trace(prefix[6], 0x18, WFI)
+
+    for _ in range(5):
+        await RisingEdge(dut.clk)
+        await Timer(1, unit="ns")
+        assert int(dut.core_sleep.value) == 1
+        assert int(dut.axi_arvalid.value) == 0
+
+    dut.irq_external.value = 1
+    suffix = await with_timeout(collect_trace(dut, 3, max_cycles=200), 20, "us")
+    dut.irq_external.value = 0
+    tail = await with_timeout(collect_trace(dut, 2, max_cycles=120), 20, "us")
+
+    assert_trace(suffix[0], 0x1C, 0, length=0, trap=True, cause=INTERRUPT_CAUSE)
+    assert_trace(suffix[1], 0x40, program_by_pc[0x40], rd=4, rd_wdata=MCAUSE_IRQ_EXTERNAL)
+    assert_trace(suffix[2], 0x44, program_by_pc[0x44], rd=5, rd_wdata=0x1C)
+    assert_trace(tail[0], 0x48, MRET)
+    assert_trace(tail[1], 0x1C, program_by_pc[0x1C], rd=3, rd_wdata=1)
+
+
+@cocotb.test()
 async def wfi_wakes_without_trap_when_global_mie_is_clear(dut):
     program_by_pc = {
         0x00: i_type(0x40, 0, 0x0, 1),

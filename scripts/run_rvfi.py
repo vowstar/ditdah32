@@ -106,6 +106,116 @@ def collect_check_statuses(checks_dir):
     return statuses
 
 
+WFI_WAKE_SBY_TEMPLATE = """[options]
+mode bmc
+expect pass,fail
+append 0
+depth {depth_plus}
+skip {depth}
+
+[engines]
+smtbmc z3
+
+[script]
+read -sv wfi_wake_ch0.sv {wrapper_sv} {dut_sv}
+prep -flatten -nordff -top rvfi_testbench
+chformal -early
+
+[files]
+{macros_vh}
+{channel_sv}
+{testbench_sv}
+{checker_sv}
+
+[file defines.sv]
+`define RISCV_FORMAL
+`define RISCV_FORMAL_NRET 1
+`define RISCV_FORMAL_XLEN 32
+`define RISCV_FORMAL_ILEN 32
+`define RISCV_FORMAL_CHECKER rvfi_cover_check
+`define RISCV_FORMAL_RESET_CYCLES 1
+`define RISCV_FORMAL_CHECK_CYCLE {depth}
+`define YOSYS
+`define RISCV_FORMAL_ALIGNED_MEM
+`define RISCV_FORMAL_VALIDADDR(addr) 1'b1
+`define DITDAH32_RVFI_ENABLE_IRQ
+`define DITDAH32_RVFI_WFI_WAKE_CHECK
+`include "rvfi_macros.vh"
+
+[file wfi_wake_ch0.sv]
+`include "defines.sv"
+`include "rvfi_channel.sv"
+`include "rvfi_testbench.sv"
+`include "rvfi_cover_check.sv"
+
+[file cover_stmts.vh]
+always @* if (!reset) cover (1'b1);
+"""
+
+
+def run_wfi_wake_suite(core_dir, source, logs_dir):
+    """Run the WFI bounded-wake proof outside the genchecks pipeline.
+
+    The proof relies on a counter and assertion inside formal/riscv_formal/
+    ditdah32/wrapper.sv guarded by DITDAH32_RVFI_WFI_WAKE_CHECK. genchecks has
+    no built-in template for this property, so we emit a hand-rolled SBY file
+    that elaborates the wrapper under symbolic IRQ inputs and runs BMC to
+    sufficient depth for the in-wrapper invariant to be checked.
+    """
+    suite = {
+        "name": "riscv_formal_liveness_wfi_wake",
+        "config": "wfi_wake.sby",
+        "checks_dir": rel(core_dir / "checks_wfi_wake"),
+        "property_groups": ["wfi_wake"],
+        "status": "fail",
+    }
+    bound = 8
+    depth = bound + 4
+    sby_dir = core_dir / "checks_wfi_wake"
+    if sby_dir.exists():
+        make_writable(sby_dir)
+        shutil.rmtree(sby_dir, ignore_errors=True)
+    sby_dir.mkdir(parents=True, exist_ok=True)
+    checks_root = source / "checks"
+    sby_text = WFI_WAKE_SBY_TEMPLATE.format(
+        depth=depth,
+        depth_plus=depth + 1,
+        wrapper_sv=str((core_dir / "wrapper.sv").resolve()),
+        dut_sv=str((core_dir / "DitDah32.sv").resolve()),
+        macros_vh=str((checks_root / "rvfi_macros.vh").resolve()),
+        channel_sv=str((checks_root / "rvfi_channel.sv").resolve()),
+        testbench_sv=str((checks_root / "rvfi_testbench.sv").resolve()),
+        checker_sv=str((checks_root / "rvfi_cover_check.sv").resolve()),
+    )
+    sby_path = sby_dir / "wfi_wake_ch0.sby"
+    sby_path.write_text(sby_text, encoding="utf-8")
+    suite["generated_checks"] = ["wfi_wake_ch0"]
+    sby_step = run(
+        ["sby", "-f", "-d", "wfi_wake_ch0", str(sby_path)],
+        logs_dir / "riscv_formal_liveness_wfi_wake_sby.log",
+        cwd=sby_dir,
+    )
+    suite["sby"] = sby_step
+    status_path = sby_dir / "wfi_wake_ch0" / "status"
+    if status_path.exists():
+        status_text = status_path.read_text(encoding="utf-8", errors="replace").strip()
+        suite["check_statuses"] = [
+            {
+                "check": "wfi_wake_ch0",
+                "status_file": rel(status_path),
+                "status": status_text,
+            }
+        ]
+        if status_text.upper().startswith(("PASS", "DONE")) and sby_step["status"] == "pass":
+            suite["status"] = "pass"
+        else:
+            suite["reason"] = f"wfi_wake_ch0 status: {status_text}"
+    else:
+        suite["check_statuses"] = []
+        suite["reason"] = "wfi_wake_ch0 did not produce a status file."
+    return suite
+
+
 def run_external_riscv_formal(out_dir, logs_dir):
     probe = command_probe("riscv-formal")
     step = {
@@ -129,6 +239,7 @@ def run_external_riscv_formal(out_dir, logs_dir):
             "bus_dmem_io_order",
             "interrupt_entry_shape",
             "liveness_bounded",
+            "wfi_wake",
             "hang",
             "ill",
             "cover",
@@ -139,7 +250,6 @@ def run_external_riscv_formal(out_dir, logs_dir):
             "fault": "The riscv-formal fault check requires RVFI_MEM_FAULT signals and a memory-fault contract; the current wrapper does not drive rvfi_mem_fault or fault masks.",
             "csr_full": "CSR instruction checks (csrw_check) are enabled for the writable M-mode CSRs mstatus, mie, mtvec, mscratch, mepc, mcause, and mtval, alongside the CSR state subset for reserved-zero and read-only constant fields; read-only illegal-write trap behavior and full trap-entry CSR side effects remain staged for a future custom SVA layer.",
             "interrupt_full_csr_side_effects": "The interrupt-entry RVFI shape suite is enabled; full interrupt CSR side-effect and interrupt-fairness proofs remain staged.",
-            "liveness_wfi_interrupt_fairness": "Bounded liveness is enabled for non-WFI retired instructions; WFI wakeup and interrupt-fairness liveness remain staged.",
         },
     }
     if not probe["available"]:
@@ -250,6 +360,7 @@ def run_external_riscv_formal(out_dir, logs_dir):
             "riscv_formal_liveness_bounded",
             ["liveness_bounded"],
         ),
+        run_wfi_wake_suite(core_dir, source, logs_dir),
         run_config(
             "checks_interrupt",
             "checks_interrupt",
@@ -336,9 +447,9 @@ def main():
         "steps": steps,
         "limitations": [
             "This is a passing external riscv-formal consistency subset, not full instruction-semantic RVFI closure.",
-            "The enabled external property groups are pc_fwd, pc_bwd, reg, CSR instruction checks for all writable M-mode CSRs, CSR state subset checks, unique, causal, causal_io, causal_mem, non-faulting RVFI_BUS instruction/data/IO read/write/order checks, interrupt entry shape, bounded liveness, hang, ill, and cover.",
+            "The enabled external property groups are pc_fwd, pc_bwd, reg, CSR instruction checks for all writable M-mode CSRs, CSR state subset checks, unique, causal, causal_io, causal_mem, non-faulting RVFI_BUS instruction/data/IO read/write/order checks, interrupt entry shape, bounded liveness for non-WFI retires, bounded WFI wake under MIE-enabled IRQs, hang, ill, and cover.",
             "Instruction-semantic checks are disabled because the pinned riscv-formal suite has no RV32E instruction model list for isa rv32ec.",
-            "Instruction-semantic, arbitrary WARL CSR writes, read-only illegal-write behavior, trap-entry CSR side effects, memory-fault, RVFI_BUS fault, full interrupt CSR side-effect/fairness, and WFI/interrupt-fairness liveness remain disabled until DitDah32 exposes the remaining RVFI fields and environment contracts.",
+            "Instruction-semantic, arbitrary WARL CSR writes, read-only illegal-write behavior, trap-entry CSR side effects, memory-fault, RVFI_BUS fault, and full interrupt CSR side-effect/fairness remain disabled until DitDah32 exposes the remaining RVFI fields and environment contracts.",
         ],
     }
     report_path = out_dir / "rvfi.json"

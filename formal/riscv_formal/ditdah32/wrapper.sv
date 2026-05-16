@@ -378,4 +378,29 @@ module rvfi_wrapper (
             end
         end
     end
+
+`ifdef DITDAH32_RVFI_WFI_WAKE_CHECK
+    // Bounded-liveness fairness for WFI: when the core is in the sleep state
+    // and an MIE-enabled IRQ is pending (irq_pending = irqTrapPending in the
+    // core), the implementation must exit sleep within DITDAH32_WFI_BOUND
+    // cycles. The 2-stage pipeline has no caches or speculative state, so the
+    // wake plus first-handler-fetch path is at most a handful of cycles.
+    // This is a tight but finite bound.
+    localparam integer DITDAH32_WFI_BOUND = 8;
+    reg [3:0] wfi_wake_counter;
+    always @(posedge clock) begin
+        if (reset) begin
+            wfi_wake_counter <= 4'd0;
+        end else if (core_sleep && irq_pending) begin
+            wfi_wake_counter <= wfi_wake_counter + 4'd1;
+        end else begin
+            wfi_wake_counter <= 4'd0;
+        end
+    end
+    always @(posedge clock) begin
+        if (!reset) begin
+            assert (wfi_wake_counter < DITDAH32_WFI_BOUND);
+        end
+    end
+`endif
 endmodule
