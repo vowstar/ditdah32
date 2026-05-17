@@ -324,6 +324,7 @@ def audit_rvfi():
     has_riscv_formal_liveness_cfg = (REPO_ROOT / "formal" / "riscv_formal" / "ditdah32" / "checks_liveness.cfg").exists()
     has_riscv_formal_order_cfg = (REPO_ROOT / "formal" / "riscv_formal" / "ditdah32" / "checks_order.cfg").exists()
     has_riscv_formal_interrupt_cfg = (REPO_ROOT / "formal" / "riscv_formal" / "ditdah32" / "checks_interrupt.cfg").exists()
+    has_riscv_formal_fault_cfg = (REPO_ROOT / "formal" / "riscv_formal" / "ditdah32" / "checks_fault.cfg").exists()
     riscv_formal_available = tool_capability(tool_report, "riscv_formal_suite")
     symbiyosys_available = tool_capability(tool_report, "symbiyosys_available")
     evidence = [
@@ -338,6 +339,7 @@ def audit_rvfi():
         artifact("formal/riscv_formal/ditdah32/checks_liveness.cfg", has_riscv_formal_liveness_cfg),
         artifact("formal/riscv_formal/ditdah32/checks_order.cfg", has_riscv_formal_order_cfg),
         artifact("formal/riscv_formal/ditdah32/checks_interrupt.cfg", has_riscv_formal_interrupt_cfg),
+        artifact("formal/riscv_formal/ditdah32/checks_fault.cfg", has_riscv_formal_fault_cfg),
         artifact("scripts/run_formal.py"),
         artifact("scripts/run_rvfi_lite.py"),
         artifact("scripts/run_rvfi.py"),
@@ -418,6 +420,9 @@ def audit_rvfi():
         "bus_dmem_io_read",
         "bus_dmem_io_write",
         "bus_dmem_io_order",
+        "fault",
+        "bus_dmem_fault",
+        "bus_imem_fault",
         "hang",
         "ill",
     ]:
@@ -427,8 +432,6 @@ def audit_rvfi():
         missing.append("Passing RVFI report does not document disabled property groups.")
     for group in [
         "instruction_semantics",
-        "bus_fault",
-        "fault",
         "csr_full",
         "interrupt_full_csr_side_effects",
     ]:
@@ -447,6 +450,7 @@ def audit_rvfi():
         and has_riscv_formal_liveness_cfg
         and has_riscv_formal_order_cfg
         and has_riscv_formal_interrupt_cfg
+        and has_riscv_formal_fault_cfg
         and riscv_formal_available
         and symbiyosys_available
         and rvfi_report_pass
@@ -466,6 +470,9 @@ def audit_rvfi():
                 "bus_dmem_io_read",
                 "bus_dmem_io_write",
                 "bus_dmem_io_order",
+                "fault",
+                "bus_dmem_fault",
+                "bus_imem_fault",
                 "hang",
                 "ill",
             ]
@@ -474,8 +481,6 @@ def audit_rvfi():
             group in disabled_property_groups
             for group in [
                 "instruction_semantics",
-                "bus_fault",
-                "fault",
                 "csr_full",
                 "interrupt_full_csr_side_effects",
             ]

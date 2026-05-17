@@ -151,9 +151,9 @@ ILLEGAL_CLASSES = [
     item("compressed_jr_x0", "illegal_class", "compressed", ev("test/test_ditdah32/test_ditdah32.py", "rv32ec_compressed_jr_x0_traps")),
     item("compressed_rv64_shift", "illegal_class", "compressed", ev("test/test_ditdah32/test_ditdah32.py", "rv32ec_compressed_rv64_shift_encoding_traps")),
     item("compressed_floating_point", "illegal_class", "compressed", ev("test/test_ditdah32/test_ditdah32.py", "rv32ec_compressed_floating_point_encoding_traps")),
-    item("axi_fetch_non_okay", "illegal_class", "axi", ev("test/test_ditdah32/test_ditdah32.py", "axi_fetch_non_okay_response_traps")),
-    item("axi_load_non_okay", "illegal_class", "axi", ev("test/test_ditdah32/test_ditdah32.py", "axi_load_non_okay_response_traps_without_writeback")),
-    item("axi_store_non_okay", "illegal_class", "axi", ev("test/test_ditdah32/test_ditdah32.py", "axi_store_non_okay_response_traps_without_normal_commit")),
+    item("axi_fetch_non_okay", "illegal_class", "axi", ev("test/test_ditdah32/test_ditdah32.py", "axi_fetch_non_okay_response_takes_recoverable_access_fault")),
+    item("axi_load_non_okay", "illegal_class", "axi", ev("test/test_ditdah32/test_ditdah32.py", "axi_load_non_okay_response_takes_recoverable_access_fault")),
+    item("axi_store_non_okay", "illegal_class", "axi", ev("test/test_ditdah32/test_ditdah32.py", "axi_store_non_okay_response_takes_recoverable_access_fault")),
 ]
 
 

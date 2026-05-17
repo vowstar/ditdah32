@@ -62,6 +62,9 @@ class DitDah32IO(parameter: DitDah32Parameter) extends HWBundle(parameter):
   val trace_mem_wmask  = Option.when(parameter.enableTrace)(Aligned(UInt(4)))
   val trace_mem_rdata  = Option.when(parameter.enableTrace)(Aligned(UInt(parameter.xlen)))
   val trace_mem_wdata  = Option.when(parameter.enableTrace)(Aligned(UInt(parameter.xlen)))
+  val trace_mem_fault       = Option.when(parameter.enableTrace)(Aligned(Bool()))
+  val trace_mem_fault_rmask = Option.when(parameter.enableTrace)(Aligned(UInt(4)))
+  val trace_mem_fault_wmask = Option.when(parameter.enableTrace)(Aligned(UInt(4)))
   val trace_csr_addr   = Option.when(parameter.enableTrace)(Aligned(UInt(12)))
   val trace_csr_rmask  = Option.when(parameter.enableTrace)(Aligned(UInt(parameter.xlen)))
   val trace_csr_wmask  = Option.when(parameter.enableTrace)(Aligned(UInt(parameter.xlen)))
@@ -376,6 +379,9 @@ object DitDah32Module
     val traceMemWmaskReg   = Option.when(parameter.enableTrace)(RegInit(0.U(4)))
     val traceMemRdataReg   = Option.when(parameter.enableTrace)(RegInit(0.U(parameter.xlen)))
     val traceMemWdataReg   = Option.when(parameter.enableTrace)(RegInit(0.U(parameter.xlen)))
+    val traceMemFaultReg      = Option.when(parameter.enableTrace)(RegInit(false.B))
+    val traceMemFaultRmaskReg = Option.when(parameter.enableTrace)(RegInit(0.U(4)))
+    val traceMemFaultWmaskReg = Option.when(parameter.enableTrace)(RegInit(0.U(4)))
     val traceCsrAddrReg    = Option.when(parameter.enableTrace)(RegInit(0.U(12)))
     val traceCsrRmaskReg   = Option.when(parameter.enableTrace)(RegInit(0.U(parameter.xlen)))
     val traceCsrWmaskReg   = Option.when(parameter.enableTrace)(RegInit(0.U(parameter.xlen)))
@@ -1421,6 +1427,9 @@ object DitDah32Module
     traceMemWmaskReg.foreach(reg => io.trace_mem_wmask.foreach(_ := reg))
     traceMemRdataReg.foreach(reg => io.trace_mem_rdata.foreach(_ := reg))
     traceMemWdataReg.foreach(reg => io.trace_mem_wdata.foreach(_ := reg))
+    traceMemFaultReg.foreach(reg => io.trace_mem_fault.foreach(_ := reg))
+    traceMemFaultRmaskReg.foreach(reg => io.trace_mem_fault_rmask.foreach(_ := reg))
+    traceMemFaultWmaskReg.foreach(reg => io.trace_mem_fault_wmask.foreach(_ := reg))
     traceCsrAddrReg.foreach(reg => io.trace_csr_addr.foreach(_ := reg))
     traceCsrRmaskReg.foreach(reg => io.trace_csr_rmask.foreach(_ := reg))
     traceCsrWmaskReg.foreach(reg => io.trace_csr_wmask.foreach(_ := reg))
@@ -1450,6 +1459,9 @@ object DitDah32Module
       traceMemWmaskReg.foreach(_ := 0.U(4))
       traceMemRdataReg.foreach(_ := 0.U(parameter.xlen))
       traceMemWdataReg.foreach(_ := 0.U(parameter.xlen))
+      traceMemFaultReg.foreach(_ := false.B)
+      traceMemFaultRmaskReg.foreach(_ := 0.U(4))
+      traceMemFaultWmaskReg.foreach(_ := 0.U(4))
       traceCsrAddrReg.foreach(_ := 0.U(12))
       traceCsrRmaskReg.foreach(_ := 0.U(parameter.xlen))
       traceCsrWmaskReg.foreach(_ := 0.U(parameter.xlen))
@@ -1512,9 +1524,12 @@ object DitDah32Module
       }
 
       when(fetchResponseError) {
-        state := CoreState.TRAP.U(3)
-        csrMcause := 5.U(parameter.xlen)
+        // Recoverable instruction access fault per doc/memory_fault_contract.md.
+        state := CoreState.IRQ.U(3)
+        csrMcause := 1.U(parameter.xlen)
         csrMtval := pc
+        csrMepc := pc
+        csrMstatus := trapMstatus(csrMstatus)
         traceValidReg.foreach(_ := true.B)
         tracePcReg.foreach(_ := pc)
         traceNextPcReg.foreach(_ := pc)
@@ -1527,13 +1542,27 @@ object DitDah32Module
         traceRs1RdataReg.foreach(_ := 0.U(parameter.xlen))
         traceRs2AddrReg.foreach(_ := 0.U(5))
         traceRs2RdataReg.foreach(_ := 0.U(parameter.xlen))
+        traceMemAddrReg.foreach(_ := (pc.asBits.bits(parameter.xlen - 1, 2) ## 0.U(2).asBits).asUInt)
+        traceMemFaultReg.foreach(_ := true.B)
+        traceMemFaultRmaskReg.foreach(_ := 0.U(4))
+        traceMemFaultWmaskReg.foreach(_ := 0.U(4))
+        traceCsrAddrReg.foreach(_ := CsrAddr.MCAUSE.U(12))
+        traceCsrRmaskReg.foreach(_ := BigInt("ffffffff", 16).U(parameter.xlen))
+        traceCsrWmaskReg.foreach(_ := BigInt("ffffffff", 16).U(parameter.xlen))
+        traceCsrRdataReg.foreach(_ := csrMcause)
+        traceCsrWdataReg.foreach(_ := 1.U(parameter.xlen))
         trapEventReg := true.B
         traceTrapReg.foreach(_ := true.B)
         traceTrapCauseReg.foreach(_ := TrapCause.AXI_ERROR.U(4))
       }
 
       when(loadResponseError) {
-        state := CoreState.TRAP.U(3)
+        // Recoverable load access fault per doc/memory_fault_contract.md.
+        state := CoreState.IRQ.U(3)
+        csrMcause := 5.U(parameter.xlen)
+        csrMtval := memAddrReg
+        csrMepc := memPcReg
+        csrMstatus := trapMstatus(csrMstatus)
         traceValidReg.foreach(_ := true.B)
         tracePcReg.foreach(_ := memPcReg)
         traceNextPcReg.foreach(_ := memPcReg)
@@ -1546,15 +1575,29 @@ object DitDah32Module
         traceRs1RdataReg.foreach(_ := 0.U(parameter.xlen))
         traceRs2AddrReg.foreach(_ := 0.U(5))
         traceRs2RdataReg.foreach(_ := 0.U(parameter.xlen))
+        traceMemAddrReg.foreach(_ := (memAddrReg.asBits.bits(parameter.xlen - 1, 2) ## 0.U(2).asBits).asUInt)
+        traceMemFaultReg.foreach(_ := true.B)
+        traceMemFaultRmaskReg.foreach(_ := loadMemMask)
+        traceMemFaultWmaskReg.foreach(_ := 0.U(4))
+        traceCsrAddrReg.foreach(_ := CsrAddr.MCAUSE.U(12))
+        traceCsrRmaskReg.foreach(_ := BigInt("ffffffff", 16).U(parameter.xlen))
+        traceCsrWmaskReg.foreach(_ := BigInt("ffffffff", 16).U(parameter.xlen))
+        traceCsrRdataReg.foreach(_ := csrMcause)
+        traceCsrWdataReg.foreach(_ := 5.U(parameter.xlen))
         trapEventReg := true.B
         traceTrapReg.foreach(_ := true.B)
         traceTrapCauseReg.foreach(_ := TrapCause.AXI_ERROR.U(4))
       }
 
       when(storeResponseError) {
+        // Recoverable store access fault per doc/memory_fault_contract.md.
         storeAwDone := false.B
         storeWDone := false.B
-        state := CoreState.TRAP.U(3)
+        state := CoreState.IRQ.U(3)
+        csrMcause := 7.U(parameter.xlen)
+        csrMtval := memAddrReg
+        csrMepc := memPcReg
+        csrMstatus := trapMstatus(csrMstatus)
         traceValidReg.foreach(_ := true.B)
         tracePcReg.foreach(_ := memPcReg)
         traceNextPcReg.foreach(_ := memPcReg)
@@ -1567,6 +1610,15 @@ object DitDah32Module
         traceRs1RdataReg.foreach(_ := 0.U(parameter.xlen))
         traceRs2AddrReg.foreach(_ := 0.U(5))
         traceRs2RdataReg.foreach(_ := 0.U(parameter.xlen))
+        traceMemAddrReg.foreach(_ := (memAddrReg.asBits.bits(parameter.xlen - 1, 2) ## 0.U(2).asBits).asUInt)
+        traceMemFaultReg.foreach(_ := true.B)
+        traceMemFaultRmaskReg.foreach(_ := 0.U(4))
+        traceMemFaultWmaskReg.foreach(_ := memStoreBeReg)
+        traceCsrAddrReg.foreach(_ := CsrAddr.MCAUSE.U(12))
+        traceCsrRmaskReg.foreach(_ := BigInt("ffffffff", 16).U(parameter.xlen))
+        traceCsrWmaskReg.foreach(_ := BigInt("ffffffff", 16).U(parameter.xlen))
+        traceCsrRdataReg.foreach(_ := csrMcause)
+        traceCsrWdataReg.foreach(_ := 7.U(parameter.xlen))
         trapEventReg := true.B
         traceTrapReg.foreach(_ := true.B)
         traceTrapCauseReg.foreach(_ := TrapCause.AXI_ERROR.U(4))

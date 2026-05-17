@@ -49,6 +49,9 @@ module test_ditdah32;
     wire [3:0]  trace_mem_wmask;
     wire [31:0] trace_mem_rdata;
     wire [31:0] trace_mem_wdata;
+    wire        trace_mem_fault;
+    wire [3:0]  trace_mem_fault_rmask;
+    wire [3:0]  trace_mem_fault_wmask;
     wire [11:0] trace_csr_addr;
     wire [31:0] trace_csr_rmask;
     wire [31:0] trace_csr_wmask;
@@ -119,6 +122,9 @@ module test_ditdah32;
         .trace_mem_wmask(trace_mem_wmask),
         .trace_mem_rdata(trace_mem_rdata),
         .trace_mem_wdata(trace_mem_wdata),
+        .trace_mem_fault(trace_mem_fault),
+        .trace_mem_fault_rmask(trace_mem_fault_rmask),
+        .trace_mem_fault_wmask(trace_mem_fault_wmask),
         .trace_csr_addr(trace_csr_addr),
         .trace_csr_rmask(trace_csr_rmask),
         .trace_csr_wmask(trace_csr_wmask),

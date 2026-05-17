@@ -56,6 +56,9 @@ module rvfi_wrapper (
     wire [3:0]  trace_mem_wmask;
     wire [31:0] trace_mem_rdata;
     wire [31:0] trace_mem_wdata;
+    wire        trace_mem_fault;
+    wire [3:0]  trace_mem_fault_rmask;
+    wire [3:0]  trace_mem_fault_wmask;
 `ifdef DITDAH32_RVFI_CSR_TRACE
     wire [11:0] trace_csr_addr;
     wire [31:0] trace_csr_rmask;
@@ -112,6 +115,9 @@ module rvfi_wrapper (
         .trace_mem_wmask(trace_mem_wmask),
         .trace_mem_rdata(trace_mem_rdata),
         .trace_mem_wdata(trace_mem_wdata),
+        .trace_mem_fault(trace_mem_fault),
+        .trace_mem_fault_rmask(trace_mem_fault_rmask),
+        .trace_mem_fault_wmask(trace_mem_fault_wmask),
 `ifdef DITDAH32_RVFI_CSR_TRACE
         .trace_csr_addr(trace_csr_addr),
         .trace_csr_rmask(trace_csr_rmask),
@@ -188,6 +194,11 @@ module rvfi_wrapper (
     assign rvfi_mem_wmask = trace_mem_wmask;
     assign rvfi_mem_rdata = trace_mem_rmask == 4'd0 ? 32'd0 : trace_mem_rdata;
     assign rvfi_mem_wdata = trace_mem_wmask == 4'd0 ? 32'd0 : trace_mem_wdata;
+`ifdef RISCV_FORMAL_MEM_FAULT
+    assign rvfi_mem_fault = trace_mem_fault;
+    assign rvfi_mem_fault_rmask = trace_mem_fault_rmask;
+    assign rvfi_mem_fault_wmask = trace_mem_fault_wmask;
+`endif
 
 `ifdef RISCV_FORMAL_BUS
     wire rvfi_bus_read_valid = r_fire;

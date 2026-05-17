@@ -127,13 +127,18 @@ The core must raise the trace trap flag for illegal or unsupported instructions,
 environment calls, breakpoints, misaligned accesses, and interrupt trap entry.
 Standard machine-mode trap entry is recoverable through `MRET`.
 
-AXI non-OKAY response errors remain fatal terminal errors in this phase:
+AXI non-OKAY response errors are recoverable RISC-V access faults per
+`doc/memory_fault_contract.md`:
 
-- `trap` remains asserted after a fatal AXI response error.
-- No later instruction may commit after a fatal AXI response error.
+- Fetch fault: `mcause = 1`, `mtval = faulting PC`, `mepc = faulting PC`.
+- Load fault: `mcause = 5`, `mtval = faulting address`, `mepc = load PC`.
+- Store fault: `mcause = 7`, `mtval = faulting address`, `mepc = store PC`.
+- `mstatus` follows the standard trap-entry sequencing: `MPIE <- MIE`,
+  `MIE <- 0`, `MPP <- 2'b11`. The handler at `mtvec` may `MRET` to resume.
 
-For standard recoverable traps and interrupts, `trap` is an event indication in
-the cycle that the trace trap item is emitted.
+For all recoverable traps and interrupts, `trap` is an event indication in the
+cycle that the trace trap item is emitted; the core does not stay in a fatal
+terminal state.
 
 ## Trace Model
 

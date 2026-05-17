@@ -130,8 +130,11 @@ entry. Trap entry writes `mepc`, `mcause`, `mtval`, and the relevant `mstatus`
 fields, redirects `pc` to `mtvec.BASE`, and emits one trap trace item. `MRET`
 returns to `mepc` and restores `mstatus.MIE` from `mstatus.MPIE`.
 
-AXI response errors remain fatal. The core asserts `trap`, enters fatal trap
-state, and stops committing later instructions.
+AXI non-OKAY response errors are recoverable RISC-V access faults per
+`doc/memory_fault_contract.md`. The core writes `mcause` (1 for fetch, 5 for
+load, 7 for store), `mtval`, `mepc`, updates `mstatus`, redirects `pc` to
+`mtvec`, and pulses `trap` for one cycle. The handler may `MRET` back to
+`mepc`.
 
 WFI commits, advances `pc` to the following instruction, enters sleep, deasserts
 `core_busy`, asserts the sleep output, and stops issuing fetch requests until an

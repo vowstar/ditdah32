@@ -237,6 +237,9 @@ def run_external_riscv_formal(out_dir, logs_dir):
             "bus_dmem_io_read",
             "bus_dmem_io_write",
             "bus_dmem_io_order",
+            "fault",
+            "bus_dmem_fault",
+            "bus_imem_fault",
             "interrupt_entry_shape",
             "liveness_bounded",
             "wfi_wake",
@@ -246,8 +249,6 @@ def run_external_riscv_formal(out_dir, logs_dir):
         ],
         "disabled_property_groups": {
             "instruction_semantics": "The pinned riscv-formal suite has no RV32E instruction model list for isa rv32ec.",
-            "bus_fault": "Non-faulting RVFI_BUS instruction/data/IO read/write/order checks are enabled; RVFI_BUS fault checks remain disabled until non-OKAY AXI responses are specified as RVFI bus faults.",
-            "fault": "The riscv-formal fault check requires RVFI_MEM_FAULT signals and a memory-fault contract; the current wrapper does not drive rvfi_mem_fault or fault masks.",
             "csr_full": "CSR instruction checks (csrw_check) are enabled for the writable M-mode CSRs mstatus, mie, mtvec, mscratch, mepc, mcause, and mtval, alongside the CSR state subset for reserved-zero and read-only constant fields; read-only illegal-write trap behavior and full trap-entry CSR side effects remain staged for a future custom SVA layer.",
             "interrupt_full_csr_side_effects": "The interrupt-entry RVFI shape suite is enabled; full interrupt CSR side-effect and interrupt-fairness proofs remain staged.",
         },
@@ -282,6 +283,7 @@ def run_external_riscv_formal(out_dir, logs_dir):
     shutil.copy2(config_dir / "checks_csr_state.cfg", core_dir / "checks_csr_state.cfg")
     shutil.copy2(config_dir / "checks_liveness.cfg", core_dir / "checks_liveness.cfg")
     shutil.copy2(config_dir / "checks_order.cfg", core_dir / "checks_order.cfg")
+    shutil.copy2(config_dir / "checks_fault.cfg", core_dir / "checks_fault.cfg")
     shutil.copy2(config_dir / "checks_interrupt.cfg", core_dir / "checks_interrupt.cfg")
     shutil.copy2(config_dir / "wrapper.sv", core_dir / "wrapper.sv")
     shutil.copy2(REPO_ROOT / "result" / "DitDah32.sv", core_dir / "DitDah32.sv")
@@ -373,6 +375,12 @@ def run_external_riscv_formal(out_dir, logs_dir):
             "riscv_formal_order_and_illegal",
             ["causal", "causal_io", "hang", "ill"],
         ),
+        run_config(
+            "checks_fault",
+            "checks_fault",
+            "riscv_formal_memory_fault",
+            ["fault", "bus_dmem_fault", "bus_imem_fault"],
+        ),
     ]
     step["suites"] = suites
     step["generated_checks"] = [
@@ -447,9 +455,9 @@ def main():
         "steps": steps,
         "limitations": [
             "This is a passing external riscv-formal consistency subset, not full instruction-semantic RVFI closure.",
-            "The enabled external property groups are pc_fwd, pc_bwd, reg, CSR instruction checks for all writable M-mode CSRs, CSR state subset checks, unique, causal, causal_io, causal_mem, non-faulting RVFI_BUS instruction/data/IO read/write/order checks, interrupt entry shape, bounded liveness for non-WFI retires, bounded WFI wake under MIE-enabled IRQs, hang, ill, and cover.",
+            "The enabled external property groups are pc_fwd, pc_bwd, reg, CSR instruction checks for all writable M-mode CSRs, CSR state subset checks, unique, causal, causal_io, causal_mem, non-faulting RVFI_BUS instruction/data/IO read/write/order checks, the fault/bus_dmem_fault/bus_imem_fault memory-fault checks under the recoverable AXI access-fault contract, interrupt entry shape, bounded liveness for non-WFI retires, bounded WFI wake under MIE-enabled IRQs, hang, ill, and cover.",
             "Instruction-semantic checks are disabled because the pinned riscv-formal suite has no RV32E instruction model list for isa rv32ec.",
-            "Instruction-semantic, arbitrary WARL CSR writes, read-only illegal-write behavior, trap-entry CSR side effects, memory-fault, RVFI_BUS fault, and full interrupt CSR side-effect/fairness remain disabled until DitDah32 exposes the remaining RVFI fields and environment contracts.",
+            "Instruction-semantic, arbitrary WARL CSR writes, read-only illegal-write behavior, trap-entry CSR side effects, and full interrupt CSR side-effect/fairness remain disabled until DitDah32 exposes the remaining RVFI fields and environment contracts.",
         ],
     }
     report_path = out_dir / "rvfi.json"

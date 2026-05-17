@@ -2136,21 +2136,31 @@ async def axi_lite_backpressure_event_log_stays_protocol_clean(dut):
 
 
 @cocotb.test()
-async def axi_fetch_non_okay_response_traps(dut):
+async def axi_fetch_non_okay_response_takes_recoverable_access_fault(dut):
     await start_core_without_axi_slave(dut)
     trace_task = cocotb.start_soon(collect_trace(dut, 1, max_cycles=80))
 
     await drive_axi_read(dut, 0, 0, expected_prot=6, resp=AXI_SLVERR)
     traces = await with_timeout(trace_task, 10, "us")
 
-    assert_trace(traces[0], 0, 0, trap=True, cause=AXI_ERROR_CAUSE)
+    # Recoverable instruction access fault, mcause=1, mtval=PC, insn=0.
+    assert_trace(
+        traces[0],
+        0,
+        0,
+        trap=True,
+        cause=AXI_ERROR_CAUSE,
+        csr_addr=CSR_MCAUSE,
+        csr_rmask=CSR_FULL_MASK,
+        csr_wmask=CSR_FULL_MASK,
+        csr_wdata=1,
+    )
     await ClockCycles(dut.clk, 1)
     assert int(dut.trap.value) == 1
-    assert int(dut.axi_arvalid.value) == 0
 
 
 @cocotb.test()
-async def axi_load_non_okay_response_traps_without_writeback(dut):
+async def axi_load_non_okay_response_takes_recoverable_access_fault(dut):
     program = [
         i_type(0x100, 0, 0x0, 1),
         i_type(0, 1, 0x2, 2, 0x03),
@@ -2164,13 +2174,24 @@ async def axi_load_non_okay_response_traps_without_writeback(dut):
     traces = await with_timeout(trace_task, 20, "us")
 
     assert_trace(traces[0], 0, program[0], rd=1, rd_wdata=0x100)
-    assert_trace(traces[1], 4, program[1], trap=True, cause=AXI_ERROR_CAUSE)
+    # Recoverable load access fault, mcause=5, original load encoding preserved.
+    assert_trace(
+        traces[1],
+        4,
+        program[1],
+        trap=True,
+        cause=AXI_ERROR_CAUSE,
+        csr_addr=CSR_MCAUSE,
+        csr_rmask=CSR_FULL_MASK,
+        csr_wmask=CSR_FULL_MASK,
+        csr_wdata=5,
+    )
     await ClockCycles(dut.clk, 1)
     assert int(dut.trap.value) == 1
 
 
 @cocotb.test()
-async def axi_store_non_okay_response_traps_without_normal_commit(dut):
+async def axi_store_non_okay_response_takes_recoverable_access_fault(dut):
     program = [
         i_type(0x100, 0, 0x0, 1),
         i_type(0x55, 0, 0x0, 2),
@@ -2189,7 +2210,18 @@ async def axi_store_non_okay_response_traps_without_normal_commit(dut):
 
     assert_trace(traces[0], 0, program[0], rd=1, rd_wdata=0x100)
     assert_trace(traces[1], 4, program[1], rd=2, rd_wdata=0x55)
-    assert_trace(traces[2], 8, program[2], trap=True, cause=AXI_ERROR_CAUSE)
+    # Recoverable store access fault, mcause=7, original store encoding preserved.
+    assert_trace(
+        traces[2],
+        8,
+        program[2],
+        trap=True,
+        cause=AXI_ERROR_CAUSE,
+        csr_addr=CSR_MCAUSE,
+        csr_rmask=CSR_FULL_MASK,
+        csr_wmask=CSR_FULL_MASK,
+        csr_wdata=7,
+    )
     await ClockCycles(dut.clk, 1)
     assert int(dut.trap.value) == 1
 
