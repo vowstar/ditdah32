@@ -414,6 +414,8 @@ def audit_rvfi():
         missing.append("Passing RVFI report does not list the trap entry mstatus invariant property group.")
     if rvfi_report_pass and "mret_exit_mstatus" not in external_property_groups:
         missing.append("Passing RVFI report does not list the mret exit mstatus invariant property group.")
+    if rvfi_report_pass and "instruction_semantics_rv32ec_subset" not in external_property_groups:
+        missing.append("Passing RVFI report does not list the RV32EC instruction-semantic subset property group.")
     if rvfi_report_pass and "interrupt_entry_shape" not in external_property_groups:
         missing.append("Passing RVFI report does not list the interrupt entry shape property group.")
     for group in [
@@ -435,7 +437,7 @@ def audit_rvfi():
     if rvfi_report_pass and not disabled_property_groups:
         missing.append("Passing RVFI report does not document disabled property groups.")
     for group in [
-        "instruction_semantics",
+        "instruction_semantics_rv32ec_full",
         "csr_full",
         "interrupt_full_csr_side_effects",
     ]:
@@ -465,6 +467,7 @@ def audit_rvfi():
         and "wfi_wake" in external_property_groups
         and "trap_entry_mstatus" in external_property_groups
         and "mret_exit_mstatus" in external_property_groups
+        and "instruction_semantics_rv32ec_subset" in external_property_groups
         and "interrupt_entry_shape" in external_property_groups
         and all(
             group in external_property_groups
@@ -486,7 +489,7 @@ def audit_rvfi():
         and all(
             group in disabled_property_groups
             for group in [
-                "instruction_semantics",
+                "instruction_semantics_rv32ec_full",
                 "csr_full",
                 "interrupt_full_csr_side_effects",
             ]
