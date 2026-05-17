@@ -73,6 +73,7 @@ class DitDah32IO(parameter: DitDah32Parameter) extends HWBundle(parameter):
   val trace_trap       = Option.when(parameter.enableTrace)(Aligned(Bool()))
   val trace_trap_cause = Option.when(parameter.enableTrace)(Aligned(UInt(4)))
   val trace_mstatus    = Option.when(parameter.enableTrace)(Aligned(UInt(parameter.xlen)))
+  val trace_mip        = Option.when(parameter.enableTrace)(Aligned(UInt(parameter.xlen)))
 
 class DitDah32Probe(parameter: DitDah32Parameter)
     extends DVBundle[DitDah32Parameter, DitDah32Layers](parameter)
@@ -735,9 +736,6 @@ object DitDah32Module
           cRdRs1.asBits ##
           0x13.U(7).asBits
         ).asUInt
-        when(cImm6 === 0.U(parameter.xlen)) {
-          cNoWriteHint := true.B
-        }
       }
       when(cFunct3 === 1.U(3)) {
         cDecodedInstr := (
@@ -794,9 +792,6 @@ object DitDah32Module
               cRs1Prime.asBits ##
               0x13.U(7).asBits
             ).asUInt
-            when(cShamt === 0.U(5)) {
-              cNoWriteHint := true.B
-            }
           }
         }
         when(cInsn.asBits.bits(11, 10).asUInt === 1.U(2)) {
@@ -809,9 +804,6 @@ object DitDah32Module
               cRs1Prime.asBits ##
               0x13.U(7).asBits
             ).asUInt
-            when(cShamt === 0.U(5)) {
-              cNoWriteHint := true.B
-            }
           }
         }
         when(cInsn.asBits.bits(11, 10).asUInt === 2.U(2)) {
@@ -902,9 +894,6 @@ object DitDah32Module
             cRdRs1.asBits ##
             0x13.U(7).asBits
           ).asUInt
-          when(cShamt === 0.U(5)) {
-            cNoWriteHint := true.B
-          }
         }
       }
       when((cFunct3 === 2.U(3)) & (cRdRs1 =/= 0.U(5))) {
@@ -1439,6 +1428,7 @@ object DitDah32Module
     traceTrapReg.foreach(reg => io.trace_trap.foreach(_ := reg))
     traceTrapCauseReg.foreach(reg => io.trace_trap_cause.foreach(_ := reg))
     io.trace_mstatus.foreach(_ := csrMstatus)
+    io.trace_mip.foreach(_ := irqMip)
 
     when(stateReset) {
       state := CoreState.RUN.U(3)

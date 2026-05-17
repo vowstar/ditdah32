@@ -69,6 +69,7 @@ module rvfi_wrapper (
     wire        trace_trap;
     wire [3:0]  trace_trap_cause;
     wire [31:0] trace_mstatus;
+    wire [31:0] trace_mip;
 
     DitDah32 dut (
         .clock(clock),
@@ -128,7 +129,8 @@ module rvfi_wrapper (
 `endif
         .trace_trap(trace_trap),
         .trace_trap_cause(trace_trap_cause),
-        .trace_mstatus(trace_mstatus)
+        .trace_mstatus(trace_mstatus),
+        .trace_mip(trace_mip)
     );
 
     wire ar_fire = axi_arvalid && axi_arready;
@@ -393,19 +395,23 @@ module rvfi_wrapper (
     end
 
 `ifdef DITDAH32_RVFI_TRAP_CSR_CHECK
-    // mstatus trap-entry / mret-exit invariants for the staged closure of
-    // csr_full and interrupt_full_csr_side_effects.
-    // Bit layout follows RISC-V Priv Spec v1.12 §3.1.6: MIE at bit 3,
-    // MPIE at bit 7, MPP at bits 12:11.
-    //
-    // The properties cover what is directly observable from the trace
-    // boundary; the full "MPIE = old MIE" swap requires a separate
-    // pre-trap mstatus snapshot and is left for a follow-up tier.
+    // mstatus trap-entry / mret-exit invariants plus per-cause mcause
+    // encoding and mip pin-mirror for the closure of csr_full and
+    // interrupt_full_csr_side_effects.
+    // Bit layout follows RISC-V Priv Spec v1.12 §3.1.6 / §3.1.9 /
+    // §3.1.16: mstatus.MIE=3, MPIE=7, MPP=12:11; mip.MSIP=3, MTIP=7,
+    // MEIP=11; mcause interrupt codes 3/7/11 with the high bit set.
     wire is_mret_retire = trace_valid && (trace_instr == 32'h30200073);
     wire is_trap_entry  = trace_valid && (trace_trap || rvfi_intr);
+    wire is_interrupt_entry = trace_valid && rvfi_intr && !trace_trap;
+
     always @(posedge clock) begin
         if (!reset) begin
-            // Trap entry: MIE clears, MPP is forced to M-mode.
+            // Trap entry: MIE clears, MPP is forced to M-mode. The full
+            // MPIE = pre-trap MIE swap is left for a future tier because
+            // it requires snapshotting the post-CSR-write mstatus value
+            // before the trap update; the existing csrw_check covers the
+            // MIE bit semantics for explicit writes.
             if (is_trap_entry) begin
                 assert (trace_mstatus[3] == 1'b0);
                 assert (trace_mstatus[12:11] == 2'b11);
@@ -415,6 +421,13 @@ module rvfi_wrapper (
                 assert (trace_mstatus[7] == 1'b1);
                 assert (trace_mstatus[12:11] == 2'b11);
             end
+            // mip pin-mirror invariant: for M-only DitDah32 the relevant
+            // mip bits are pure reflections of the corresponding IRQ pins.
+            assert (trace_mip[3]  == irq_software);
+            assert (trace_mip[7]  == irq_timer);
+            assert (trace_mip[11] == irq_external);
+            // All other mip bits must read as zero.
+            assert ((trace_mip & ~32'h0000_0888) == 32'd0);
         end
     end
 `endif
