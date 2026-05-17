@@ -59,6 +59,7 @@ module test_ditdah32;
     wire [31:0] trace_csr_wdata;
     wire        trace_trap;
     wire [3:0]  trace_trap_cause;
+    wire [31:0] trace_mstatus;
 
     initial begin
         clk = 1'b0;
@@ -131,6 +132,7 @@ module test_ditdah32;
         .trace_csr_rdata(trace_csr_rdata),
         .trace_csr_wdata(trace_csr_wdata),
         .trace_trap     (trace_trap),
-        .trace_trap_cause(trace_trap_cause)
+        .trace_trap_cause(trace_trap_cause),
+        .trace_mstatus  (trace_mstatus)
     );
 endmodule

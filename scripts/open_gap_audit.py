@@ -410,6 +410,10 @@ def audit_rvfi():
         missing.append("Passing RVFI report does not list the bounded liveness property group.")
     if rvfi_report_pass and "wfi_wake" not in external_property_groups:
         missing.append("Passing RVFI report does not list the WFI bounded-wake property group.")
+    if rvfi_report_pass and "trap_entry_mstatus" not in external_property_groups:
+        missing.append("Passing RVFI report does not list the trap entry mstatus invariant property group.")
+    if rvfi_report_pass and "mret_exit_mstatus" not in external_property_groups:
+        missing.append("Passing RVFI report does not list the mret exit mstatus invariant property group.")
     if rvfi_report_pass and "interrupt_entry_shape" not in external_property_groups:
         missing.append("Passing RVFI report does not list the interrupt entry shape property group.")
     for group in [
@@ -459,6 +463,8 @@ def audit_rvfi():
         and "csr_state_subset" in external_property_groups
         and "liveness_bounded" in external_property_groups
         and "wfi_wake" in external_property_groups
+        and "trap_entry_mstatus" in external_property_groups
+        and "mret_exit_mstatus" in external_property_groups
         and "interrupt_entry_shape" in external_property_groups
         and all(
             group in external_property_groups

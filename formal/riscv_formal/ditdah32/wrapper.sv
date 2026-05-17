@@ -68,6 +68,7 @@ module rvfi_wrapper (
 `endif
     wire        trace_trap;
     wire [3:0]  trace_trap_cause;
+    wire [31:0] trace_mstatus;
 
     DitDah32 dut (
         .clock(clock),
@@ -126,7 +127,8 @@ module rvfi_wrapper (
         .trace_csr_wdata(trace_csr_wdata),
 `endif
         .trace_trap(trace_trap),
-        .trace_trap_cause(trace_trap_cause)
+        .trace_trap_cause(trace_trap_cause),
+        .trace_mstatus(trace_mstatus)
     );
 
     wire ar_fire = axi_arvalid && axi_arready;
@@ -389,6 +391,33 @@ module rvfi_wrapper (
             end
         end
     end
+
+`ifdef DITDAH32_RVFI_TRAP_CSR_CHECK
+    // mstatus trap-entry / mret-exit invariants for the staged closure of
+    // csr_full and interrupt_full_csr_side_effects.
+    // Bit layout follows RISC-V Priv Spec v1.12 §3.1.6: MIE at bit 3,
+    // MPIE at bit 7, MPP at bits 12:11.
+    //
+    // The properties cover what is directly observable from the trace
+    // boundary; the full "MPIE = old MIE" swap requires a separate
+    // pre-trap mstatus snapshot and is left for a follow-up tier.
+    wire is_mret_retire = trace_valid && (trace_instr == 32'h30200073);
+    wire is_trap_entry  = trace_valid && (trace_trap || rvfi_intr);
+    always @(posedge clock) begin
+        if (!reset) begin
+            // Trap entry: MIE clears, MPP is forced to M-mode.
+            if (is_trap_entry) begin
+                assert (trace_mstatus[3] == 1'b0);
+                assert (trace_mstatus[12:11] == 2'b11);
+            end
+            // mret retire: MPIE resets to 1, MPP stays in M-mode.
+            if (is_mret_retire) begin
+                assert (trace_mstatus[7] == 1'b1);
+                assert (trace_mstatus[12:11] == 2'b11);
+            end
+        end
+    end
+`endif
 
 `ifdef DITDAH32_RVFI_WFI_WAKE_CHECK
     // Bounded-liveness fairness for WFI: when the core is in the sleep state

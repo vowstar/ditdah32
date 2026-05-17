@@ -72,6 +72,7 @@ class DitDah32IO(parameter: DitDah32Parameter) extends HWBundle(parameter):
   val trace_csr_wdata  = Option.when(parameter.enableTrace)(Aligned(UInt(parameter.xlen)))
   val trace_trap       = Option.when(parameter.enableTrace)(Aligned(Bool()))
   val trace_trap_cause = Option.when(parameter.enableTrace)(Aligned(UInt(4)))
+  val trace_mstatus    = Option.when(parameter.enableTrace)(Aligned(UInt(parameter.xlen)))
 
 class DitDah32Probe(parameter: DitDah32Parameter)
     extends DVBundle[DitDah32Parameter, DitDah32Layers](parameter)
@@ -1437,6 +1438,7 @@ object DitDah32Module
     traceCsrWdataReg.foreach(reg => io.trace_csr_wdata.foreach(_ := reg))
     traceTrapReg.foreach(reg => io.trace_trap.foreach(_ := reg))
     traceTrapCauseReg.foreach(reg => io.trace_trap_cause.foreach(_ := reg))
+    io.trace_mstatus.foreach(_ := csrMstatus)
 
     when(stateReset) {
       state := CoreState.RUN.U(3)
