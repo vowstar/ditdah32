@@ -282,6 +282,69 @@ def run_trap_csr_suite(core_dir, source, logs_dir):
     return suite
 
 
+def run_csr_readonly_suite(core_dir, source, logs_dir):
+    """Run the read-only CSR illegal-write invariant proof.
+
+    Drives the inline SVA in formal/riscv_formal/ditdah32/wrapper.sv guarded
+    by DITDAH32_RVFI_CSR_READONLY_CHECK. The invariant decodes the CSR
+    instruction directly off rvfi_insn and asserts that any write attempt to
+    an addr[11:10] = 11 CSR (read-only encoding) sets rvfi_trap.
+    """
+    suite = {
+        "name": "riscv_formal_csr_readonly",
+        "config": "csr_readonly.sby",
+        "checks_dir": rel(core_dir / "checks_csr_readonly"),
+        "property_groups": ["csr_readonly_illegal_write"],
+        "status": "fail",
+    }
+    depth = 16
+    sby_dir = core_dir / "checks_csr_readonly"
+    if sby_dir.exists():
+        make_writable(sby_dir)
+        shutil.rmtree(sby_dir, ignore_errors=True)
+    sby_dir.mkdir(parents=True, exist_ok=True)
+    checks_root = source / "checks"
+    sby_text = WFI_WAKE_SBY_TEMPLATE.format(
+        depth=depth,
+        depth_plus=depth + 1,
+        check_basename="csr_readonly_ch0",
+        extra_defines="`define DITDAH32_RVFI_ENABLE_IRQ\n`define DITDAH32_RVFI_CSR_READONLY_CHECK",
+        wrapper_sv=str((core_dir / "wrapper.sv").resolve()),
+        dut_sv=str((core_dir / "DitDah32.sv").resolve()),
+        macros_vh=str((checks_root / "rvfi_macros.vh").resolve()),
+        channel_sv=str((checks_root / "rvfi_channel.sv").resolve()),
+        testbench_sv=str((checks_root / "rvfi_testbench.sv").resolve()),
+        checker_sv=str((checks_root / "rvfi_cover_check.sv").resolve()),
+    )
+    sby_path = sby_dir / "csr_readonly_ch0.sby"
+    sby_path.write_text(sby_text, encoding="utf-8")
+    suite["generated_checks"] = ["csr_readonly_ch0"]
+    sby_step = run(
+        ["sby", "-f", "-d", "csr_readonly_ch0", str(sby_path)],
+        logs_dir / "riscv_formal_csr_readonly_sby.log",
+        cwd=sby_dir,
+    )
+    suite["sby"] = sby_step
+    status_path = sby_dir / "csr_readonly_ch0" / "status"
+    if status_path.exists():
+        status_text = status_path.read_text(encoding="utf-8", errors="replace").strip()
+        suite["check_statuses"] = [
+            {
+                "check": "csr_readonly_ch0",
+                "status_file": rel(status_path),
+                "status": status_text,
+            }
+        ]
+        if status_text.upper().startswith(("PASS", "DONE")) and sby_step["status"] == "pass":
+            suite["status"] = "pass"
+        else:
+            suite["reason"] = f"csr_readonly_ch0 status: {status_text}"
+    else:
+        suite["check_statuses"] = []
+        suite["reason"] = "csr_readonly_ch0 did not produce a status file."
+    return suite
+
+
 def run_external_riscv_formal(out_dir, logs_dir):
     probe = command_probe("riscv-formal")
     step = {
@@ -314,13 +377,14 @@ def run_external_riscv_formal(out_dir, logs_dir):
             "mip_mirror",
             "mcause_interrupt_encoding",
             "mpie_swap_exception",
+            "csr_readonly_illegal_write",
             "instruction_semantics_rv32ec_subset",
             "hang",
             "ill",
             "cover",
         ],
         "disabled_property_groups": {
-            "csr_full": "CSR instruction checks (csrw_check) are enabled for the writable M-mode CSRs mstatus, mie, mtvec, mscratch, mepc, mcause, and mtval; the CSR state subset covers reserved-zero and read-only constants; the trap_entry_mstatus and mret_exit_mstatus invariants cover the trap-entry CSR side effects, and the mpie_swap_exception invariant proves the full MPIE=pre-trap MIE swap on exception trap entries. The same MPIE swap on interrupt trap entries remains staged because the current core does not expose a 2-cycle pipeline-aligned snapshot of the post-CSR-commit mstatus value that the IRQ-entry path consumes. Arbitrary WARL CSR writes and read-only illegal-write trap behavior are also staged.",
+            "csr_full": "CSR instruction checks (csrw_check) are enabled for the writable M-mode CSRs mstatus, mie, mtvec, mscratch, mepc, mcause, and mtval; the CSR state subset covers reserved-zero and read-only constants; the trap_entry_mstatus and mret_exit_mstatus invariants cover the trap-entry CSR side effects; the mpie_swap_exception invariant proves the full MPIE=pre-trap MIE swap on exception trap entries; and the csr_readonly_illegal_write invariant proves any architectural write attempt to a CSR with addr[11:10] = 11 raises an illegal-instruction exception. The same MPIE swap on interrupt trap entries remains staged because the current core does not expose a 2-cycle pipeline-aligned snapshot of the post-CSR-commit mstatus value that the IRQ-entry path consumes. Arbitrary WARL CSR writes (per-field legalization for mstatus/mtvec/mepc and friends) are also staged.",
             "interrupt_full_csr_side_effects": "The interrupt-entry RVFI shape suite is enabled; trap_entry_mstatus proves MIE clears plus MPP forces 11 on interrupt entry; mip_mirror proves trace_mip exposes irq_software/irq_timer/irq_external only on bits 3/7/11; and mcause_interrupt_encoding proves that on every interrupt trap entry the mcause low bits are exactly one of {3, 7, 11} (MSI/MTI/MEI) with bit 31 set. CSR side-effect fairness and the MPIE swap on interrupt entries remain staged.",
         },
     }
@@ -436,6 +500,7 @@ def run_external_riscv_formal(out_dir, logs_dir):
         ),
         run_wfi_wake_suite(core_dir, source, logs_dir),
         run_trap_csr_suite(core_dir, source, logs_dir),
+        run_csr_readonly_suite(core_dir, source, logs_dir),
         run_config(
             "checks_interrupt",
             "checks_interrupt",
@@ -534,7 +599,7 @@ def main():
         "steps": steps,
         "limitations": [
             "This is a passing external riscv-formal consistency subset, not full instruction-semantic RVFI closure.",
-            "The enabled external property groups are pc_fwd, pc_bwd, reg, CSR instruction checks for all writable M-mode CSRs, CSR state subset checks, unique, causal, causal_io, causal_mem, non-faulting RVFI_BUS instruction/data/IO read/write/order checks, the fault/bus_dmem_fault/bus_imem_fault memory-fault checks under the recoverable AXI access-fault contract, interrupt entry shape, bounded liveness for non-WFI retires, bounded WFI wake under MIE-enabled IRQs, trap entry mstatus invariants (MIE clears, MPP forced 11), mret exit mstatus invariants (MPIE resets to 1, MPP stays 11), the mip pin-mirror invariant proving trace_mip exposes irq_software/timer/external only on bits 3/7/11, the mcause_interrupt_encoding invariant proving mcause low bits are exactly one of {3, 7, 11} on any interrupt trap entry, the mpie_swap_exception invariant proving new mstatus.MPIE equals pre-trap mstatus.MIE on exception trap entries (mcause[31]=0), hang, ill, and cover.",
+            "The enabled external property groups are pc_fwd, pc_bwd, reg, CSR instruction checks for all writable M-mode CSRs, CSR state subset checks, unique, causal, causal_io, causal_mem, non-faulting RVFI_BUS instruction/data/IO read/write/order checks, the fault/bus_dmem_fault/bus_imem_fault memory-fault checks under the recoverable AXI access-fault contract, interrupt entry shape, bounded liveness for non-WFI retires, bounded WFI wake under MIE-enabled IRQs, trap entry mstatus invariants (MIE clears, MPP forced 11), mret exit mstatus invariants (MPIE resets to 1, MPP stays 11), the mip pin-mirror invariant proving trace_mip exposes irq_software/timer/external only on bits 3/7/11, the mcause_interrupt_encoding invariant proving mcause low bits are exactly one of {3, 7, 11} on any interrupt trap entry, the mpie_swap_exception invariant proving new mstatus.MPIE equals pre-trap mstatus.MIE on exception trap entries (mcause[31]=0), the csr_readonly_illegal_write invariant proving any architectural write attempt to a CSR with addr[11:10] = 11 traps illegal instruction, hang, ill, and cover.",
             "Instruction-semantic checks for the RV32EC instruction set are proven via the rv32ic instruction models with a wrapper assume that restricts register fields to x0-x15 per RVC format; all 62 RVC/uncompressed instructions in the rv32ic instruction set pass.",
             "Arbitrary WARL CSR writes, read-only illegal-write behavior, and the MPIE swap on interrupt entries (paths with a 2-cycle synthetic IRQ-entry retire plus the post-commit IRQ path that may include a same-cycle CSRRW to mstatus) remain staged: they require DitDah32 to expose a pipeline-aligned snapshot of the post-CSR-commit mstatus consumed by the IRQ trap path and to gate CSR writes on a WARL legalization model.",
         ],

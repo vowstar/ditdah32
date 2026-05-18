@@ -454,6 +454,31 @@ module rvfi_wrapper (
     end
 `endif
 
+`ifdef DITDAH32_RVFI_CSR_READONLY_CHECK
+    // Read-only CSR illegal-write trap invariant (Priv Spec v1.12 §2.1):
+    // any architectural write attempt to a CSR with addr[11:10] == 11 must
+    // raise an illegal-instruction exception. A write attempt is defined as:
+    //   - CSRRW / CSRRWI (funct3 = 1 or 5): always writes;
+    //   - CSRRS / CSRRC / CSRRSI / CSRRCI (funct3 = 2, 3, 6, 7): writes iff
+    //     insn[19:15] (rs1 for the register form, uimm for the immediate
+    //     form) is non-zero.
+    // Decoding straight off rvfi_insn keeps the proof tied to the spec's
+    // architectural encoding rather than the runtime CSR operand.
+    wire [6:0] ro_opcode  = rvfi_insn[6:0];
+    wire [2:0] ro_funct3  = rvfi_insn[14:12];
+    wire [11:0] ro_csr    = rvfi_insn[31:20];
+    wire [4:0] ro_field   = rvfi_insn[19:15];
+    wire ro_is_csr_insn   = (ro_opcode == 7'h73) && (ro_funct3 != 3'd0) && (ro_funct3 != 3'd4);
+    wire ro_is_write_attempt = ro_is_csr_insn &&
+                               ((ro_funct3 == 3'd1) || (ro_funct3 == 3'd5) || (ro_field != 5'd0));
+    wire ro_is_readonly_addr = (ro_csr[11:10] == 2'b11);
+    always @(posedge clock) begin
+        if (!reset && trace_valid && ro_is_csr_insn && ro_is_write_attempt && ro_is_readonly_addr) begin
+            assert (rvfi_trap[0]);
+        end
+    end
+`endif
+
 `ifdef DITDAH32_RVFI_WFI_WAKE_CHECK
     // Bounded-liveness fairness for WFI: when the core is in the sleep state
     // and an MIE-enabled IRQ is pending (irq_pending = irqTrapPending in the

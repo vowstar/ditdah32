@@ -57,6 +57,10 @@ CSR_MEPC = 0x341
 CSR_MCAUSE = 0x342
 CSR_MTVAL = 0x343
 CSR_MIP = 0x344
+CSR_MVENDORID = 0xF11
+CSR_MARCHID = 0xF12
+CSR_MIMPID = 0xF13
+CSR_MHARTID = 0xF14
 CSR_UNIMPLEMENTED = 0x7C0
 CSR_FULL_MASK = 0xFFFF_FFFF
 MSTATUS_MIE = 1 << 3
@@ -1696,6 +1700,107 @@ async def zicsr_machine_csrs_read_write_and_immediate_ops(dut):
 async def zicsr_read_only_csr_write_traps(dut):
     program = [csrrwi(CSR_MISA, 1, 1)]
 
+    await start_core(dut, pack_words(program))
+    traces = await with_timeout(collect_trace(dut, 1), 10, "us")
+    assert_trace(traces[0], 0, program[0], trap=True, cause=1)
+
+
+async def _expect_readonly_csrrw_traps(dut, csr):
+    program = [csrrw(csr, 0, 1)]
+    await start_core(dut, pack_words(program))
+    traces = await with_timeout(collect_trace(dut, 1), 10, "us")
+    assert_trace(traces[0], 0, program[0], trap=True, cause=1)
+
+
+@cocotb.test()
+async def zicsr_read_only_csr_csrrw_misa_traps(dut):
+    await _expect_readonly_csrrw_traps(dut, CSR_MISA)
+
+
+@cocotb.test()
+async def zicsr_read_only_csr_csrrw_mip_traps(dut):
+    await _expect_readonly_csrrw_traps(dut, CSR_MIP)
+
+
+@cocotb.test()
+async def zicsr_read_only_csr_csrrw_mvendorid_traps(dut):
+    await _expect_readonly_csrrw_traps(dut, CSR_MVENDORID)
+
+
+@cocotb.test()
+async def zicsr_read_only_csr_csrrw_marchid_traps(dut):
+    await _expect_readonly_csrrw_traps(dut, CSR_MARCHID)
+
+
+@cocotb.test()
+async def zicsr_read_only_csr_csrrw_mimpid_traps(dut):
+    await _expect_readonly_csrrw_traps(dut, CSR_MIMPID)
+
+
+@cocotb.test()
+async def zicsr_read_only_csr_csrrw_mhartid_traps(dut):
+    await _expect_readonly_csrrw_traps(dut, CSR_MHARTID)
+
+
+@cocotb.test()
+async def zicsr_read_only_csr_csrrs_nonzero_rs1_traps(dut):
+    # CSRRS with rs1 != x0 is an architectural write attempt even when the
+    # runtime value of rs1 is zero. Verifies the fix to csrWriteEnable using
+    # rs1Index instead of the runtime operand.
+    program = [
+        i_type(0, 0, 0x0, 5),     # addi x5, x0, 0  (set rs5 = 0 at runtime)
+        csrrs(CSR_MISA, 5, 1),    # CSRRS x1, misa, x5  (rs5=0 but rs1 != x0)
+    ]
+    await start_core(dut, pack_words(program))
+    traces = await with_timeout(collect_trace(dut, 2), 10, "us")
+    assert_trace(traces[0], 0, program[0], rd=5, rd_wdata=0)
+    assert_trace(traces[1], 4, program[1], trap=True, cause=1)
+
+
+@cocotb.test()
+async def zicsr_read_only_csr_csrrs_x0_no_trap(dut):
+    # CSRRS rs1=x0 is a pure read on the read-only CSR; must not trap. Reads
+    # the misa value (RV32EC = 0x40000014: MXL=01, C+E bits set).
+    program = [csrrs(CSR_MISA, 0, 1), EBREAK]
+    await start_core(dut, pack_words(program))
+    traces = await with_timeout(collect_trace(dut, 2), 10, "us")
+    assert_trace(traces[0], 0, program[0], rd=1, rd_wdata=0x40000014)
+    assert_trace(traces[1], 4, EBREAK, trap=True, cause=2)
+
+
+@cocotb.test()
+async def zicsr_read_only_csr_csrrc_x0_no_trap(dut):
+    # CSRRC rs1=x0 is a pure read on the read-only CSR; must not trap.
+    program = [csrrc(CSR_MHARTID, 0, 1), EBREAK]
+    await start_core(dut, pack_words(program))
+    traces = await with_timeout(collect_trace(dut, 2), 10, "us")
+    assert_trace(traces[0], 0, program[0], rd=1, rd_wdata=0)
+    assert_trace(traces[1], 4, EBREAK, trap=True, cause=2)
+
+
+@cocotb.test()
+async def zicsr_read_only_csr_csrrsi_zero_imm_no_trap(dut):
+    # CSRRSI uimm=0 is a pure read on the read-only CSR; must not trap.
+    program = [csrrsi(CSR_MVENDORID, 0, 1), EBREAK]
+    await start_core(dut, pack_words(program))
+    traces = await with_timeout(collect_trace(dut, 2), 10, "us")
+    assert_trace(traces[0], 0, program[0], rd=1, rd_wdata=0)
+    assert_trace(traces[1], 4, EBREAK, trap=True, cause=2)
+
+
+@cocotb.test()
+async def zicsr_read_only_csr_csrrsi_nonzero_imm_traps(dut):
+    # CSRRSI uimm != 0 is a write attempt on a read-only CSR; must trap.
+    program = [csrrsi(CSR_MARCHID, 1, 1)]
+    await start_core(dut, pack_words(program))
+    traces = await with_timeout(collect_trace(dut, 1), 10, "us")
+    assert_trace(traces[0], 0, program[0], trap=True, cause=1)
+
+
+@cocotb.test()
+async def zicsr_read_only_csr_csrrci_nonzero_imm_traps(dut):
+    # CSRRCI uimm != 0 is a write attempt on a read-only CSR; must trap.
+    program = [csrrci(CSR_MIMPID, 1, 1)]
     await start_core(dut, pack_words(program))
     traces = await with_timeout(collect_trace(dut, 1), 10, "us")
     assert_trace(traces[0], 0, program[0], trap=True, cause=1)

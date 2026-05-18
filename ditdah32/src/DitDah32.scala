@@ -979,10 +979,14 @@ object DitDah32Module
     isCsr := (opcode === 0x73.U(7)) & (funct3 =/= 0.U(3))
     isCsrImm := isCsr & funct3.asBits.bit(2)
     csrOperand := isCsrImm.?((0.U(27).asBits ## rs1Index.asBits).asUInt, rs1Data)
+    // CSR write attempt per Priv Spec v1.12 §9.4: CSRRW/CSRRWI always write;
+    // CSRRS/CSRRC/CSRRSI/CSRRCI do NOT write iff rs1/uimm field (insn[19:15])
+    // is 0. Using rs1Index (architectural), not runtime data, keeps the
+    // illegal-instruction trap on read-only CSRs spec-conformant.
     csrWriteEnable := isCsr & (
       (funct3 === 1.U(3)) |
       (funct3 === 5.U(3)) |
-      (((funct3 === 2.U(3)) | (funct3 === 3.U(3)) | (funct3 === 6.U(3)) | (funct3 === 7.U(3))) & (csrOperand =/= 0.U(parameter.xlen)))
+      ((funct3 =/= 0.U(3)) & (funct3 =/= 4.U(3)) & (rs1Index =/= 0.U(5)))
     )
     csrUsesRs1 := isCsr & !isCsrImm & (
       (funct3 === 1.U(3)) |
