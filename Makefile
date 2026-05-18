@@ -1,4 +1,4 @@
-.PHONY: audit-ci-action-refs audit-ci-github-auth audit-ci-publish-readiness audit-ci-remote audit-ci-remote-preflight audit-completion audit-gaps audit-tools audit-trace-config build build-trace bench bench-score ci-remote-closure ci-remote-dispatch ci-remote-publish coverage formal signoff-coverage test test-model test-isa test-scripts test-isa-rtl verify verify-ci-smoke verify-iss verify-riscv-dv verify-rvfi verify-rvfi-lite verify-sail-highmem verify-sail-matrix verify-sail-smoke verify-smoke verify-rtl verify-signoff verify-spike-highmem verify-spike-rv32e-strict verify-spike-smoke verify-spike-matrix clean
+.PHONY: audit-ci-action-refs audit-ci-github-auth audit-ci-publish-readiness audit-ci-remote audit-ci-remote-preflight audit-completion audit-gaps audit-tools audit-trace-config build build-trace bench bench-score ci-remote-closure ci-remote-dispatch ci-remote-publish coverage formal signoff-coverage test test-model test-isa test-scripts test-isa-rtl verify verify-ci-smoke verify-compliance verify-iss verify-riscv-dv verify-rvfi verify-rvfi-lite verify-sail-highmem verify-sail-matrix verify-sail-smoke verify-smoke verify-rtl verify-signoff verify-spike-highmem verify-spike-rv32e-strict verify-spike-smoke verify-spike-matrix clean
 
 BENCH_FREQ_MHZ ?= 100
 CI_ACTION_REF_ARGS ?=
@@ -73,6 +73,9 @@ verify-rvfi: build-trace
 
 verify-riscv-dv: build-trace
 	python3 scripts/run_riscv_dv.py --config test/riscv_dv/ditdah32_rv32ec.yaml
+
+verify-compliance: build-trace
+	python3 scripts/run_compliance.py
 
 signoff-coverage: build-trace
 	python3 scripts/run_signoff_coverage.py

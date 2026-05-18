@@ -50,6 +50,8 @@ def populate_completion_repo(tmp_path, ci_status="pass", not_closed=0, head="abc
     write_json(tmp_path / "result" / "formal" / "rvfi" / "rvfi.json", {"status": "pass"})
     write_json(tmp_path / "result" / "axi" / "axi_lite_backpressure.json", {"status": "pass"})
     write_json(tmp_path / "result" / "bench" / "benchmark_scores.json", {"status": "pass"})
+    write_json(tmp_path / "result" / "compliance" / "compliance.json", {"status": "pass"})
+    write_text(tmp_path / "result" / "compliance" / "compliance.md")
     write_text(tmp_path / "result" / "verification" / "open_gaps.md")
     write_text(tmp_path / "result" / "verification" / "ci_remote_preflight.md")
     write_json(
@@ -79,7 +81,7 @@ def populate_completion_repo(tmp_path, ci_status="pass", not_closed=0, head="abc
     write_json(
         tmp_path / "result" / "verification" / "open_gaps.json",
         {
-            "summary": {"closed": 6 - not_closed, "not_closed": not_closed, "total": 6},
+            "summary": {"closed": 7 - not_closed, "not_closed": not_closed, "total": 7},
             "gaps": [
                 closed_gap("external_iss", "closed_composite"),
                 closed_gap("riscv_dv"),
@@ -87,6 +89,7 @@ def populate_completion_repo(tmp_path, ci_status="pass", not_closed=0, head="abc
                 closed_gap("full_axi4", "closed_out_of_scope"),
                 ci_gap,
                 closed_gap("certified_benchmarks", "closed_non_certified"),
+                closed_gap("compliance_signature_gate", "closed_signature_gate"),
             ],
         },
     )
@@ -149,7 +152,7 @@ def test_completion_audit_reports_incomplete_when_remote_ci_is_missing(tmp_path,
     failed_items = {item["name"]: item for item in report["checklist"] if not item["passed"]}
     assert set(failed_items) == {"remote_ci", "open_gap_audit"}
     assert any("remote_ci" in item for item in report["missing"])
-    assert any("Open or partial gaps remain: 1 / 6" in item for item in report["missing"])
+    assert any("Open or partial gaps remain: 1 / 7" in item for item in report["missing"])
 
 
 def test_completion_audit_rejects_stale_local_signoff(tmp_path, monkeypatch):

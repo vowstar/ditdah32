@@ -209,6 +209,17 @@ def build_report():
             gap_statuses.get("certified_benchmarks", {}).get("missing", []),
         ),
         checklist_item(
+            "compliance_signature_gate",
+            "Compliance signature gate compiles RV32E-strict tests, runs them on the DitDah32 cocotb harness, and matches every signature word against the pre-computed manifest.",
+            [
+                artifact("result/compliance/compliance.json"),
+                artifact("result/compliance/compliance.md"),
+                {"gap_status": gap_statuses.get("compliance_signature_gate")},
+            ],
+            gap_statuses.get("compliance_signature_gate", {}).get("closed") is True,
+            gap_statuses.get("compliance_signature_gate", {}).get("missing", []),
+        ),
+        checklist_item(
             "remote_preflight",
             "Local remote-CI preflight passes for GitHub auth, publish readiness, and workflow action references.",
             [

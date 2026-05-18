@@ -1,0 +1,40 @@
+{
+  "comment": "DitDah32 compliance gate signature manifest. Each entry records the expected 32-bit signature words a passing implementation must write to the signature region (starting at address 0x200). Hand-computed from the ISA semantics; future work: integrate a reference ISS so signatures are generated automatically.",
+  "sig_base": 512,
+  "tests": [
+    {
+      "name": "add",
+      "signature_words": [
+        "0x12345679",
+        "0x80000000",
+        "0xDEADBEEF"
+      ],
+      "description": "RV32I add: positive sum, signed overflow wrap, x0 source"
+    },
+    {
+      "name": "andi",
+      "signature_words": [
+        "0x000000F0",
+        "0xA5A5A5A5",
+        "0x00000000"
+      ],
+      "description": "RV32I andi: mask, sign-extended -1 immediate (identity), x0 source"
+    },
+    {
+      "name": "beq",
+      "signature_words": [
+        "0x600D600D",
+        "0x600D600D"
+      ],
+      "description": "RV32I beq: branch-taken target writes good marker; branch-not-taken fallthrough writes good marker"
+    },
+    {
+      "name": "c_addi",
+      "signature_words": [
+        "0x00000024",
+        "0x0000FFFF"
+      ],
+      "description": "RVC c.addi: c.li + c.addi accumulation; c.addi negative immediate"
+    }
+  ]
+}

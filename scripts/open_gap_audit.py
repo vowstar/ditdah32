@@ -623,6 +623,73 @@ def audit_ci():
     )
 
 
+def audit_compliance():
+    report = load_json(REPO_ROOT / "result" / "compliance" / "compliance.json")
+    manifest = load_json(REPO_ROOT / "test" / "compliance" / "manifest.json")
+    has_target = "verify-compliance" in (REPO_ROOT / "Makefile").read_text(encoding="utf-8")
+    has_build_script = (REPO_ROOT / "scripts" / "build_compliance.py").is_file()
+    has_runner_script = (REPO_ROOT / "scripts" / "run_compliance.py").is_file()
+    has_tests_dir = (REPO_ROOT / "test" / "compliance" / "tests").is_dir()
+    has_link_script = (REPO_ROOT / "test" / "compliance" / "env" / "link.ld").is_file()
+    has_compliance_header = (REPO_ROOT / "test" / "compliance" / "env" / "compliance.h").is_file()
+    report_pass = report is not None and report.get("status") == "pass"
+    manifest_size = len((manifest or {}).get("tests", [])) if manifest else 0
+    test_records = (report or {}).get("tests", [])
+    coverage_ratio = (
+        sum(1 for r in test_records if r.get("status") == "pass") / len(test_records)
+        if test_records
+        else 0
+    )
+
+    evidence = [
+        {"verify_compliance_target": has_target},
+        {"build_script": has_build_script},
+        {"runner_script": has_runner_script},
+        {"tests_dir": has_tests_dir},
+        {"link_script": has_link_script},
+        {"compliance_header": has_compliance_header},
+        artifact("test/compliance/manifest.json", manifest is not None),
+        artifact("result/compliance/compliance.json", report_pass),
+        artifact("result/compliance/compliance.md", report_pass),
+        {"manifest_test_count": manifest_size},
+        {"coverage_pass_ratio": coverage_ratio},
+    ]
+    missing = []
+    if not has_target:
+        missing.append("Makefile does not expose verify-compliance.")
+    if not has_build_script:
+        missing.append("scripts/build_compliance.py is missing.")
+    if not has_runner_script:
+        missing.append("scripts/run_compliance.py is missing.")
+    if not has_tests_dir or manifest_size == 0:
+        missing.append("Compliance test corpus is empty.")
+    if not has_link_script or not has_compliance_header:
+        missing.append("Compliance environment (link.ld, compliance.h) is incomplete.")
+    if not report_pass:
+        missing.append("No passing compliance signature report exists.")
+    if report_pass and coverage_ratio < 1.0:
+        missing.append("One or more compliance test signatures do not match the manifest.")
+    status = (
+        "closed_signature_gate"
+        if report_pass and coverage_ratio == 1.0 and manifest_size > 0
+        else "partial" if report_pass
+        else "open"
+    )
+    return make_gap(
+        "compliance_signature_gate",
+        "Compliance signature-comparison gate",
+        status,
+        evidence,
+        missing,
+        "make verify-compliance",
+        [
+            "Compliance tests compile cleanly for RV32E (-march=rv32ec_zicsr, ilp32e ABI).",
+            "Each compiled test runs on DitDah32 via the cocotb harness and writes deterministic signature words to the fixed signature region.",
+            "Every signature word matches the pre-computed manifest entry.",
+        ],
+    )
+
+
 def audit_certified_benchmarks():
     scores = load_json(REPO_ROOT / "result" / "bench" / "benchmark_scores.json")
     readme = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
@@ -702,6 +769,7 @@ def main():
         audit_axi4(),
         audit_ci(),
         audit_certified_benchmarks(),
+        audit_compliance(),
     ]
     not_closed = sum(1 for gap in gaps if not gap["closed"])
     report = {

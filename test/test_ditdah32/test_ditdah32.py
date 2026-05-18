@@ -2451,3 +2451,87 @@ async def rv32e_misaligned_store_traps_without_data_axi(dut):
     assert data_events == []
     await ClockCycles(dut.clk, 1)
     assert int(dut.trap.value) == 1
+
+
+# ---------------------------------------------------------------------------
+# Compliance gate: signature comparison against pre-computed expectations.
+# Each test program writes its computed result words into a fixed signature
+# region starting at 0x200, then stores a halt magic to 0x100 and loops on a
+# branch-to-self. The cocotb harness polls the AXI RAM for the magic value
+# and then reads back the signature words for assertion against the manifest.
+
+COMPLIANCE_BUILD_DIR = REPO_ROOT / "result" / "compliance" / "build"
+COMPLIANCE_MANIFEST = REPO_ROOT / "test" / "compliance" / "manifest.json"
+COMPLIANCE_HALT_ADDR = 0x100
+COMPLIANCE_HALT_MAGIC = 0xC0DEC0DE
+COMPLIANCE_SIG_BASE = 0x200
+
+
+def _compliance_manifest_entry(name):
+    data = json.loads(COMPLIANCE_MANIFEST.read_text(encoding="utf-8"))
+    for entry in data["tests"]:
+        if entry["name"] == name:
+            return entry
+    raise AssertionError(f"compliance manifest has no entry for {name!r}")
+
+
+def _compliance_image_bytes(name):
+    bin_path = COMPLIANCE_BUILD_DIR / name / f"{name}.bin"
+    assert bin_path.is_file(), (
+        f"compliance binary missing: {bin_path}. "
+        "Run scripts/build_compliance.py before invoking compliance cocotb tests."
+    )
+    return bin_path.read_bytes()
+
+
+async def _await_compliance_halt(memory, timeout_us=20):
+    deadline_ns = int(timeout_us * 1000)
+    elapsed = 0
+    step_ns = 100
+    while elapsed < deadline_ns:
+        await Timer(step_ns, unit="ns")
+        elapsed += step_ns
+        value = int.from_bytes(memory.read(COMPLIANCE_HALT_ADDR, 4), "little")
+        if value == COMPLIANCE_HALT_MAGIC:
+            return
+    raise AssertionError(
+        f"compliance program did not signal halt magic 0x{COMPLIANCE_HALT_MAGIC:08X} "
+        f"at 0x{COMPLIANCE_HALT_ADDR:08X} within {timeout_us} us"
+    )
+
+
+async def _run_compliance_program(dut, name):
+    entry = _compliance_manifest_entry(name)
+    image = _compliance_image_bytes(name)
+    memory = await start_core(dut, image)
+    await _await_compliance_halt(memory)
+    expected = [int(word, 0) for word in entry["signature_words"]]
+    actual = []
+    for index in range(len(expected)):
+        word_bytes = memory.read(COMPLIANCE_SIG_BASE + index * 4, 4)
+        actual.append(int.from_bytes(word_bytes, "little"))
+    assert actual == expected, (
+        f"compliance {name!r} signature mismatch: "
+        f"expected={[f'0x{w:08X}' for w in expected]}, "
+        f"actual={[f'0x{w:08X}' for w in actual]}"
+    )
+
+
+@cocotb.test()
+async def compliance_add(dut):
+    await _run_compliance_program(dut, "add")
+
+
+@cocotb.test()
+async def compliance_andi(dut):
+    await _run_compliance_program(dut, "andi")
+
+
+@cocotb.test()
+async def compliance_beq(dut):
+    await _run_compliance_program(dut, "beq")
+
+
+@cocotb.test()
+async def compliance_c_addi(dut):
+    await _run_compliance_program(dut, "c_addi")
