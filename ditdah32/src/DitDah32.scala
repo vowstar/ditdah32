@@ -73,7 +73,9 @@ class DitDah32IO(parameter: DitDah32Parameter) extends HWBundle(parameter):
   val trace_trap       = Option.when(parameter.enableTrace)(Aligned(Bool()))
   val trace_trap_cause = Option.when(parameter.enableTrace)(Aligned(UInt(4)))
   val trace_mstatus    = Option.when(parameter.enableTrace)(Aligned(UInt(parameter.xlen)))
+  val trace_mstatus_pre_trap = Option.when(parameter.enableTrace)(Aligned(UInt(parameter.xlen)))
   val trace_mip        = Option.when(parameter.enableTrace)(Aligned(UInt(parameter.xlen)))
+  val trace_mcause     = Option.when(parameter.enableTrace)(Aligned(UInt(parameter.xlen)))
 
 class DitDah32Probe(parameter: DitDah32Parameter)
     extends DVBundle[DitDah32Parameter, DitDah32Layers](parameter)
@@ -391,6 +393,7 @@ object DitDah32Module
     val traceCsrWdataReg   = Option.when(parameter.enableTrace)(RegInit(0.U(parameter.xlen)))
     val traceTrapReg       = Option.when(parameter.enableTrace)(RegInit(false.B))
     val traceTrapCauseReg  = Option.when(parameter.enableTrace)(RegInit(0.U(4)))
+    val tracePreTrapMstatusReg = Option.when(parameter.enableTrace)(RegInit(0.U(parameter.xlen)))
     val x1  = RegInit(0.U(parameter.xlen))
     val x2  = RegInit(0.U(parameter.xlen))
     val x3  = RegInit(0.U(parameter.xlen))
@@ -1429,6 +1432,14 @@ object DitDah32Module
     traceTrapCauseReg.foreach(reg => io.trace_trap_cause.foreach(_ := reg))
     io.trace_mstatus.foreach(_ := csrMstatus)
     io.trace_mip.foreach(_ := irqMip)
+    io.trace_mcause.foreach(_ := csrMcause)
+    // trace_mstatus_pre_trap exposes RegNext(csrMstatus). For 1-cycle-delay
+    // exception trap paths (fetch/load/store fault and execTrap) this aligns
+    // with the trace_trap retire cycle and lets the wrapper prove MPIE=MIE.
+    // Interrupt entry paths use a 2-cycle delay and a CSR-write-aware input,
+    // so the wrapper restricts the MPIE swap assertion to !rvfi_intr retires.
+    tracePreTrapMstatusReg.foreach(_ := csrMstatus)
+    tracePreTrapMstatusReg.foreach(reg => io.trace_mstatus_pre_trap.foreach(_ := reg))
 
     when(stateReset) {
       state := CoreState.RUN.U(3)

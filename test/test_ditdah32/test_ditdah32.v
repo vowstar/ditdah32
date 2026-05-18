@@ -60,7 +60,9 @@ module test_ditdah32;
     wire        trace_trap;
     wire [3:0]  trace_trap_cause;
     wire [31:0] trace_mstatus;
+    wire [31:0] trace_mstatus_pre_trap;
     wire [31:0] trace_mip;
+    wire [31:0] trace_mcause;
 
     initial begin
         clk = 1'b0;
@@ -135,6 +137,8 @@ module test_ditdah32;
         .trace_trap     (trace_trap),
         .trace_trap_cause(trace_trap_cause),
         .trace_mstatus  (trace_mstatus),
-        .trace_mip      (trace_mip)
+        .trace_mstatus_pre_trap (trace_mstatus_pre_trap),
+        .trace_mip      (trace_mip),
+        .trace_mcause   (trace_mcause)
     );
 endmodule

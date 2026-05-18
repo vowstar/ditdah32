@@ -69,7 +69,9 @@ module rvfi_wrapper (
     wire        trace_trap;
     wire [3:0]  trace_trap_cause;
     wire [31:0] trace_mstatus;
+    wire [31:0] trace_mstatus_pre_trap;
     wire [31:0] trace_mip;
+    wire [31:0] trace_mcause;
 
     DitDah32 dut (
         .clock(clock),
@@ -130,7 +132,9 @@ module rvfi_wrapper (
         .trace_trap(trace_trap),
         .trace_trap_cause(trace_trap_cause),
         .trace_mstatus(trace_mstatus),
-        .trace_mip(trace_mip)
+        .trace_mstatus_pre_trap(trace_mstatus_pre_trap),
+        .trace_mip(trace_mip),
+        .trace_mcause(trace_mcause)
     );
 
     wire ar_fire = axi_arvalid && axi_arready;
@@ -403,18 +407,25 @@ module rvfi_wrapper (
     // MEIP=11; mcause interrupt codes 3/7/11 with the high bit set.
     wire is_mret_retire = trace_valid && (trace_instr == 32'h30200073);
     wire is_trap_entry  = trace_valid && (trace_trap || rvfi_intr);
-    wire is_interrupt_entry = trace_valid && rvfi_intr && !trace_trap;
+    wire is_interrupt_entry = is_trap_entry && trace_mcause[31];
+    wire is_exception_entry = is_trap_entry && !trace_mcause[31];
 
     always @(posedge clock) begin
         if (!reset) begin
-            // Trap entry: MIE clears, MPP is forced to M-mode. The full
-            // MPIE = pre-trap MIE swap is left for a future tier because
-            // it requires snapshotting the post-CSR-write mstatus value
-            // before the trap update; the existing csrw_check covers the
-            // MIE bit semantics for explicit writes.
+            // Trap entry: MIE clears and MPP is forced to M-mode for every
+            // trap class. For exception traps (mcause[31]=0) the trap commits
+            // one cycle before the retire, so RegNext(csrMstatus) (exposed
+            // as trace_mstatus_pre_trap) holds the pre-trap mstatus. Assert
+            // the full MPIE = pre-trap MIE swap there. Interrupt entries
+            // (mcause[31]=1) come from a 2-cycle pipeline plus the
+            // post-commit IRQ path that may include a same-cycle CSRRW to
+            // mstatus, so the swap proof for those classes remains staged.
             if (is_trap_entry) begin
                 assert (trace_mstatus[3] == 1'b0);
                 assert (trace_mstatus[12:11] == 2'b11);
+            end
+            if (is_exception_entry) begin
+                assert (trace_mstatus[7] == trace_mstatus_pre_trap[3]);
             end
             // mret retire: MPIE resets to 1, MPP stays in M-mode.
             if (is_mret_retire) begin
@@ -428,6 +439,17 @@ module rvfi_wrapper (
             assert (trace_mip[11] == irq_external);
             // All other mip bits must read as zero.
             assert ((trace_mip & ~32'h0000_0888) == 32'd0);
+            // Per-cause mcause encoding: when an interrupt trap commits,
+            // the mcause low bits must be one of the three M-mode
+            // interrupt codes from Priv Spec Table 3.6 (MSI=3, MTI=7,
+            // MEI=11) and the interrupt bit (msb) must be set. Synchronous
+            // exception causes never have the high bit set, so this also
+            // proves cause-class disjointness on trap entry.
+            if (is_interrupt_entry) begin
+                assert (trace_mcause[30:0] == 31'd3
+                     || trace_mcause[30:0] == 31'd7
+                     || trace_mcause[30:0] == 31'd11);
+            end
         end
     end
 `endif
