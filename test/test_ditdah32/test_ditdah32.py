@@ -1864,6 +1864,90 @@ async def zicsr_mtvec_and_mepc_mask_low_bits(dut):
 
 
 @cocotb.test()
+async def zicsr_warl_mstatus_mpp_forced_m_mode(dut):
+    # Software writes MPP=10 (U-mode) and reserved bits to mstatus, then reads
+    # back. The WARL legalization must force MPP=11 (M-mode) for this M-only
+    # core and zero the reserved bits.
+    program = [
+        # lui x1, 0xFFFFF; addi x1, x1, -1 -> x1 = 0xFFFFFFFF
+        u_type(0xFFFFF000, 1, 0x37),
+        i_type(-1 & 0xFFF, 1, 0x0, 1),
+        csrrw(CSR_MSTATUS, 1, 0),
+        csrrs(CSR_MSTATUS, 0, 2),
+        EBREAK,
+    ]
+    await start_core(dut, pack_words(program))
+    traces = await with_timeout(collect_trace(dut, len(program)), 20, "us")
+    # After writing all-ones to mstatus, only MIE (bit 3), MPIE (bit 7), and
+    # MPP forced 11 (bits 12:11) should remain. Reserved bits read 0.
+    expected = (1 << 3) | (1 << 7) | (3 << 11)
+    assert_trace(traces[3], 12, program[3], rd=2, rd_wdata=expected)
+
+
+@cocotb.test()
+async def zicsr_warl_mstatus_clears_to_only_mpp(dut):
+    # Software writes 0 to mstatus, expecting MPP to read back as 11 anyway.
+    program = [
+        csrrw(CSR_MSTATUS, 0, 0),
+        csrrs(CSR_MSTATUS, 0, 1),
+        EBREAK,
+    ]
+    await start_core(dut, pack_words(program))
+    traces = await with_timeout(collect_trace(dut, len(program)), 10, "us")
+    assert_trace(traces[1], 4, program[1], rd=1, rd_wdata=(3 << 11))
+
+
+@cocotb.test()
+async def zicsr_warl_mie_masks_to_msi_mti_mei(dut):
+    # mie is WARL: only bits 3, 7, 11 (MSI/MTI/MEI) are writable in DitDah32.
+    # All other bits must read back as 0.
+    program = [
+        u_type(0xFFFFF000, 1, 0x37),
+        i_type(-1 & 0xFFF, 1, 0x0, 1),
+        csrrw(CSR_MIE, 1, 0),
+        csrrs(CSR_MIE, 0, 2),
+        EBREAK,
+    ]
+    await start_core(dut, pack_words(program))
+    traces = await with_timeout(collect_trace(dut, len(program)), 20, "us")
+    assert_trace(traces[3], 12, program[3], rd=2, rd_wdata=0x888)
+
+
+@cocotb.test()
+async def zicsr_warl_mtvec_mode_forced_direct(dut):
+    # mtvec.MODE (bits 1:0) must read back as 0 (direct), regardless of write.
+    # Test with MODE=01 (vectored) and 11 (reserved).
+    program = [
+        u_type(0xABCDE000, 1, 0x37),  # x1 = 0xABCDE000
+        i_type(0x3, 1, 0x6, 1),       # ori x1, x1, 0x3 -> x1 = 0xABCDE003
+        csrrw(CSR_MTVEC, 1, 0),
+        csrrs(CSR_MTVEC, 0, 2),
+        EBREAK,
+    ]
+    await start_core(dut, pack_words(program))
+    traces = await with_timeout(collect_trace(dut, len(program)), 20, "us")
+    # mtvec.BASE keeps upper 30 bits, MODE forced 00 -> 0xABCDE000.
+    assert_trace(traces[3], 12, program[3], rd=2, rd_wdata=0xABCDE000)
+
+
+@cocotb.test()
+async def zicsr_warl_mepc_low_bit_forced_zero(dut):
+    # mepc must always be at least 2-byte aligned (RVC), so bit 0 reads back
+    # as 0 regardless of the value written.
+    program = [
+        u_type(0x12345000, 1, 0x37),  # x1 = 0x12345000
+        i_type(0x77, 1, 0x6, 1),      # ori x1, x1, 0x77 -> x1 = 0x12345077
+        csrrw(CSR_MEPC, 1, 0),
+        csrrs(CSR_MEPC, 0, 2),
+        EBREAK,
+    ]
+    await start_core(dut, pack_words(program))
+    traces = await with_timeout(collect_trace(dut, len(program)), 20, "us")
+    # Bit 0 cleared: 0x12345077 -> 0x12345076.
+    assert_trace(traces[3], 12, program[3], rd=2, rd_wdata=0x12345076)
+
+
+@cocotb.test()
 async def wfi_sleeps_until_enabled_software_interrupt_and_mret_returns(dut):
     program_by_pc = {
         0x00: i_type(0x40, 0, 0x0, 1),

@@ -454,6 +454,46 @@ module rvfi_wrapper (
     end
 `endif
 
+`ifdef DITDAH32_RVFI_CSR_WARL_CHECK
+    // WARL per-field legalization invariants for the writable M-mode CSRs.
+    // DitDah32 is M-only with no fp/vector state, so the legal value space is
+    // tight. Assertions fire on every retire so the structural invariant on
+    // trace_mstatus (continuously mirrored) is checked at every cycle, and
+    // the trace_csr_* CSR-instruction view checks the per-CSR rdata read by
+    // the executing instruction.
+    always @(posedge clock) begin
+        if (!reset && trace_valid) begin
+            // mstatus: only MIE (bit 3), MPIE (bit 7), and MPP (bits 12:11)
+            // are writable; reserved bits stay zero; MPP is either 00 (reset)
+            // or 11 (M-mode forced by writableMstatus / trapMstatus /
+            // mretMstatus). U and S modes are not implemented.
+            assert (trace_mstatus[31:13] == 19'd0);
+            assert (trace_mstatus[10:8]  == 3'd0);
+            assert (trace_mstatus[6:4]   == 3'd0);
+            assert (trace_mstatus[2:0]   == 3'd0);
+            assert (trace_mstatus[12:11] == 2'b00 || trace_mstatus[12:11] == 2'b11);
+            // Per-CSR rdata legalization on read retires. The mask check
+            // gates the assertion to the cycle the retiring instruction
+            // actually reads the named CSR, so a constant test bench cannot
+            // mask the invariant.
+            if (trace_csr_rmask != 32'd0) begin
+                if (trace_csr_addr == 12'h304) begin
+                    // mie: only MSI (3), MTI (7), MEI (11) are writable.
+                    assert ((trace_csr_rdata & ~32'h0000_0888) == 32'd0);
+                end
+                if (trace_csr_addr == 12'h305) begin
+                    // mtvec.MODE forced 00 (direct mode only).
+                    assert (trace_csr_rdata[1:0] == 2'b00);
+                end
+                if (trace_csr_addr == 12'h341) begin
+                    // mepc must be 2-byte aligned (RV32EC supports RVC).
+                    assert (trace_csr_rdata[0] == 1'b0);
+                end
+            end
+        end
+    end
+`endif
+
 `ifdef DITDAH32_RVFI_CSR_READONLY_CHECK
     // Read-only CSR illegal-write trap invariant (Priv Spec v1.12 §2.1):
     // any architectural write attempt to a CSR with addr[11:10] == 11 must

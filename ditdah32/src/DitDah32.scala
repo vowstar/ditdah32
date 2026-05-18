@@ -186,9 +186,14 @@ object DitDah32Module
       sourcecode.Name.Machine,
       InstanceContext
   ): Node[UInt] =
+    // WARL legalization for DitDah32 (M-only): MPP is hard-wired to 2'b11
+    // because U and S modes are not supported. Any value the software writes
+    // to mstatus.MPP reads back as 11, matching the Priv Spec recommendation
+    // for cores that implement a single privilege level. All non-MIE/MPIE
+    // bits stay reserved-zero.
     (
       0.U(19).asBits ##
-      writeData.asBits.bits(CsrBits.MSTATUS_MPP_HIGH, CsrBits.MSTATUS_MPP_LOW) ##
+      3.U(2).asBits ##
       0.U(3).asBits ##
       writeData.asBits.bits(CsrBits.MSTATUS_MPIE, CsrBits.MSTATUS_MPIE) ##
       0.U(3).asBits ##

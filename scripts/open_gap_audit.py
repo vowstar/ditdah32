@@ -422,6 +422,8 @@ def audit_rvfi():
         missing.append("Passing RVFI report does not list the MPIE swap on exception trap entries property group.")
     if rvfi_report_pass and "csr_readonly_illegal_write" not in external_property_groups:
         missing.append("Passing RVFI report does not list the read-only CSR illegal-write trap invariant property group.")
+    if rvfi_report_pass and "csr_warl_legalization" not in external_property_groups:
+        missing.append("Passing RVFI report does not list the WARL per-field CSR legalization invariant property group.")
     if rvfi_report_pass and "instruction_semantics_rv32ec_subset" not in external_property_groups:
         missing.append("Passing RVFI report does not list the RV32EC instruction-semantic subset property group.")
     if rvfi_report_pass and "interrupt_entry_shape" not in external_property_groups:
@@ -478,6 +480,7 @@ def audit_rvfi():
         and "mcause_interrupt_encoding" in external_property_groups
         and "mpie_swap_exception" in external_property_groups
         and "csr_readonly_illegal_write" in external_property_groups
+        and "csr_warl_legalization" in external_property_groups
         and "instruction_semantics_rv32ec_subset" in external_property_groups
         and "interrupt_entry_shape" in external_property_groups
         and all(
