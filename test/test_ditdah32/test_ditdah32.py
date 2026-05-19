@@ -2599,3 +2599,23 @@ async def compliance_compressed_mem(dut):
 @cocotb.test()
 async def compliance_fence_nop(dut):
     await _run_compliance_program(dut, "fence_nop")
+
+
+@cocotb.test()
+async def compliance_csr_basic(dut):
+    await _run_compliance_program(dut, "csr_basic")
+
+
+@cocotb.test()
+async def compliance_ecall(dut):
+    await _run_compliance_program(dut, "ecall")
+
+
+@cocotb.test()
+async def compliance_ebreak(dut):
+    await _run_compliance_program(dut, "ebreak")
+
+
+@cocotb.test()
+async def compliance_mret_return(dut):
+    await _run_compliance_program(dut, "mret_return")
