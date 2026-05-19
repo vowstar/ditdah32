@@ -626,11 +626,14 @@ def audit_ci():
 def audit_compliance():
     report = load_json(REPO_ROOT / "result" / "compliance" / "compliance.json")
     manifest = load_json(REPO_ROOT / "test" / "compliance" / "manifest.json")
+    sail_report = load_json(REPO_ROOT / "result" / "compliance" / "sail_signatures" / "sail_signatures.json")
     has_target = "verify-compliance" in (REPO_ROOT / "Makefile").read_text(encoding="utf-8")
     has_build_script = (REPO_ROOT / "scripts" / "build_compliance.py").is_file()
     has_runner_script = (REPO_ROOT / "scripts" / "run_compliance.py").is_file()
+    has_sail_runner = (REPO_ROOT / "scripts" / "run_compliance_sail.py").is_file()
     has_tests_dir = (REPO_ROOT / "test" / "compliance" / "tests").is_dir()
     has_link_script = (REPO_ROOT / "test" / "compliance" / "env" / "link.ld").is_file()
+    has_iss_link_script = (REPO_ROOT / "test" / "compliance" / "env" / "link_iss.ld").is_file()
     has_compliance_header = (REPO_ROOT / "test" / "compliance" / "env" / "compliance.h").is_file()
     report_pass = report is not None and report.get("status") == "pass"
     manifest_size = len((manifest or {}).get("tests", [])) if manifest else 0
@@ -640,19 +643,34 @@ def audit_compliance():
         if test_records
         else 0
     )
+    sail_reference_pass = (
+        sail_report is not None
+        and sail_report.get("status") == "pass"
+        and len([t for t in sail_report.get("tests", []) if t.get("status") == "pass"]) == len(test_records)
+        and len(test_records) > 0
+    )
+    cross_check_step = next((s for s in (report or {}).get("steps", []) if s.get("name") == "reference_cross_check"), None)
+    cross_pass = cross_check_step is not None and cross_check_step.get("status") == "pass"
 
     evidence = [
         {"verify_compliance_target": has_target},
         {"build_script": has_build_script},
         {"runner_script": has_runner_script},
+        {"sail_runner_script": has_sail_runner},
         {"tests_dir": has_tests_dir},
         {"link_script": has_link_script},
+        {"link_script_iss": has_iss_link_script},
         {"compliance_header": has_compliance_header},
         artifact("test/compliance/manifest.json", manifest is not None),
         artifact("result/compliance/compliance.json", report_pass),
         artifact("result/compliance/compliance.md", report_pass),
-        {"manifest_test_count": manifest_size},
+        artifact("result/compliance/sail_signatures/sail_signatures.json", sail_reference_pass),
+        artifact("result/compliance/reference.json", (REPO_ROOT / "result" / "compliance" / "reference.json").is_file()),
+        {"compiled_test_count": len(test_records)},
+        {"hand_manifest_test_count": manifest_size},
         {"coverage_pass_ratio": coverage_ratio},
+        {"sail_reference_generated": sail_reference_pass},
+        {"sail_manifest_cross_check_pass": cross_pass},
     ]
     missing = []
     if not has_target:
@@ -661,17 +679,23 @@ def audit_compliance():
         missing.append("scripts/build_compliance.py is missing.")
     if not has_runner_script:
         missing.append("scripts/run_compliance.py is missing.")
-    if not has_tests_dir or manifest_size == 0:
+    if not has_sail_runner:
+        missing.append("scripts/run_compliance_sail.py is missing.")
+    if not has_tests_dir or len(test_records) == 0:
         missing.append("Compliance test corpus is empty.")
-    if not has_link_script or not has_compliance_header:
-        missing.append("Compliance environment (link.ld, compliance.h) is incomplete.")
+    if not has_link_script or not has_iss_link_script or not has_compliance_header:
+        missing.append("Compliance environment (link.ld, link_iss.ld, compliance.h) is incomplete.")
     if not report_pass:
         missing.append("No passing compliance signature report exists.")
     if report_pass and coverage_ratio < 1.0:
-        missing.append("One or more compliance test signatures do not match the manifest.")
+        missing.append("One or more compliance test signatures do not match the Sail-derived reference.")
+    if not sail_reference_pass:
+        missing.append("Sail reference signature dump did not pass for every compiled test.")
+    if not cross_pass:
+        missing.append("Sail-derived signatures do not match the hand-computed manifest for overlapping tests.")
     status = (
-        "closed_signature_gate"
-        if report_pass and coverage_ratio == 1.0 and manifest_size > 0
+        "closed_sail_differential"
+        if report_pass and coverage_ratio == 1.0 and sail_reference_pass and cross_pass and len(test_records) > 0
         else "partial" if report_pass
         else "open"
     )
@@ -683,9 +707,10 @@ def audit_compliance():
         missing,
         "make verify-compliance",
         [
-            "Compliance tests compile cleanly for RV32E (-march=rv32ec_zicsr, ilp32e ABI).",
-            "Each compiled test runs on DitDah32 via the cocotb harness and writes deterministic signature words to the fixed signature region.",
-            "Every signature word matches the pre-computed manifest entry.",
+            "Compliance tests compile cleanly for RV32E (-march=rv32ec_zicsr, ilp32e ABI) in both DUT (base 0) and ISS (base 0x80000000) variants.",
+            "Sail (sail_riscv_sim) runs every ISS variant, exits via the HTIF tohost convention, and dumps each begin/end_signature region into result/compliance/sail_signatures/<name>/signature.txt.",
+            "The Sail-derived reference matches the hand-computed test/compliance/manifest.json wherever the two corpora overlap.",
+            "Each compiled test runs on DitDah32 via the cocotb harness and the AXI-RAM signature region matches the Sail-derived reference word-for-word.",
         ],
     )
 

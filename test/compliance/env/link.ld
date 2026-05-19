@@ -25,11 +25,23 @@ SECTIONS
         *(.text.*)
     } > RAM
 
+    /*
+     * HTIF tohost slot at 0x100. Both Spike and Sail watch a 64-bit tohost
+     * symbol for non-zero writes and exit the simulation when one occurs;
+     * the cocotb harness watches the same address for the same reason.
+     * The symbol itself is emitted by COMPLIANCE_DATA in compliance.h so
+     * the produced symbol has the size attribute (8 bytes) that the HTIF
+     * detection logic in Spike/Sail looks for.
+     */
+    .tohost 0x00000100 : {
+        *(.tohost)
+    } > RAM
+
     .signature 0x00000200 : {
         signature_start = .;
         *(.signature)
         signature_end = .;
-        . = 0x00000300;
+        . = . + 0x100;
     } > RAM
 
     /DISCARD/ : { *(.note*) *(.comment*) *(.eh_frame*) *(.riscv.attributes) }

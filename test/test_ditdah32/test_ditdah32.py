@@ -2462,17 +2462,21 @@ async def rv32e_misaligned_store_traps_without_data_axi(dut):
 
 COMPLIANCE_BUILD_DIR = REPO_ROOT / "result" / "compliance" / "build"
 COMPLIANCE_MANIFEST = REPO_ROOT / "test" / "compliance" / "manifest.json"
-COMPLIANCE_HALT_ADDR = 0x100
-COMPLIANCE_HALT_MAGIC = 0xC0DEC0DE
+COMPLIANCE_REFERENCE = REPO_ROOT / "result" / "compliance" / "reference.json"
+COMPLIANCE_TOHOST_ADDR = 0x100
 COMPLIANCE_SIG_BASE = 0x200
 
 
 def _compliance_manifest_entry(name):
-    data = json.loads(COMPLIANCE_MANIFEST.read_text(encoding="utf-8"))
+    # Prefer the auto-generated reference signature (produced by Sail at
+    # orchestrator time) when available; fall back to the hand-computed
+    # manifest so the cocotb tests still work when run in isolation.
+    source = COMPLIANCE_REFERENCE if COMPLIANCE_REFERENCE.is_file() else COMPLIANCE_MANIFEST
+    data = json.loads(source.read_text(encoding="utf-8"))
     for entry in data["tests"]:
         if entry["name"] == name:
             return entry
-    raise AssertionError(f"compliance manifest has no entry for {name!r}")
+    raise AssertionError(f"compliance reference {source} has no entry for {name!r}")
 
 
 def _compliance_image_bytes(name):
@@ -2491,12 +2495,12 @@ async def _await_compliance_halt(memory, timeout_us=20):
     while elapsed < deadline_ns:
         await Timer(step_ns, unit="ns")
         elapsed += step_ns
-        value = int.from_bytes(memory.read(COMPLIANCE_HALT_ADDR, 4), "little")
-        if value == COMPLIANCE_HALT_MAGIC:
-            return
+        value = int.from_bytes(memory.read(COMPLIANCE_TOHOST_ADDR, 4), "little")
+        if value != 0:
+            return value
     raise AssertionError(
-        f"compliance program did not signal halt magic 0x{COMPLIANCE_HALT_MAGIC:08X} "
-        f"at 0x{COMPLIANCE_HALT_ADDR:08X} within {timeout_us} us"
+        f"compliance program did not write a non-zero tohost at 0x{COMPLIANCE_TOHOST_ADDR:08X} "
+        f"within {timeout_us} us"
     )
 
 
@@ -2535,3 +2539,63 @@ async def compliance_beq(dut):
 @cocotb.test()
 async def compliance_c_addi(dut):
     await _run_compliance_program(dut, "c_addi")
+
+
+@cocotb.test()
+async def compliance_alu_reg(dut):
+    await _run_compliance_program(dut, "alu_reg")
+
+
+@cocotb.test()
+async def compliance_alu_imm(dut):
+    await _run_compliance_program(dut, "alu_imm")
+
+
+@cocotb.test()
+async def compliance_branches(dut):
+    await _run_compliance_program(dut, "branches")
+
+
+@cocotb.test()
+async def compliance_jumps(dut):
+    await _run_compliance_program(dut, "jumps")
+
+
+@cocotb.test()
+async def compliance_upper(dut):
+    await _run_compliance_program(dut, "upper")
+
+
+@cocotb.test()
+async def compliance_memory(dut):
+    await _run_compliance_program(dut, "memory")
+
+
+@cocotb.test()
+async def compliance_compressed_ops(dut):
+    await _run_compliance_program(dut, "compressed_ops")
+
+
+@cocotb.test()
+async def compliance_compressed_imm(dut):
+    await _run_compliance_program(dut, "compressed_imm")
+
+
+@cocotb.test()
+async def compliance_compressed_branch(dut):
+    await _run_compliance_program(dut, "compressed_branch")
+
+
+@cocotb.test()
+async def compliance_compressed_jump(dut):
+    await _run_compliance_program(dut, "compressed_jump")
+
+
+@cocotb.test()
+async def compliance_compressed_mem(dut):
+    await _run_compliance_program(dut, "compressed_mem")
+
+
+@cocotb.test()
+async def compliance_fence_nop(dut):
+    await _run_compliance_program(dut, "fence_nop")

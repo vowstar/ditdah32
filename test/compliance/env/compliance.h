@@ -7,12 +7,14 @@
 //
 // Memory map (matches env/link.ld):
 //   .text       starts at 0x00000000 (DitDah32 reset vector)
+//   .tohost     anchored at 0x00000100 (HTIF tohost slot used by Spike/Sail)
 //   signature   starts at 0x00000200, 256 bytes
 //
-// Halt convention: EBREAK with mtvec=0 traps to address 0 by default. To
-// avoid an infinite trap loop the test installs a tight loop at mtvec
-// before issuing EBREAK so the simulator sees a stable PC that the
-// cocotb/Spike harnesses can detect.
+// Halt convention: write 1 to the tohost symbol then spin on a tight loop.
+// Spike and Sail both interpret a non-zero write to tohost as an HTIF exit
+// (bit 0 set => "test pass") and end the simulation, dumping the requested
+// signature region if --test-signature is provided. The cocotb harness
+// watches the same address and stops once a non-zero value appears.
 
 #ifndef DITDAH32_COMPLIANCE_H
 #define DITDAH32_COMPLIANCE_H
@@ -27,17 +29,29 @@
     name: .word 0 ;\
     .popsection
 
-// Compliance halt: write 0xC0DEC0DE to address 0x100 (halt magic), then loop.
-// The cocotb harness watches the AXI bus for a store to 0x100 of the magic
-// value and stops the simulation. Spike sees the magic store too via memory
-// inspection at end of run.
+// Compliance halt: write 1 to tohost then spin. The non-zero value triggers
+// HTIF exit in Spike and Sail; the spin keeps the DUT on a stable PC for
+// cocotb's polling watchdog after the cocotb harness observes the write.
 #define COMPLIANCE_HALT \
-    li      x10, 0xC0DEC0DE ;\
-    li      x11, 0x100 ;\
+    li      x10, 1 ;\
+    la      x11, tohost ;\
     sw      x10, 0(x11) ;\
+    sw      x0, 4(x11) ;\
 1:  j       1b
 
 #define COMPLIANCE_START \
+    .pushsection .tohost, "aw", @progbits ;\
+    .align 3 ;\
+    .global tohost ;\
+    .type tohost, @object ;\
+    .size tohost, 8 ;\
+    tohost: .dword 0 ;\
+    .align 3 ;\
+    .global fromhost ;\
+    .type fromhost, @object ;\
+    .size fromhost, 8 ;\
+    fromhost: .dword 0 ;\
+    .popsection ;\
     .section .text.init ;\
     .global _start ;\
     _start:

@@ -22,7 +22,8 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 COMPLIANCE_ROOT = REPO_ROOT / "test" / "compliance"
 TESTS_DIR = COMPLIANCE_ROOT / "tests"
 ENV_DIR = COMPLIANCE_ROOT / "env"
-LINK_SCRIPT = ENV_DIR / "link.ld"
+LINK_SCRIPT_DUT = ENV_DIR / "link.ld"
+LINK_SCRIPT_ISS = ENV_DIR / "link_iss.ld"
 
 
 def find_tool(prefix: str, name: str) -> str:
@@ -33,13 +34,12 @@ def find_tool(prefix: str, name: str) -> str:
     return path
 
 
-def compile_one(src: Path, out_dir: Path, gcc: str, objcopy: str) -> dict[str, str]:
+def compile_variant(src: Path, work: Path, gcc: str, objcopy: str, link_script: Path, suffix: str) -> dict[str, str]:
+    """Compile one .S source against one linker script, producing ELF + bin + hex."""
     name = src.stem
-    work = out_dir / name
-    work.mkdir(parents=True, exist_ok=True)
-    elf = work / f"{name}.elf"
-    binp = work / f"{name}.bin"
-    hexp = work / f"{name}.hex"
+    elf = work / f"{name}{suffix}.elf"
+    binp = work / f"{name}{suffix}.bin"
+    hexp = work / f"{name}{suffix}.hex"
 
     cmd = [
         gcc,
@@ -52,36 +52,40 @@ def compile_one(src: Path, out_dir: Path, gcc: str, objcopy: str) -> dict[str, s
         "-fno-pic",
         "-no-pie",
         f"-I{ENV_DIR}",
-        f"-T{LINK_SCRIPT}",
+        f"-T{link_script}",
         "-o",
         str(elf),
         str(src),
     ]
     subprocess.run(cmd, check=True)
 
-    subprocess.run(
-        [objcopy, "-O", "binary", str(elf), str(binp)],
-        check=True,
-    )
+    subprocess.run([objcopy, "-O", "binary", str(elf), str(binp)], check=True)
 
-    # Also emit a hex file of 32-bit little-endian words for cocotb consumers
-    # that need plain word lists.
     raw = binp.read_bytes()
-    # Pad to multiple of 4 for word boundary.
     if len(raw) % 4:
         raw = raw + b"\x00" * (4 - (len(raw) % 4))
-    words = []
-    for offset in range(0, len(raw), 4):
-        words.append(int.from_bytes(raw[offset:offset + 4], "little"))
+    words = [int.from_bytes(raw[i:i + 4], "little") for i in range(0, len(raw), 4)]
     hexp.write_text("\n".join(f"0x{w:08x}" for w in words) + "\n", encoding="utf-8")
 
     return {
-        "name": name,
-        "src": str(src.relative_to(REPO_ROOT)),
         "elf": str(elf.relative_to(REPO_ROOT)),
         "bin": str(binp.relative_to(REPO_ROOT)),
         "hex": str(hexp.relative_to(REPO_ROOT)),
         "size_bytes": len(raw),
+    }
+
+
+def compile_one(src: Path, out_dir: Path, gcc: str, objcopy: str) -> dict[str, str]:
+    name = src.stem
+    work = out_dir / name
+    work.mkdir(parents=True, exist_ok=True)
+    dut = compile_variant(src, work, gcc, objcopy, LINK_SCRIPT_DUT, suffix="")
+    iss = compile_variant(src, work, gcc, objcopy, LINK_SCRIPT_ISS, suffix="_iss")
+    return {
+        "name": name,
+        "src": str(src.relative_to(REPO_ROOT)),
+        "dut": dut,
+        "iss": iss,
     }
 
 
