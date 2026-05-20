@@ -1,18 +1,7 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT
-"""Generate reference signature dumps via Sail for the DitDah32 compliance gate.
-
-For each compliance test built under result/compliance/build/<name>/, invokes
-sail_riscv_sim on the ISS-base ELF (<name>_iss.elf) using a vendored Sail
-RV32 configuration. Sail watches the tohost symbol for an HTIF exit and
-dumps the bytes between begin_signature and end_signature into a text file
-when the test halts.
-
-The result is a per-test signature.txt file under
-result/compliance/sail_signatures/<name>/ containing 32-bit words, one per
-line, in big-endian hex (Sail's --test-signature default). The
-compliance orchestrator parses these and treats them as the canonical
-reference signature for the DUT comparison.
+"""Run Sail on each compliance ISS ELF and dump begin/end_signature regions
+to result/compliance/sail_signatures/<name>/signature.txt.
 """
 
 from __future__ import annotations

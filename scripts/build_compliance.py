@@ -1,10 +1,7 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT
-"""Compile DitDah32 compliance tests to ELF and binary.
-
-For each .S file under test/compliance/tests/, invokes the RISC-V toolchain
-to produce both an ELF (for Spike) and a raw binary (for the cocotb AXI RAM
-image). Outputs land under result/compliance/build/<test_name>/.
+"""Compile compliance tests to two variants: DUT base 0 (raw bin for the
+cocotb AXI RAM) and ISS base 0x80000000 (ELF for Sail).
 """
 
 from __future__ import annotations

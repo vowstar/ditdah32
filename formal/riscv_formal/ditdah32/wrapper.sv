@@ -399,12 +399,8 @@ module rvfi_wrapper (
     end
 
 `ifdef DITDAH32_RVFI_TRAP_CSR_CHECK
-    // mstatus trap-entry / mret-exit invariants plus per-cause mcause
-    // encoding and mip pin-mirror for the closure of csr_full and
-    // interrupt_full_csr_side_effects.
-    // Bit layout follows RISC-V Priv Spec v1.12 §3.1.6 / §3.1.9 /
-    // §3.1.16: mstatus.MIE=3, MPIE=7, MPP=12:11; mip.MSIP=3, MTIP=7,
-    // MEIP=11; mcause interrupt codes 3/7/11 with the high bit set.
+    // Trap-entry / mret-exit / mip / mcause / MPIE-swap invariants.
+    // Priv Spec v1.12: mstatus.MIE=3 / MPIE=7 / MPP=12:11; mip MSI/MTI/MEI=3/7/11.
     wire is_mret_retire = trace_valid && (trace_instr == 32'h30200073);
     wire is_trap_entry  = trace_valid && (trace_trap || rvfi_intr);
     wire is_interrupt_entry = is_trap_entry && trace_mcause[31];
@@ -412,39 +408,24 @@ module rvfi_wrapper (
 
     always @(posedge clock) begin
         if (!reset) begin
-            // Trap entry: MIE clears and MPP is forced to M-mode for every
-            // trap class. For exception traps (mcause[31]=0) the trap commits
-            // one cycle before the retire, so RegNext(csrMstatus) (exposed
-            // as trace_mstatus_pre_trap) holds the pre-trap mstatus. Assert
-            // the full MPIE = pre-trap MIE swap there. Interrupt entries
-            // (mcause[31]=1) come from a 2-cycle pipeline plus the
-            // post-commit IRQ path that may include a same-cycle CSRRW to
-            // mstatus, so the swap proof for those classes remains staged.
             if (is_trap_entry) begin
                 assert (trace_mstatus[3] == 1'b0);
                 assert (trace_mstatus[12:11] == 2'b11);
             end
+            // MPIE swap proven on exception entries only; interrupt-entry
+            // proof is staged because the IRQ path is 2 cycles delayed and
+            // can absorb a same-cycle CSRRW to mstatus.
             if (is_exception_entry) begin
                 assert (trace_mstatus[7] == trace_mstatus_pre_trap[3]);
             end
-            // mret retire: MPIE resets to 1, MPP stays in M-mode.
             if (is_mret_retire) begin
                 assert (trace_mstatus[7] == 1'b1);
                 assert (trace_mstatus[12:11] == 2'b11);
             end
-            // mip pin-mirror invariant: for M-only DitDah32 the relevant
-            // mip bits are pure reflections of the corresponding IRQ pins.
             assert (trace_mip[3]  == irq_software);
             assert (trace_mip[7]  == irq_timer);
             assert (trace_mip[11] == irq_external);
-            // All other mip bits must read as zero.
             assert ((trace_mip & ~32'h0000_0888) == 32'd0);
-            // Per-cause mcause encoding: when an interrupt trap commits,
-            // the mcause low bits must be one of the three M-mode
-            // interrupt codes from Priv Spec Table 3.6 (MSI=3, MTI=7,
-            // MEI=11) and the interrupt bit (msb) must be set. Synchronous
-            // exception causes never have the high bit set, so this also
-            // proves cause-class disjointness on trap entry.
             if (is_interrupt_entry) begin
                 assert (trace_mcause[30:0] == 31'd3
                      || trace_mcause[30:0] == 31'd7
@@ -455,55 +436,29 @@ module rvfi_wrapper (
 `endif
 
 `ifdef DITDAH32_RVFI_CSR_WARL_CHECK
-    // WARL per-field legalization invariants for the writable M-mode CSRs.
-    // DitDah32 is M-only with no fp/vector state, so the legal value space is
-    // tight. Assertions fire on every retire so the structural invariant on
-    // trace_mstatus (continuously mirrored) is checked at every cycle, and
-    // the trace_csr_* CSR-instruction view checks the per-CSR rdata read by
-    // the executing instruction.
+    // WARL per-field legalization for the writable M-mode CSRs.
     always @(posedge clock) begin
         if (!reset && trace_valid) begin
-            // mstatus: only MIE (bit 3), MPIE (bit 7), and MPP (bits 12:11)
-            // are writable; reserved bits stay zero; MPP is either 00 (reset)
-            // or 11 (M-mode forced by writableMstatus / trapMstatus /
-            // mretMstatus). U and S modes are not implemented.
             assert (trace_mstatus[31:13] == 19'd0);
             assert (trace_mstatus[10:8]  == 3'd0);
             assert (trace_mstatus[6:4]   == 3'd0);
             assert (trace_mstatus[2:0]   == 3'd0);
             assert (trace_mstatus[12:11] == 2'b00 || trace_mstatus[12:11] == 2'b11);
-            // Per-CSR rdata legalization on read retires. The mask check
-            // gates the assertion to the cycle the retiring instruction
-            // actually reads the named CSR, so a constant test bench cannot
-            // mask the invariant.
             if (trace_csr_rmask != 32'd0) begin
-                if (trace_csr_addr == 12'h304) begin
-                    // mie: only MSI (3), MTI (7), MEI (11) are writable.
-                    assert ((trace_csr_rdata & ~32'h0000_0888) == 32'd0);
-                end
-                if (trace_csr_addr == 12'h305) begin
-                    // mtvec.MODE forced 00 (direct mode only).
-                    assert (trace_csr_rdata[1:0] == 2'b00);
-                end
-                if (trace_csr_addr == 12'h341) begin
-                    // mepc must be 2-byte aligned (RV32EC supports RVC).
-                    assert (trace_csr_rdata[0] == 1'b0);
-                end
+                if (trace_csr_addr == 12'h304)
+                    assert ((trace_csr_rdata & ~32'h0000_0888) == 32'd0); // mie mask
+                if (trace_csr_addr == 12'h305)
+                    assert (trace_csr_rdata[1:0] == 2'b00);                // mtvec MODE
+                if (trace_csr_addr == 12'h341)
+                    assert (trace_csr_rdata[0] == 1'b0);                   // mepc align
             end
         end
     end
 `endif
 
 `ifdef DITDAH32_RVFI_CSR_READONLY_CHECK
-    // Read-only CSR illegal-write trap invariant (Priv Spec v1.12 §2.1):
-    // any architectural write attempt to a CSR with addr[11:10] == 11 must
-    // raise an illegal-instruction exception. A write attempt is defined as:
-    //   - CSRRW / CSRRWI (funct3 = 1 or 5): always writes;
-    //   - CSRRS / CSRRC / CSRRSI / CSRRCI (funct3 = 2, 3, 6, 7): writes iff
-    //     insn[19:15] (rs1 for the register form, uimm for the immediate
-    //     form) is non-zero.
-    // Decoding straight off rvfi_insn keeps the proof tied to the spec's
-    // architectural encoding rather than the runtime CSR operand.
+    // Architectural write to a CSR with addr[11:10]==11 must trap (Priv Spec §2.1).
+    // Write attempt: CSRRW/CSRRWI always, others when insn[19:15] != 0.
     wire [6:0] ro_opcode  = rvfi_insn[6:0];
     wire [2:0] ro_funct3  = rvfi_insn[14:12];
     wire [11:0] ro_csr    = rvfi_insn[31:20];
@@ -520,12 +475,8 @@ module rvfi_wrapper (
 `endif
 
 `ifdef DITDAH32_RVFI_WFI_WAKE_CHECK
-    // Bounded-liveness fairness for WFI: when the core is in the sleep state
-    // and an MIE-enabled IRQ is pending (irq_pending = irqTrapPending in the
-    // core), the implementation must exit sleep within DITDAH32_WFI_BOUND
-    // cycles. The 2-stage pipeline has no caches or speculative state, so the
-    // wake plus first-handler-fetch path is at most a handful of cycles.
-    // This is a tight but finite bound.
+    // Bounded-liveness: sleep must exit within DITDAH32_WFI_BOUND cycles once an
+    // MIE-enabled IRQ is pending.
     localparam integer DITDAH32_WFI_BOUND = 8;
     reg [3:0] wfi_wake_counter;
     always @(posedge clock) begin
