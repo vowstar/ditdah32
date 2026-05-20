@@ -1,3 +1,4 @@
+/* SPDX-FileCopyrightText: 2026 Huang Rui <vowstar@gmail.com> */
 // SPDX-License-Identifier: MIT
 // Zicsr basic CSR access compliance: csrrw, csrrs, csrrc plus their
 // immediate variants. Uses mscratch only so the signature is independent

@@ -1,3 +1,4 @@
+/* SPDX-FileCopyrightText: 2026 Huang Rui <vowstar@gmail.com> */
 // SPDX-License-Identifier: MIT
 // ebreak trap compliance. Mirrors ecall.S but expects cause = 3
 // (BREAKPOINT). Handler advances mepc past the ebreak and resumes.

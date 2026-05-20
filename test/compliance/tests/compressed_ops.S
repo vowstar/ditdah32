@@ -1,3 +1,4 @@
+/* SPDX-FileCopyrightText: 2026 Huang Rui <vowstar@gmail.com> */
 // SPDX-License-Identifier: MIT
 // Zca compressed register-register ops: c.add, c.sub, c.and, c.or, c.xor, c.mv.
 

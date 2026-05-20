@@ -1,0 +1,46 @@
+version = 1
+SPDX-PackageName = "DitDah32"
+SPDX-PackageSupplier = "Huang Rui <vowstar@gmail.com>"
+SPDX-PackageDownloadLocation = "https://github.com/vowstar/ditdah32"
+
+[[annotations]]
+path = ["README.md", "doc/**.md", "bench/README.md"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 Huang Rui <vowstar@gmail.com>"
+SPDX-License-Identifier = "MIT"
+
+[[annotations]]
+path = "test/compliance/manifest.json"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 Huang Rui <vowstar@gmail.com>"
+SPDX-License-Identifier = "MIT"
+
+[[annotations]]
+path = [".gitignore", "flake.lock"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 Huang Rui <vowstar@gmail.com>"
+SPDX-License-Identifier = "MIT"
+
+[[annotations]]
+path = "bench/coremark/upstream/**"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2009 EEMBC"
+SPDX-License-Identifier = "Apache-2.0"
+
+[[annotations]]
+path = "bench/dhrystone/upstream/**"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "1984 Reinhold P. Weicker"
+SPDX-License-Identifier = "LicenseRef-Dhrystone"
+
+[[annotations]]
+path = "test/cocotb_bus/**"
+precedence = "aggregate"
+SPDX-FileCopyrightText = ["2013 Potential Ventures Ltd", "cocotb maintainers"]
+SPDX-License-Identifier = "BSD-3-Clause"
+
+[[annotations]]
+path = "test/cocotbext/**"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2020-2023 Alex Forencich"
+SPDX-License-Identifier = "MIT"

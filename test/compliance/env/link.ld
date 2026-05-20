@@ -1,3 +1,4 @@
+/* SPDX-FileCopyrightText: 2026 Huang Rui <vowstar@gmail.com> */
 /* SPDX-License-Identifier: MIT
  *
  * Linker script for the DitDah32 compliance gate. Boots the test program

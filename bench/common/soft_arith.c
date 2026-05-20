@@ -1,3 +1,4 @@
+// SPDX-FileCopyrightText: 2026 Huang Rui <vowstar@gmail.com>
 // SPDX-License-Identifier: MIT
 
 static unsigned int udivmod32(unsigned int dividend, unsigned int divisor, unsigned int *remainder)

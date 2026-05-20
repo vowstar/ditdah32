@@ -1,3 +1,4 @@
+// SPDX-FileCopyrightText: 2026 Huang Rui <vowstar@gmail.com>
 // SPDX-License-Identifier: MIT
 #include "bench_result.h"
 #include "../upstream/dhry.h"

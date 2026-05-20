@@ -1,3 +1,4 @@
+/* SPDX-FileCopyrightText: 2026 Huang Rui <vowstar@gmail.com> */
 // SPDX-License-Identifier: MIT
 // beq (RV32I/E base) compliance test.
 // The DUT must take the branch when rs1 == rs2 and fall through otherwise.

@@ -1,3 +1,4 @@
+/* SPDX-FileCopyrightText: 2026 Huang Rui <vowstar@gmail.com> */
 // SPDX-License-Identifier: MIT
 // c.addi (RV32C / Zca) compliance test.
 // Exercises the compressed add-immediate using only the RV32E register set.

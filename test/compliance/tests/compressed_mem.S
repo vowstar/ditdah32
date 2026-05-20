@@ -1,3 +1,4 @@
+/* SPDX-FileCopyrightText: 2026 Huang Rui <vowstar@gmail.com> */
 // SPDX-License-Identifier: MIT
 // Zca compressed memory ops: c.lw, c.sw, c.lwsp, c.swsp.
 // Uses sp explicitly for the *sp variants; restores sp at the end.

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-FileCopyrightText: 2026 Huang Rui <vowstar@gmail.com>
 # SPDX-License-Identifier: MIT
 """Run Sail on each compliance ISS ELF and dump begin/end_signature regions
 to result/compliance/sail_signatures/<name>/signature.txt.

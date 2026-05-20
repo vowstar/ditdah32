@@ -1,3 +1,4 @@
+/* SPDX-FileCopyrightText: 2026 Huang Rui <vowstar@gmail.com> */
 // SPDX-License-Identifier: MIT
 // Zca compressed immediate ops: c.li, c.lui, c.slli, c.srli, c.srai, c.andi,
 // c.addi16sp, c.addi4spn. (c.addi covered separately.)

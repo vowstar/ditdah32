@@ -1,3 +1,4 @@
+/* SPDX-FileCopyrightText: 2026 Huang Rui <vowstar@gmail.com> */
 // SPDX-License-Identifier: MIT
 // RV32I conditional branch compliance (excluding beq): bne, blt, bge, bltu, bgeu.
 

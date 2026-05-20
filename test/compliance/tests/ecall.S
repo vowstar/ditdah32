@@ -1,3 +1,4 @@
+/* SPDX-FileCopyrightText: 2026 Huang Rui <vowstar@gmail.com> */
 // SPDX-License-Identifier: MIT
 // ecall trap compliance. Installs a minimal trap handler at mtvec, fires
 // an ecall from M-mode, expects mcause = 11 (ECALL_M per Priv Spec Table

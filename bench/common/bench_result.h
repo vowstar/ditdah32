@@ -1,3 +1,4 @@
+// SPDX-FileCopyrightText: 2026 Huang Rui <vowstar@gmail.com>
 // SPDX-License-Identifier: MIT
 #ifndef DITDAH32_BENCH_RESULT_H
 #define DITDAH32_BENCH_RESULT_H

@@ -1,3 +1,4 @@
+# SPDX-FileCopyrightText: 2026 Huang Rui <vowstar@gmail.com>
 # SPDX-License-Identifier: MIT
 {
   description = "DitDah32 tiny two-stage RV32EC core using zaozi EDSL";

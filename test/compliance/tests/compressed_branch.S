@@ -1,3 +1,4 @@
+/* SPDX-FileCopyrightText: 2026 Huang Rui <vowstar@gmail.com> */
 // SPDX-License-Identifier: MIT
 // Zca compressed branches: c.beqz, c.bnez. CB-format requires rs1' in x8..x15.
 

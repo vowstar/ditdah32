@@ -1,3 +1,4 @@
+/* SPDX-FileCopyrightText: 2026 Huang Rui <vowstar@gmail.com> */
 // SPDX-License-Identifier: MIT
 // mret control-flow compliance. Programs mepc to a known target and
 // verifies mret transfers control there. Uses ecall to enter the trap

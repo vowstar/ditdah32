@@ -1,3 +1,4 @@
+/* SPDX-FileCopyrightText: 2026 Huang Rui <vowstar@gmail.com> */
 // SPDX-License-Identifier: MIT
 // Fence and nop sanity checks. fence and c.nop must execute without trapping
 // and must not perturb visible architectural state.

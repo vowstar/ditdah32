@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Huang Rui <vowstar@gmail.com>
+# SPDX-License-Identifier: MIT
+
 DUT = test_ditdah32
 DUT_DIR = $(abspath $(CURDIR))
 TOPLEVEL = test_ditdah32

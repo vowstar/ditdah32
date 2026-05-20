@@ -1,3 +1,4 @@
+/* SPDX-FileCopyrightText: 2026 Huang Rui <vowstar@gmail.com> */
 // SPDX-License-Identifier: MIT
 // RV32I register-register ALU compliance test:
 // sub, sll, srl, sra, or, xor, slt, sltu. (add covered separately.)

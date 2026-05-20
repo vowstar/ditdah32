@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-FileCopyrightText: 2026 Huang Rui <vowstar@gmail.com>
 # SPDX-License-Identifier: MIT
 """Compile compliance tests to two variants: DUT base 0 (raw bin for the
 cocotb AXI RAM) and ISS base 0x80000000 (ELF for Sail).

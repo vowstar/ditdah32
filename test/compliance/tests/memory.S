@@ -1,3 +1,4 @@
+/* SPDX-FileCopyrightText: 2026 Huang Rui <vowstar@gmail.com> */
 // SPDX-License-Identifier: MIT
 // RV32I memory access compliance: lb/lbu/lh/lhu/lw, sb/sh/sw.
 // Stores a known pattern into the signature region and re-reads it through
