@@ -68,7 +68,7 @@
           "-disable-all-randomization"
           "-g"
           "--emit-hgldd"
-          "--lowering-options=noAlwaysComb,disallowLocalVariables,disallowPackedArrays,emittedLineLength=160,verifLabels,explicitBitcast,locationInfoStyle=wrapInAtSquareBracket,wireSpillingHeuristic=spillLargeTermsWithNamehints,disallowMuxInlining,wireSpillingNamehintTermLimit=8,maximumNumberOfTermsPerExpression=8,disallowExpressionInliningInPorts,caseInsensitiveKeywords"
+          "--lowering-options=noAlwaysComb,disallowLocalVariables,disallowPackedArrays,emittedLineLength=160,verifLabels,explicitBitcast,locationInfoStyle=wrapInAtSquareBracket,maximumNumberOfTermsPerExpression=24,disallowExpressionInliningInPorts,caseInsensitiveKeywords"
         ];
 
         pythonEnv = pkgs.python3.withPackages (ps:
