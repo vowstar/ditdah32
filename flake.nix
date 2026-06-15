@@ -348,6 +348,25 @@ EOF
           pkgs.pkgsCross.riscv32-embedded.buildPackages.binutils
           pythonEnv
         ];
+
+        scoreScript = pkgs.writeShellApplication {
+          name = "score-ditdah32";
+          runtimeInputs = [
+            buildScript
+            pkgs.scala-cli
+            pkgs.circt-install
+            pkgs.mlir-install
+            pkgs.jextract-21
+            pkgs.pkgsCross.riscv32-embedded.stdenv.cc
+            pkgs.pkgsCross.riscv32-embedded.buildPackages.binutils
+            pkgs.verilator
+            pythonEnv
+          ];
+          text = ''
+            build-ditdah32 --no-trace
+            python3 scripts/run_bench_sim.py "$@"
+          '';
+        };
       in
       {
         packages.default = pkgs.runCommand "ditdah32-verilog" {
@@ -389,6 +408,11 @@ EOF
         apps.build = {
           type = "app";
           program = "${buildScript}/bin/build-ditdah32";
+        };
+
+        apps.score = {
+          type = "app";
+          program = "${scoreScript}/bin/score-ditdah32";
         };
 
         devShells = {

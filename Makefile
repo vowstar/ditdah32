@@ -4,6 +4,8 @@
 .PHONY: audit-ci-action-refs audit-ci-github-auth audit-ci-publish-readiness audit-ci-remote audit-ci-remote-preflight audit-completion audit-gaps audit-tools audit-trace-config build build-trace bench bench-score ci-remote-closure ci-remote-dispatch ci-remote-publish coverage formal signoff-coverage test test-model test-isa test-scripts test-isa-rtl verify verify-ci-smoke verify-compliance verify-iss verify-riscv-dv verify-rvfi verify-rvfi-lite verify-sail-highmem verify-sail-matrix verify-sail-smoke verify-smoke verify-rtl verify-signoff verify-spike-highmem verify-spike-rv32e-strict verify-spike-smoke verify-spike-matrix clean
 
 BENCH_FREQ_MHZ ?= 100
+BENCH_COREMARK_ITERATIONS ?= 200
+BENCH_DHRYSTONE_RUNS ?= 100000
 CI_ACTION_REF_ARGS ?=
 CI_GITHUB_AUTH_ARGS ?=
 CI_PUBLISH_READINESS_ARGS ?=
@@ -58,9 +60,11 @@ build-trace:
 bench:
 	python3 scripts/build_benchmarks.py --out-dir result/bench
 
-bench-score: bench build-trace
-	DITDAH32_BENCH_FREQ_MHZ=$(BENCH_FREQ_MHZ) $(MAKE) -C test/test_ditdah32 TESTCASE=coremark_profile_binary_passes_on_rtl,dhrystone_one_run_binary_passes_on_rtl
-	python3 scripts/benchmark_score_summary.py --frequency-mhz $(BENCH_FREQ_MHZ)
+bench-score: build
+	python3 scripts/run_bench_sim.py \
+		--coremark-iterations $(BENCH_COREMARK_ITERATIONS) \
+		--dhrystone-runs $(BENCH_DHRYSTONE_RUNS) \
+		--frequency-mhz $(BENCH_FREQ_MHZ)
 
 coverage:
 	python3 scripts/rv32ec_coverage.py --out-dir result/coverage
