@@ -1,0 +1,37 @@
+# SPDX-FileCopyrightText: 2026 Huang Rui <vowstar@gmail.com>
+# SPDX-License-Identifier: MIT
+name: release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v27
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+            accept-flake-config = true
+
+      - name: Build clean no-trace RTL
+        run: nix develop .#smoke --command build-ditdah32 --no-trace
+
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ github.ref_name }}" \
+            result/DitDah32.sv \
+            --title "DitDah32 ${{ github.ref_name }}" \
+            --notes "Signed-off RV32EC control core for always-on and PHY control. Synthesizable no-trace RTL, built in CI by nix. See README for area, frequency, power, and benchmark numbers."
