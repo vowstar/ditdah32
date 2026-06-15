@@ -608,7 +608,8 @@ object DitDah32Module
     storeAwFire := storeAwValid & io.axi_awready
     storeWFire := storeWValid & io.axi_wready
     storeBothDone := (storeAwDone | storeAwFire) & (storeWDone | storeWFire)
-    storeResponseFire := stateStore & storeBothDone & io.axi_bvalid
+    val storeComplete = stateStore & storeBothDone
+    storeResponseFire := storeComplete & io.axi_bvalid
     storeResponseError := storeResponseFire & (io.axi_bresp =/= 0.U(2))
     storeResponseOk := storeResponseFire & !storeResponseError
 
@@ -1039,14 +1040,14 @@ object DitDah32Module
     csrTraceWriteData := csrWriteData
 
     postCommitMstatus := csrMstatus
-    when(isCsr & csrWriteEnable & (csrAddr === CsrAddr.MSTATUS.U(12)) & !execTrap) {
+    when(csrWriteEnable & (csrAddr === CsrAddr.MSTATUS.U(12)) & !execTrap) {
       postCommitMstatus := writableMstatus(csrWriteData)
     }
     when(isMret & !execTrap) {
       postCommitMstatus := mretMstatus(csrMstatus)
     }
     postCommitMie := csrMie
-    when(isCsr & csrWriteEnable & (csrAddr === CsrAddr.MIE.U(12)) & !execTrap) {
+    when(csrWriteEnable & (csrAddr === CsrAddr.MIE.U(12)) & !execTrap) {
       postCommitMie := (csrWriteData.asBits & 0x888.U(parameter.xlen).asBits).bits(parameter.xlen - 1, 0).asUInt
     }
     postCommitIrqEnabledMask := (postCommitMie.asBits & irqMip.asBits).bits(parameter.xlen - 1, 0).asUInt
@@ -1241,12 +1242,13 @@ object DitDah32Module
     execUsesRs2 := isBranch | isStore | isAluReg
     execKnown   := isLui | isAuipc | isJal | isJalr | isBranch | isLoad | isStore | isAluImm | isAluReg | isFence | isEcall | isEbreak | isWfi | isMret | isCsr | isCNop
 
-    execTrap := (!execKnown) | csrIllegal | (execUsesRd & rdIllegal) | (execUsesRs1 & rs1Illegal) | (execUsesRs2 & rs2Illegal) | loadMisaligned | storeMisaligned | isEcall | isEbreak
+    val regAccessIllegal = (execUsesRd & rdIllegal) | (execUsesRs1 & rs1Illegal) | (execUsesRs2 & rs2Illegal)
+    execTrap := (!execKnown) | csrIllegal | regAccessIllegal | loadMisaligned | storeMisaligned | isEcall | isEbreak
     execTrapCause := TrapCause.NONE.U(4)
     when(!execKnown | csrIllegal) {
       execTrapCause := TrapCause.ILLEGAL.U(4)
     }
-    when((execUsesRd & rdIllegal) | (execUsesRs1 & rs1Illegal) | (execUsesRs2 & rs2Illegal)) {
+    when(regAccessIllegal) {
       execTrapCause := TrapCause.RV32E_REGISTER.U(4)
     }
     when(loadMisaligned) {
@@ -1360,6 +1362,11 @@ object DitDah32Module
     execWriteRd := execUsesRd & !execTrap & (rdIndex =/= 0.U(5)) & !cNoWriteHint
     execWaitsForMem := (isLoad | isStore) & !execTrap
 
+    // Commit-cycle outcomes: a committing instruction either enters the
+    // memory phase (load/store) or retires immediately (everything else).
+    val commitEntersMem = commitNow & execWaitsForMem
+    val commitNonMem    = commitNow & !execWaitsForMem
+
     branchTaken := false.B
     when(isBranch) {
       when(funct3 === 0.U(3)) {
@@ -1402,7 +1409,7 @@ object DitDah32Module
     io.axi_wvalid  := storeWValid
     io.axi_wdata   := memStoreDataReg
     io.axi_wstrb   := memStoreBeReg
-    io.axi_bready  := stateStore & storeBothDone
+    io.axi_bready  := storeComplete
     io.axi_arvalid := loadArValid | fetchArValid
     io.axi_araddr  := stateLoad.?((memAddrReg.asBits.bits(parameter.xlen - 1, 2) ## 0.U(2).asBits).asUInt, instrAddr)
     io.axi_arprot  := stateLoad.?(2.U(3), 6.U(3))
@@ -1745,7 +1752,7 @@ object DitDah32Module
         }
       }
 
-      when(commitNow & execWaitsForMem) {
+      when(commitEntersMem) {
         memPcReg        := pc
         memInstrReg     := commitInstr
         memLenReg       := commitLen
@@ -1770,7 +1777,7 @@ object DitDah32Module
         }
       }
 
-      when(commitNow & !execWaitsForMem) {
+      when(commitNonMem) {
         trapEventReg := execTrap
         traceTrapReg.foreach(_ := execTrap)
         traceTrapCauseReg.foreach(_ := execTrapCause)
@@ -1794,7 +1801,7 @@ object DitDah32Module
 
         writeGpr(execWriteRd, rdIndex, execWdata, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15)
 
-        when(isCsr & csrWriteEnable & !execTrap) {
+        when(csrWriteEnable & !execTrap) {
           when(csrAddr === CsrAddr.MSTATUS.U(12)) {
             csrMstatus := writableMstatus(csrWriteData)
           }
