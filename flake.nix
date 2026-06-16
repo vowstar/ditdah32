@@ -24,16 +24,33 @@
         pkgs = pkgsBase.extend (final: prev: {
           zaozi = prev.zaozi // {
             zaozi-assembly = prev.zaozi.zaozi-assembly.overrideAttrs (old: {
-              # Zaozi rev 19de5b5 currently has an incomplete offline Mill lock.
-              # Its packaged fileset also omits testlib/, which current package.mill imports.
+              # Zaozi rev 19de5b5 ships an offline Mill lock generated for Mill
+              # 1.0.0, but the followed nixpkgs ships Mill 1.1.2, whose launcher
+              # coursier-fetches mill-runner-daemon_3-1.1.2 at startup. Use the
+              # full source tree (its packaged fileset omits testlib/) and swap
+              # in a vendored lock regenerated against 1.1.2.
               src = zaozi.outPath;
 
-              # Build online locally until upstream refreshes nix/zaozi/zaozi-lock.nix.
+              prePatch = ''
+                cp ${./nix/zaozi-lock.nix} nix/zaozi/zaozi-lock.nix
+              '';
+
+              # --offline is load-bearing: future Mill skew fails loudly instead
+              # of silently reaching the network and breaking sealed CI.
               buildPhase = ''
                 runHook preBuild
-                mill --no-daemon '__.assembly'
+                mill --no-daemon --offline '__.assembly'
                 runHook postBuild
               '';
+
+              # Replace the upstream offline ivy cache (built from the 1.0.0
+              # lock) with one gathered from the vendored 1.1.2 lock; without
+              # this --offline cannot find mill-runner-daemon_3-1.1.2.
+              buildInputs =
+                builtins.filter
+                  (pkg: (pkg.name or "") != "build-ivy-cache-env")
+                  (old.buildInputs or [])
+                ++ [ (pkgsBase.ivy-gather ./nix/zaozi-lock.nix) ];
 
               # The assembly target does not use espresso, and keeping it in
               # nativeBuildInputs makes fresh CI runners fetch an unrelated
