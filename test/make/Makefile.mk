@@ -8,11 +8,16 @@ ifeq ($(shell command -v vcs >/dev/null 2>&1 && echo yes),yes)
 SIM := vcs
 else ifeq ($(shell command -v xrun >/dev/null 2>&1 && echo yes),yes)
 SIM := xcelium
+else ifeq ($(shell command -v verilator >/dev/null 2>&1 && echo yes),yes)
+# The DV trace surface lives in CIRCT layer("DV") bind collateral; resolving it
+# needs SystemVerilog bind support, which Icarus Verilog 12 lacks. Verilator
+# supports bind, so it is preferred over Icarus for the open-source flow.
+SIM := verilator
 else ifeq ($(shell command -v iverilog >/dev/null 2>&1 && echo yes),yes)
 SIM := icarus
-$(warning WARNING: Using Icarus Verilog. Prefer VCS or Xcelium for stronger SystemVerilog coverage.)
+$(warning WARNING: Using Icarus Verilog, which cannot resolve the DV layer bind. Prefer Verilator, VCS, or Xcelium.)
 else
-$(error No supported simulator found. Install VCS, Xcelium, or Icarus and ensure it is in PATH)
+$(error No supported simulator found. Install Verilator, VCS, Xcelium, or Icarus and ensure it is in PATH)
 endif
 endif
 

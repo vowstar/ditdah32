@@ -4,12 +4,38 @@
 
 import argparse
 import json
+import os
 import subprocess
 import time
 from pathlib import Path
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+
+
+def resolve_slang_so():
+    slang_so = os.environ.get("SLANG_SO")
+    if not slang_so or not Path(slang_so).is_file():
+        raise SystemExit(
+            "SLANG_SO is not set or does not point to slang.so; run inside "
+            "'nix develop' so the yosys-slang plugin is available."
+        )
+    return slang_so
+
+
+# The trace surface lives in the layer("DV") bind collateral. read_slang reads
+# the core and resolves the probe XMRs through ditdah32_trace_top; the adapter
+# (with anyseq inputs) is then read with yosys read_verilog -formal.
+TRACE_TOP = "formal/riscv_formal/ditdah32/ditdah32_trace_top.sv"
+
+
+def read_slang_dut_cmd():
+    slang_so = resolve_slang_so()
+    return (
+        f"plugin -i {slang_so}; "
+        f"read_slang -Iresult {TRACE_TOP} result/DitDah32.sv result/DitDah32_DV.sv "
+        f"result/layers-DitDah32-DV.sv --top ditdah32_trace_top; "
+    )
 
 
 def run(cmd, log_path):
@@ -55,7 +81,8 @@ def main():
                 "-q",
                 "-p",
                 (
-                    "read_verilog -formal -sv result/DitDah32.sv formal/ditdah32_safety.sv; "
+                    read_slang_dut_cmd()
+                    + "read_verilog -formal -sv formal/ditdah32_safety.sv; "
                     "prep -top DitDah32Safety; "
                     f"write_smt2 -wires {smt_path}"
                 ),

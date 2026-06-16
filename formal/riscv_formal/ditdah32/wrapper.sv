@@ -74,7 +74,7 @@ module rvfi_wrapper (
     wire [31:0] trace_mip;
     wire [31:0] trace_mcause;
 
-    DitDah32 dut (
+    ditdah32_trace_top dut (
         .clock(clock),
         .reset(reset),
         .axi_awvalid(axi_awvalid),
@@ -103,6 +103,9 @@ module rvfi_wrapper (
         .trap(trap),
         .core_busy(core_busy),
         .core_sleep(core_sleep),
+        // The trace surface lives in the layer("DV") bind collateral. The
+        // ditdah32_trace_top bridge (read via read_slang) resolves the probe
+        // XMRs and re-exposes them as ports for the riscv-formal harness.
         .trace_valid(trace_valid),
         .trace_pc(trace_pc),
         .trace_next_pc(trace_next_pc),

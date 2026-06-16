@@ -67,6 +67,41 @@
           enableTrace = false;
         };
 
+        # yosys-slang frontend, statically linked against vendored slang/fmt.
+        # Provides read_slang so the formal flow can resolve CIRCT layer-bound
+        # DV probe XMRs in the generated DitDah32.sv.
+        yosys-slang = pkgs.stdenv.mkDerivation {
+          pname = "yosys-slang";
+          version = "3251530";
+          src = pkgs.fetchgit {
+            url = "https://github.com/povik/yosys-slang";
+            rev = "3251530961e0e8a8054098c9bb8376474958944a";
+            fetchSubmodules = true;
+            hash = "sha256-e3DPddB5dQeA7EvUxO5wl7GwhI6bSoAulADl2MDIk70=";
+          };
+          nativeBuildInputs = [ pkgs.cmake pkgs.pkg-config pkgs.python3 ];
+          buildInputs = [ pkgs.yosys ];
+          dontUseCmakeConfigure = true;
+          buildPhase = ''
+            runHook preBuild
+            cmake -S . -B build \
+              -DYOSYS_CONFIG=${pkgs.yosys}/bin/yosys-config \
+              -DCMAKE_BUILD_TYPE=Release \
+              -DSLANG_INCLUDE_TESTS=OFF \
+              -DSLANG_USE_CPPTRACE=OFF \
+              -DBUILD_TESTING=OFF
+            cmake --build build -j$NIX_BUILD_CORES
+            runHook postBuild
+          '';
+          installPhase = ''
+            runHook preInstall
+            mkdir -p $out/lib
+            cp build/slang.so $out/lib/slang.so
+            runHook postInstall
+          '';
+        };
+        slangSo = "${yosys-slang}/lib/slang.so";
+
         zaozi-jar = "${pkgs.zaozi.zaozi-assembly}/share/java/elaborator.jar";
         javaLibraryPath = "${pkgs.circt-install}/lib:${pkgs.mlir-install}/lib";
 
@@ -239,6 +274,22 @@ EOF
 
           rm -f DitDah32*.mlirbc
 
+          # The DV trace surface always lowers to separate layer("DV") bind
+          # collateral, never into the DitDah32 main module. The production
+          # (--no-trace) deliverable is the lone trace-free core; verification
+          # (--trace) keeps the bind collateral for cocotb and the formal flow.
+          if [ "$ENABLE_TRACE" != "true" ]; then
+            rm -f "$OUTPUT_DIR"/DitDah32_DV.sv \
+                  "$OUTPUT_DIR"/layers-DitDah32-DV.sv \
+                  "$OUTPUT_DIR"/ref_DitDah32.sv \
+                  "$OUTPUT_DIR"/DitDah32_DV.dd
+            if [ -f "$OUTPUT_DIR"/filelist.f ]; then
+              ${pkgs.gnugrep}/bin/grep -v -e DitDah32_DV.sv -e layers-DitDah32-DV.sv \
+                "$OUTPUT_DIR"/filelist.f > "$OUTPUT_DIR"/filelist.f.tmp \
+                && mv "$OUTPUT_DIR"/filelist.f.tmp "$OUTPUT_DIR"/filelist.f || true
+            fi
+          fi
+
           echo "=== Verilog generated in: $OUTPUT_DIR ==="
         '';
 
@@ -316,9 +367,9 @@ EOF
           echo "========================================"
         '';
 
-        mkRtlShell = buildInputs: pkgs.mkShell {
+        mkRtlShell = buildInputs: extraEnv: pkgs.mkShell {
           inherit buildInputs;
-          env = rtlShellEnv;
+          env = rtlShellEnv // extraEnv;
           shellHook = rtlShellHook;
         };
 
@@ -337,6 +388,7 @@ EOF
           pkgs.iverilog
           pkgs.verilator
           pkgs.yosys
+          yosys-slang
           pkgs.z3
         ];
 
@@ -358,6 +410,7 @@ EOF
           pkgs.iverilog
           pkgs.verilator
           pkgs.yosys
+          yosys-slang
           pkgs.z3
           pkgs.spike
           pkgs.sail-riscv
@@ -433,12 +486,12 @@ EOF
         };
 
         devShells = {
-          smoke = mkRtlShell smokeBuildInputs;
-          full = mkRtlShell fullBuildInputs;
+          smoke = mkRtlShell smokeBuildInputs { };
+          full = mkRtlShell fullBuildInputs { SLANG_SO = slangSo; };
           ci-evidence = pkgs.mkShell {
             buildInputs = ciEvidenceBuildInputs;
           };
-          default = mkRtlShell defaultBuildInputs;
+          default = mkRtlShell defaultBuildInputs { SLANG_SO = slangSo; };
         };
       }
     );

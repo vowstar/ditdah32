@@ -4,6 +4,7 @@
 
 import argparse
 import json
+import os
 import shutil
 import subprocess
 import time
@@ -11,6 +12,17 @@ from pathlib import Path
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+
+
+def resolve_slang_so():
+    """Locate the yosys-slang plugin (read_slang) provided by the dev shell."""
+    slang_so = os.environ.get("SLANG_SO")
+    if not slang_so or not Path(slang_so).is_file():
+        raise SystemExit(
+            "SLANG_SO is not set or does not point to slang.so; run inside "
+            "'nix develop' so the yosys-slang plugin is available."
+        )
+    return slang_so
 
 
 def rel(path):
@@ -118,7 +130,9 @@ skip {depth}
 smtbmc z3
 
 [script]
-read -sv {check_basename}.sv {wrapper_sv} {dut_sv}
+plugin -i {slang_so}
+read_slang -I{core_dir} {trace_top_sv} {dut_sv} {dv_sv} {layers_sv} --top ditdah32_trace_top
+read -sv {check_basename}.sv {wrapper_sv}
 prep -flatten -nordff -top rvfi_testbench
 chformal -early
 
@@ -182,8 +196,13 @@ def run_wfi_wake_suite(core_dir, source, logs_dir):
         depth_plus=depth + 1,
         check_basename="wfi_wake_ch0",
         extra_defines="`define DITDAH32_RVFI_ENABLE_IRQ\n`define DITDAH32_RVFI_WFI_WAKE_CHECK",
+        slang_so=resolve_slang_so(),
+        core_dir=str(core_dir.resolve()),
         wrapper_sv=str((core_dir / "wrapper.sv").resolve()),
+        trace_top_sv=str((core_dir / "ditdah32_trace_top.sv").resolve()),
         dut_sv=str((core_dir / "DitDah32.sv").resolve()),
+        dv_sv=str((core_dir / "DitDah32_DV.sv").resolve()),
+        layers_sv=str((core_dir / "layers-DitDah32-DV.sv").resolve()),
         macros_vh=str((checks_root / "rvfi_macros.vh").resolve()),
         channel_sv=str((checks_root / "rvfi_channel.sv").resolve()),
         testbench_sv=str((checks_root / "rvfi_testbench.sv").resolve()),
@@ -247,8 +266,13 @@ def run_trap_csr_suite(core_dir, source, logs_dir):
         depth_plus=depth + 1,
         check_basename="trap_csr_ch0",
         extra_defines="`define DITDAH32_RVFI_ENABLE_IRQ\n`define DITDAH32_RVFI_TRAP_CSR_CHECK",
+        slang_so=resolve_slang_so(),
+        core_dir=str(core_dir.resolve()),
         wrapper_sv=str((core_dir / "wrapper.sv").resolve()),
+        trace_top_sv=str((core_dir / "ditdah32_trace_top.sv").resolve()),
         dut_sv=str((core_dir / "DitDah32.sv").resolve()),
+        dv_sv=str((core_dir / "DitDah32_DV.sv").resolve()),
+        layers_sv=str((core_dir / "layers-DitDah32-DV.sv").resolve()),
         macros_vh=str((checks_root / "rvfi_macros.vh").resolve()),
         channel_sv=str((checks_root / "rvfi_channel.sv").resolve()),
         testbench_sv=str((checks_root / "rvfi_testbench.sv").resolve()),
@@ -311,8 +335,13 @@ def run_csr_warl_suite(core_dir, source, logs_dir):
         depth_plus=depth + 1,
         check_basename="csr_warl_ch0",
         extra_defines="`define DITDAH32_RVFI_ENABLE_IRQ\n`define DITDAH32_RVFI_CSR_WARL_CHECK",
+        slang_so=resolve_slang_so(),
+        core_dir=str(core_dir.resolve()),
         wrapper_sv=str((core_dir / "wrapper.sv").resolve()),
+        trace_top_sv=str((core_dir / "ditdah32_trace_top.sv").resolve()),
         dut_sv=str((core_dir / "DitDah32.sv").resolve()),
+        dv_sv=str((core_dir / "DitDah32_DV.sv").resolve()),
+        layers_sv=str((core_dir / "layers-DitDah32-DV.sv").resolve()),
         macros_vh=str((checks_root / "rvfi_macros.vh").resolve()),
         channel_sv=str((checks_root / "rvfi_channel.sv").resolve()),
         testbench_sv=str((checks_root / "rvfi_testbench.sv").resolve()),
@@ -374,8 +403,13 @@ def run_csr_readonly_suite(core_dir, source, logs_dir):
         depth_plus=depth + 1,
         check_basename="csr_readonly_ch0",
         extra_defines="`define DITDAH32_RVFI_ENABLE_IRQ\n`define DITDAH32_RVFI_CSR_READONLY_CHECK",
+        slang_so=resolve_slang_so(),
+        core_dir=str(core_dir.resolve()),
         wrapper_sv=str((core_dir / "wrapper.sv").resolve()),
+        trace_top_sv=str((core_dir / "ditdah32_trace_top.sv").resolve()),
         dut_sv=str((core_dir / "DitDah32.sv").resolve()),
+        dv_sv=str((core_dir / "DitDah32_DV.sv").resolve()),
+        layers_sv=str((core_dir / "layers-DitDah32-DV.sv").resolve()),
         macros_vh=str((checks_root / "rvfi_macros.vh").resolve()),
         channel_sv=str((checks_root / "rvfi_channel.sv").resolve()),
         testbench_sv=str((checks_root / "rvfi_testbench.sv").resolve()),
@@ -478,17 +512,21 @@ def run_external_riscv_formal(out_dir, logs_dir):
     core_dir.mkdir(parents=True, exist_ok=True)
 
     config_dir = REPO_ROOT / "formal" / "riscv_formal" / "ditdah32"
-    shutil.copy2(config_dir / "checks.cfg", core_dir / "checks.cfg")
-    shutil.copy2(config_dir / "checks_bus.cfg", core_dir / "checks_bus.cfg")
-    shutil.copy2(config_dir / "checks_csr.cfg", core_dir / "checks_csr.cfg")
-    shutil.copy2(config_dir / "checks_csr_state.cfg", core_dir / "checks_csr_state.cfg")
-    shutil.copy2(config_dir / "checks_liveness.cfg", core_dir / "checks_liveness.cfg")
-    shutil.copy2(config_dir / "checks_order.cfg", core_dir / "checks_order.cfg")
-    shutil.copy2(config_dir / "checks_fault.cfg", core_dir / "checks_fault.cfg")
-    shutil.copy2(config_dir / "checks_insns.cfg", core_dir / "checks_insns.cfg")
-    shutil.copy2(config_dir / "checks_interrupt.cfg", core_dir / "checks_interrupt.cfg")
+    slang_so = resolve_slang_so()
+    for cfg_name in (
+        "checks.cfg", "checks_bus.cfg", "checks_csr.cfg", "checks_csr_state.cfg",
+        "checks_liveness.cfg", "checks_order.cfg", "checks_fault.cfg",
+        "checks_insns.cfg", "checks_interrupt.cfg",
+    ):
+        cfg_text = (config_dir / cfg_name).read_text(encoding="utf-8")
+        cfg_text = cfg_text.replace("@SLANG_SO@", slang_so)
+        (core_dir / cfg_name).write_text(cfg_text, encoding="utf-8")
     shutil.copy2(config_dir / "wrapper.sv", core_dir / "wrapper.sv")
-    shutil.copy2(REPO_ROOT / "result" / "DitDah32.sv", core_dir / "DitDah32.sv")
+    shutil.copy2(config_dir / "ditdah32_trace_top.sv", core_dir / "ditdah32_trace_top.sv")
+    # The DV layer collateral is read alongside the core so read_slang can
+    # resolve the trace probe XMRs.
+    for collateral in ("DitDah32.sv", "DitDah32_DV.sv", "layers-DitDah32-DV.sv", "ref_DitDah32.sv"):
+        shutil.copy2(REPO_ROOT / "result" / collateral, core_dir / collateral)
 
     step["source_path"] = str(source)
     step["work_root"] = rel(work_root)

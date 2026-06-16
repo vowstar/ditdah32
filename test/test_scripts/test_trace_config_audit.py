@@ -52,28 +52,30 @@ endmodule
 """
 
 
-def test_trace_enabled_header_accepts_all_trace_ports():
+def test_main_module_rejects_trace_ports_in_verification_build():
+    # The trace surface lives in the DV bind collateral, so the main module
+    # must be trace-free even when verification collateral is expected.
     result = trace_config_audit.check_module_text(TRACE_HEADER, expect_trace=True)
 
-    assert result["status"] == "pass"
-    assert result["missing"] == []
+    assert result["status"] == "fail"
+    assert "main module exposes trace ports" in result["missing"][0]
 
 
-def test_production_header_rejects_trace_ports():
+def test_main_module_rejects_trace_ports_in_production_build():
     result = trace_config_audit.check_module_text(TRACE_HEADER, expect_trace=False)
 
     assert result["status"] == "fail"
-    assert "Production RTL exposes trace ports" in result["missing"][0]
+    assert "main module exposes trace ports" in result["missing"][0]
 
 
-def test_production_header_accepts_no_trace_ports():
-    result = trace_config_audit.check_module_text(NO_TRACE_HEADER, expect_trace=False)
+def test_clean_main_module_passes_both_builds():
+    for expect_trace in (True, False):
+        result = trace_config_audit.check_module_text(NO_TRACE_HEADER, expect_trace=expect_trace)
+        assert result["status"] == "pass"
+        assert result["missing"] == []
 
-    assert result["status"] == "pass"
-    assert result["missing"] == []
 
-
-def test_production_header_rejects_internal_trace_state():
+def test_main_module_rejects_internal_trace_state():
     verilog = """
 module DitDah32(
   input clock,
@@ -86,7 +88,7 @@ endmodule
     result = trace_config_audit.check_module_text(verilog, expect_trace=False)
 
     assert result["status"] == "fail"
-    assert result["missing"] == ["Production RTL contains trace state or wiring: traceValidReg"]
+    assert result["missing"] == ["DitDah32 main module contains trace state or wiring: traceValidReg"]
 
 
 def test_header_rejects_direct_rvfi_ports():

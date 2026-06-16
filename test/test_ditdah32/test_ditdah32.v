@@ -109,37 +109,41 @@ module test_ditdah32;
         .irq_pending    (irq_pending),
         .trap           (trap),
         .core_busy      (core_busy),
-        .core_sleep     (core_sleep),
-        .trace_valid    (trace_valid),
-        .trace_pc       (trace_pc),
-        .trace_next_pc  (trace_next_pc),
-        .trace_instr    (trace_instr),
-        .trace_len      (trace_len),
-        .trace_rd_we    (trace_rd_we),
-        .trace_rd       (trace_rd),
-        .trace_rd_wdata (trace_rd_wdata),
-        .trace_rs1_addr (trace_rs1_addr),
-        .trace_rs1_rdata(trace_rs1_rdata),
-        .trace_rs2_addr (trace_rs2_addr),
-        .trace_rs2_rdata(trace_rs2_rdata),
-        .trace_mem_addr (trace_mem_addr),
-        .trace_mem_rmask(trace_mem_rmask),
-        .trace_mem_wmask(trace_mem_wmask),
-        .trace_mem_rdata(trace_mem_rdata),
-        .trace_mem_wdata(trace_mem_wdata),
-        .trace_mem_fault(trace_mem_fault),
-        .trace_mem_fault_rmask(trace_mem_fault_rmask),
-        .trace_mem_fault_wmask(trace_mem_fault_wmask),
-        .trace_csr_addr(trace_csr_addr),
-        .trace_csr_rmask(trace_csr_rmask),
-        .trace_csr_wmask(trace_csr_wmask),
-        .trace_csr_rdata(trace_csr_rdata),
-        .trace_csr_wdata(trace_csr_wdata),
-        .trace_trap     (trace_trap),
-        .trace_trap_cause(trace_trap_cause),
-        .trace_mstatus  (trace_mstatus),
-        .trace_mstatus_pre_trap (trace_mstatus_pre_trap),
-        .trace_mip      (trace_mip),
-        .trace_mcause   (trace_mcause)
+        .core_sleep     (core_sleep)
     );
+
+    // The trace surface lives in the layer("DV") bind instance dV under the
+    // DUT. Resolve each signal through that hierarchical path so the cocotb
+    // tests keep reading dut.trace_* unchanged.
+    assign trace_valid           = u_ditdah32.dV.traceValidReg;
+    assign trace_pc              = u_ditdah32.dV.tracePcReg;
+    assign trace_next_pc         = u_ditdah32.dV.traceNextPcReg;
+    assign trace_instr           = u_ditdah32.dV.traceInstrReg;
+    assign trace_len             = u_ditdah32.dV.traceLenReg;
+    assign trace_rd_we           = u_ditdah32.dV.traceRdWeReg;
+    assign trace_rd              = u_ditdah32.dV.traceRdReg;
+    assign trace_rd_wdata        = u_ditdah32.dV.traceRdWdataReg;
+    assign trace_rs1_addr        = u_ditdah32.dV.traceRs1AddrReg;
+    assign trace_rs1_rdata       = u_ditdah32.dV.traceRs1RdataReg;
+    assign trace_rs2_addr        = u_ditdah32.dV.traceRs2AddrReg;
+    assign trace_rs2_rdata       = u_ditdah32.dV.traceRs2RdataReg;
+    assign trace_mem_addr        = u_ditdah32.dV.traceMemAddrReg;
+    assign trace_mem_rmask       = u_ditdah32.dV.traceMemRmaskReg;
+    assign trace_mem_wmask       = u_ditdah32.dV.traceMemWmaskReg;
+    assign trace_mem_rdata       = u_ditdah32.dV.traceMemRdataReg;
+    assign trace_mem_wdata       = u_ditdah32.dV.traceMemWdataReg;
+    assign trace_mem_fault       = u_ditdah32.dV.traceMemFaultReg;
+    assign trace_mem_fault_rmask = u_ditdah32.dV.traceMemFaultRmaskReg;
+    assign trace_mem_fault_wmask = u_ditdah32.dV.traceMemFaultWmaskReg;
+    assign trace_csr_addr        = u_ditdah32.dV.traceCsrAddrReg;
+    assign trace_csr_rmask       = u_ditdah32.dV.traceCsrRmaskReg;
+    assign trace_csr_wmask       = u_ditdah32.dV.traceCsrWmaskReg;
+    assign trace_csr_rdata       = u_ditdah32.dV.traceCsrRdataReg;
+    assign trace_csr_wdata       = u_ditdah32.dV.traceCsrWdataReg;
+    assign trace_trap            = u_ditdah32.dV.traceTrapReg;
+    assign trace_trap_cause      = u_ditdah32.dV.traceTrapCauseReg;
+    assign trace_mstatus         = u_ditdah32.dV.traceMstatusWire;
+    assign trace_mstatus_pre_trap = u_ditdah32.dV.tracePreTrapMstatusReg;
+    assign trace_mip             = u_ditdah32.dV.traceMipWire;
+    assign trace_mcause          = u_ditdah32.dV.traceMcauseWire;
 endmodule

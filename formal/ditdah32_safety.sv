@@ -47,7 +47,9 @@ module DitDah32Safety;
     wire        trace_trap;
     wire [3:0]  trace_trap_cause;
 
-    DitDah32 dut (
+    // Trace ports are resolved from the DV layer bind collateral by the
+    // ditdah32_trace_top bridge (read via read_slang).
+    ditdah32_trace_top dut (
         .clock(clock),
         .reset(reset),
         .axi_awvalid(axi_awvalid),

@@ -94,6 +94,11 @@ def extract_module_header(verilog_text):
 
 
 def check_module_text(verilog_text, expect_trace):
+    # The trace surface now lowers to the layer("DV") bind collateral, never
+    # into the DitDah32 main module. The main module must therefore be free of
+    # trace ports and trace state in BOTH the production and verification
+    # builds; expect_trace selects whether the DV collateral is expected to
+    # exist (checked separately by audit_artifact).
     header = extract_module_header(verilog_text)
     trace_ports = {
         port: bool(re.search(rf"\b{re.escape(port)}\b", header))
@@ -104,16 +109,13 @@ def check_module_text(verilog_text, expect_trace):
         set(re.findall(r"\btrace(?:_[A-Za-z0-9_]+|[A-Za-z0-9]*Reg)\b", verilog_text))
     )
     rvfi_tokens = sorted(set(re.findall(r"\brvfi_[A-Za-z0-9_]*\b", verilog_text)))
-    missing_trace_ports = [port for port, present in trace_ports.items() if not present]
-    unexpected_trace_ports = [port for port, present in trace_ports.items() if present]
+    present_trace_ports = [port for port, present in trace_ports.items() if present]
 
     missing = []
-    if expect_trace and missing_trace_ports:
-        missing.append("Trace-enabled RTL is missing expected trace ports: " + ", ".join(missing_trace_ports))
-    if not expect_trace and unexpected_trace_ports:
-        missing.append("Production RTL exposes trace ports: " + ", ".join(unexpected_trace_ports))
-    if not expect_trace and trace_tokens:
-        missing.append("Production RTL contains trace state or wiring: " + ", ".join(trace_tokens))
+    if present_trace_ports:
+        missing.append("DitDah32 main module exposes trace ports: " + ", ".join(present_trace_ports))
+    if trace_tokens:
+        missing.append("DitDah32 main module contains trace state or wiring: " + ", ".join(trace_tokens))
     if rvfi_ports:
         missing.append("Core top-level exposes direct RVFI ports: " + ", ".join(rvfi_ports))
 
@@ -124,6 +126,34 @@ def check_module_text(verilog_text, expect_trace):
         "trace_tokens": trace_tokens,
         "rvfi_tokens": rvfi_tokens,
         "status": "pass" if not missing else "fail",
+        "missing": missing,
+    }
+
+
+def check_dv_collateral(output_dir, expect_trace):
+    # Verification builds emit the layer("DV") bind collateral carrying the
+    # trace probes; production builds must not ship it.
+    dv_module = output_dir / "DitDah32_DV.sv"
+    ref_macros = output_dir / "ref_DitDah32.sv"
+    bind_file = output_dir / "layers-DitDah32-DV.sv"
+    present = dv_module.exists()
+    missing = []
+    if expect_trace:
+        if not present:
+            missing.append(f"Verification build is missing DV collateral: {rel(dv_module)}")
+        elif "traceValidReg" not in dv_module.read_text(encoding="utf-8"):
+            missing.append("DV collateral does not carry the trace probe registers.")
+        if not ref_macros.exists():
+            missing.append(f"Verification build is missing probe XMR macros: {rel(ref_macros)}")
+        if not bind_file.exists():
+            missing.append(f"Verification build is missing the DV bind file: {rel(bind_file)}")
+    else:
+        leaked = [rel(p) for p in (dv_module, ref_macros, bind_file) if p.exists()]
+        if leaked:
+            missing.append("Production build ships DV trace collateral: " + ", ".join(leaked))
+    return {
+        "status": "pass" if not missing else "fail",
+        "dv_collateral_present": present,
         "missing": missing,
     }
 
@@ -158,6 +188,7 @@ def audit_artifact(name, rtl_path, config_path, expect_trace):
     else:
         checks["module_header"] = {"status": "fail", "missing": [f"Missing RTL file: {rel(rtl_path)}"]}
 
+    checks["dv_collateral"] = check_dv_collateral(rtl_path.parent, expect_trace)
     checks["config"] = check_config_json(config_path, expect_trace)
     for check in checks.values():
         missing.extend(check.get("missing", []))
@@ -240,10 +271,11 @@ def main():
         "artifacts": artifacts,
         "missing": missing,
         "policy": {
-            "production": "The default production build must not expose trace_* or rvfi_* top-level ports.",
-            "production_internal_trace": "The production RTL must not contain generated trace state or trace wiring.",
-            "verification": "Trace-enabled verification builds expose trace_* ports used by cocotb, RVFI-lite, and the riscv-formal wrapper.",
-            "rvfi": "DitDah32 does not expose direct rvfi_* core ports; RVFI is provided by the formal wrapper over trace-enabled RTL.",
+            "production": "The DitDah32 main module must not expose trace_* or rvfi_* top-level ports in any build.",
+            "production_internal_trace": "The DitDah32 main module must not contain trace state or trace wiring; the trace surface lives in the layer(\"DV\") bind collateral.",
+            "production_collateral": "The production (--no-trace) build must not ship the DV trace collateral.",
+            "verification": "The verification (--trace) build emits the DV bind collateral (DitDah32_DV.sv, ref_DitDah32.sv) carrying the trace probes consumed by cocotb and the riscv-formal flow.",
+            "rvfi": "DitDah32 does not expose direct rvfi_* core ports; RVFI is provided by the formal wrapper over the DV probe XMRs.",
         },
     }
 
