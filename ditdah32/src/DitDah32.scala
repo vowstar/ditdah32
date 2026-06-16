@@ -140,7 +140,7 @@ object DitDah32Module
 
   override def moduleName(parameter: DitDah32Parameter): String = "DitDah32"
 
-  private def trapMstatus[R <: Referable[UInt]](current: R)(
+  private def trapMstatus[R <: Referable[Bits]](current: R)(
       using Arena,
       Context,
       Block,
@@ -148,18 +148,16 @@ object DitDah32Module
       sourcecode.Line,
       sourcecode.Name.Machine,
       InstanceContext
-  ): Node[UInt] =
-    (
-      0.U(19).asBits ##
-      3.U(2).asBits ##
-      0.U(3).asBits ##
-      current.asBits.bits(CsrBits.MSTATUS_MIE, CsrBits.MSTATUS_MIE) ##
-      0.U(3).asBits ##
-      0.U(1).asBits ##
-      0.U(3).asBits
-    ).asUInt
+  ): Node[Bits] =
+    0.B(19) ##
+    3.B(2) ##
+    0.B(3) ##
+    current.bits(CsrBits.MSTATUS_MIE, CsrBits.MSTATUS_MIE) ##
+    0.B(3) ##
+    0.B(1) ##
+    0.B(3)
 
-  private def mretMstatus[R <: Referable[UInt]](current: R)(
+  private def mretMstatus[R <: Referable[Bits]](current: R)(
       using Arena,
       Context,
       Block,
@@ -167,18 +165,16 @@ object DitDah32Module
       sourcecode.Line,
       sourcecode.Name.Machine,
       InstanceContext
-  ): Node[UInt] =
-    (
-      0.U(19).asBits ##
-      3.U(2).asBits ##
-      0.U(3).asBits ##
-      1.U(1).asBits ##
-      0.U(3).asBits ##
-      current.asBits.bits(CsrBits.MSTATUS_MPIE, CsrBits.MSTATUS_MPIE) ##
-      0.U(3).asBits
-    ).asUInt
+  ): Node[Bits] =
+    0.B(19) ##
+    3.B(2) ##
+    0.B(3) ##
+    1.B(1) ##
+    0.B(3) ##
+    current.bits(CsrBits.MSTATUS_MPIE, CsrBits.MSTATUS_MPIE) ##
+    0.B(3)
 
-  private def writableMstatus[R <: Referable[UInt]](writeData: R)(
+  private def writableMstatus[R <: Referable[Bits]](writeData: R)(
       using Arena,
       Context,
       Block,
@@ -186,32 +182,30 @@ object DitDah32Module
       sourcecode.Line,
       sourcecode.Name.Machine,
       InstanceContext
-  ): Node[UInt] =
+  ): Node[Bits] =
     // WARL legalization for DitDah32 (M-only): MPP is hard-wired to 2'b11
     // because U and S modes are not supported. Any value the software writes
     // to mstatus.MPP reads back as 11, matching the Priv Spec recommendation
     // for cores that implement a single privilege level. All non-MIE/MPIE
     // bits stay reserved-zero.
-    (
-      0.U(19).asBits ##
-      3.U(2).asBits ##
-      0.U(3).asBits ##
-      writeData.asBits.bits(CsrBits.MSTATUS_MPIE, CsrBits.MSTATUS_MPIE) ##
-      0.U(3).asBits ##
-      writeData.asBits.bits(CsrBits.MSTATUS_MIE, CsrBits.MSTATUS_MIE) ##
-      0.U(3).asBits
-    ).asUInt
+    0.B(19) ##
+    3.B(2) ##
+    0.B(3) ##
+    writeData.bits(CsrBits.MSTATUS_MPIE, CsrBits.MSTATUS_MPIE) ##
+    0.B(3) ##
+    writeData.bits(CsrBits.MSTATUS_MIE, CsrBits.MSTATUS_MIE) ##
+    0.B(3)
 
   private def csrReadSignals(
-      addr: Referable[UInt],
-      mstatus: Referable[UInt],
-      mie: Referable[UInt],
-      mtvec: Referable[UInt],
-      mscratch: Referable[UInt],
-      mepc: Referable[UInt],
-      mcause: Referable[UInt],
-      mtval: Referable[UInt],
-      mip: Referable[UInt],
+      addr: Referable[Bits],
+      mstatus: Referable[Bits],
+      mie: Referable[Bits],
+      mtvec: Referable[Bits],
+      mscratch: Referable[Bits],
+      mepc: Referable[Bits],
+      mcause: Referable[Bits],
+      mtval: Referable[Bits],
+      mip: Referable[Bits],
       parameter: DitDah32Parameter
   )(
       using Arena,
@@ -221,32 +215,32 @@ object DitDah32Module
       sourcecode.Line,
       sourcecode.Name.Machine,
       InstanceContext
-  ): (Wire[UInt], Wire[Bool], Wire[Bool]) =
-    val data = Wire(UInt(parameter.xlen))
+  ): (Wire[Bits], Wire[Bool], Wire[Bool]) =
+    val data = Wire(Bits(parameter.xlen))
     val valid = Wire(Bool())
     val readOnly = Wire(Bool())
 
-    data := 0.U(parameter.xlen)
+    data := 0.B(parameter.xlen)
     valid := false.B
     readOnly := false.B
-    when(addr === CsrAddr.MSTATUS.U(12)) { valid := true.B; data := mstatus }
-    when(addr === CsrAddr.MISA.U(12)) { valid := true.B; readOnly := true.B; data := 0x40000014.U(parameter.xlen) }
-    when(addr === CsrAddr.MIE.U(12)) { valid := true.B; data := mie }
-    when(addr === CsrAddr.MTVEC.U(12)) { valid := true.B; data := mtvec }
-    when(addr === CsrAddr.MSCRATCH.U(12)) { valid := true.B; data := mscratch }
-    when(addr === CsrAddr.MEPC.U(12)) { valid := true.B; data := mepc }
-    when(addr === CsrAddr.MCAUSE.U(12)) { valid := true.B; data := mcause }
-    when(addr === CsrAddr.MTVAL.U(12)) { valid := true.B; data := mtval }
-    when(addr === CsrAddr.MIP.U(12)) { valid := true.B; readOnly := true.B; data := mip }
-    when(addr === CsrAddr.MVENDORID.U(12)) { valid := true.B; readOnly := true.B; data := 0.U(parameter.xlen) }
-    when(addr === CsrAddr.MARCHID.U(12)) { valid := true.B; readOnly := true.B; data := 0.U(parameter.xlen) }
-    when(addr === CsrAddr.MIMPID.U(12)) { valid := true.B; readOnly := true.B; data := 0.U(parameter.xlen) }
-    when(addr === CsrAddr.MHARTID.U(12)) { valid := true.B; readOnly := true.B; data := 0.U(parameter.xlen) }
+    when(addr === CsrAddr.MSTATUS.B(12)) { valid := true.B; data := mstatus }
+    when(addr === CsrAddr.MISA.B(12)) { valid := true.B; readOnly := true.B; data := 0x40000014.B(parameter.xlen) }
+    when(addr === CsrAddr.MIE.B(12)) { valid := true.B; data := mie }
+    when(addr === CsrAddr.MTVEC.B(12)) { valid := true.B; data := mtvec }
+    when(addr === CsrAddr.MSCRATCH.B(12)) { valid := true.B; data := mscratch }
+    when(addr === CsrAddr.MEPC.B(12)) { valid := true.B; data := mepc }
+    when(addr === CsrAddr.MCAUSE.B(12)) { valid := true.B; data := mcause }
+    when(addr === CsrAddr.MTVAL.B(12)) { valid := true.B; data := mtval }
+    when(addr === CsrAddr.MIP.B(12)) { valid := true.B; readOnly := true.B; data := mip }
+    when(addr === CsrAddr.MVENDORID.B(12)) { valid := true.B; readOnly := true.B; data := 0.B(parameter.xlen) }
+    when(addr === CsrAddr.MARCHID.B(12)) { valid := true.B; readOnly := true.B; data := 0.B(parameter.xlen) }
+    when(addr === CsrAddr.MIMPID.B(12)) { valid := true.B; readOnly := true.B; data := 0.B(parameter.xlen) }
+    when(addr === CsrAddr.MHARTID.B(12)) { valid := true.B; readOnly := true.B; data := 0.B(parameter.xlen) }
 
     (data, valid, readOnly)
 
   private def readGpr(
-      index: Referable[UInt],
+      index: Referable[Bits],
       x1: Referable[UInt],
       x2: Referable[UInt],
       x3: Referable[UInt],
@@ -274,26 +268,26 @@ object DitDah32Module
   ): Wire[UInt] =
     val data = Wire(UInt(parameter.xlen))
     data := 0.U(parameter.xlen)
-    when(index === 1.U(5)) { data := x1 }
-    when(index === 2.U(5)) { data := x2 }
-    when(index === 3.U(5)) { data := x3 }
-    when(index === 4.U(5)) { data := x4 }
-    when(index === 5.U(5)) { data := x5 }
-    when(index === 6.U(5)) { data := x6 }
-    when(index === 7.U(5)) { data := x7 }
-    when(index === 8.U(5)) { data := x8 }
-    when(index === 9.U(5)) { data := x9 }
-    when(index === 10.U(5)) { data := x10 }
-    when(index === 11.U(5)) { data := x11 }
-    when(index === 12.U(5)) { data := x12 }
-    when(index === 13.U(5)) { data := x13 }
-    when(index === 14.U(5)) { data := x14 }
-    when(index === 15.U(5)) { data := x15 }
+    when(index === 1.B(5)) { data := x1 }
+    when(index === 2.B(5)) { data := x2 }
+    when(index === 3.B(5)) { data := x3 }
+    when(index === 4.B(5)) { data := x4 }
+    when(index === 5.B(5)) { data := x5 }
+    when(index === 6.B(5)) { data := x6 }
+    when(index === 7.B(5)) { data := x7 }
+    when(index === 8.B(5)) { data := x8 }
+    when(index === 9.B(5)) { data := x9 }
+    when(index === 10.B(5)) { data := x10 }
+    when(index === 11.B(5)) { data := x11 }
+    when(index === 12.B(5)) { data := x12 }
+    when(index === 13.B(5)) { data := x13 }
+    when(index === 14.B(5)) { data := x14 }
+    when(index === 15.B(5)) { data := x15 }
     data
 
   private def writeGpr(
       enable: Referable[Bool],
-      index: Referable[UInt],
+      index: Referable[Bits],
       data: Referable[UInt],
       x1: Reg[UInt],
       x2: Reg[UInt],
@@ -319,21 +313,21 @@ object DitDah32Module
       sourcecode.Name.Machine,
       InstanceContext
   ): Unit =
-    when(enable & (index === 1.U(5))) { x1 := data }
-    when(enable & (index === 2.U(5))) { x2 := data }
-    when(enable & (index === 3.U(5))) { x3 := data }
-    when(enable & (index === 4.U(5))) { x4 := data }
-    when(enable & (index === 5.U(5))) { x5 := data }
-    when(enable & (index === 6.U(5))) { x6 := data }
-    when(enable & (index === 7.U(5))) { x7 := data }
-    when(enable & (index === 8.U(5))) { x8 := data }
-    when(enable & (index === 9.U(5))) { x9 := data }
-    when(enable & (index === 10.U(5))) { x10 := data }
-    when(enable & (index === 11.U(5))) { x11 := data }
-    when(enable & (index === 12.U(5))) { x12 := data }
-    when(enable & (index === 13.U(5))) { x13 := data }
-    when(enable & (index === 14.U(5))) { x14 := data }
-    when(enable & (index === 15.U(5))) { x15 := data }
+    when(enable & (index === 1.B(5))) { x1 := data }
+    when(enable & (index === 2.B(5))) { x2 := data }
+    when(enable & (index === 3.B(5))) { x3 := data }
+    when(enable & (index === 4.B(5))) { x4 := data }
+    when(enable & (index === 5.B(5))) { x5 := data }
+    when(enable & (index === 6.B(5))) { x6 := data }
+    when(enable & (index === 7.B(5))) { x7 := data }
+    when(enable & (index === 8.B(5))) { x8 := data }
+    when(enable & (index === 9.B(5))) { x9 := data }
+    when(enable & (index === 10.B(5))) { x10 := data }
+    when(enable & (index === 11.B(5))) { x11 := data }
+    when(enable & (index === 12.B(5))) { x12 := data }
+    when(enable & (index === 13.B(5))) { x13 := data }
+    when(enable & (index === 14.B(5))) { x14 := data }
+    when(enable & (index === 15.B(5))) { x15 := data }
 
   def architecture(parameter: DitDah32Parameter) =
     val io = summon[Interface[DitDah32IO]]
@@ -342,34 +336,34 @@ object DitDah32Module
     given Ref[Reset] = io.reset
 
     val pc       = RegInit(parameter.resetVector.U(parameter.xlen))
-    val instrReg = RegInit(0.U(parameter.xlen))
+    val instrReg = RegInit(0.B(parameter.xlen))
     val fetched  = RegInit(false.B)
     val fetchOutstanding = RegInit(false.B)
     val memOutstanding = RegInit(false.B)
     val storeAwDone = RegInit(false.B)
     val storeWDone  = RegInit(false.B)
     val state    = RegInit(CoreState.RESET.U(3))
-    val straddleLowHalfword = RegInit(0.U(16))
+    val straddleLowHalfword = RegInit(0.B(16))
     val memPcReg         = RegInit(0.U(parameter.xlen))
-    val memInstrReg      = RegInit(0.U(parameter.xlen))
+    val memInstrReg      = RegInit(0.B(parameter.xlen))
     val memLenReg        = RegInit(0.U(3))
     val memNextPcReg     = RegInit(0.U(parameter.xlen))
     val memAddrReg       = RegInit(0.U(parameter.xlen))
-    val memRdReg         = RegInit(0.U(5))
+    val memRdReg         = RegInit(0.B(5))
     val memFunct3Reg     = RegInit(0.U(3))
-    val memStoreDataReg  = RegInit(0.U(parameter.xlen))
+    val memStoreDataReg  = RegInit(0.B(parameter.xlen))
     val memStoreBeReg    = RegInit(0.U(4))
     val memTraceRs1AddrReg  = Option.when(parameter.enableTrace)(RegInit(0.U(5)))
     val memTraceRs1RdataReg = Option.when(parameter.enableTrace)(RegInit(0.U(parameter.xlen)))
     val memTraceRs2AddrReg  = Option.when(parameter.enableTrace)(RegInit(0.U(5)))
     val memTraceRs2RdataReg = Option.when(parameter.enableTrace)(RegInit(0.U(parameter.xlen)))
-    val irqCauseReg      = RegInit(0.U(parameter.xlen))
-    val csrMstatus       = RegInit(0.U(parameter.xlen))
-    val csrMie           = RegInit(0.U(parameter.xlen))
+    val irqCauseReg      = RegInit(0.B(parameter.xlen))
+    val csrMstatus       = RegInit(0.B(parameter.xlen))
+    val csrMie           = RegInit(0.B(parameter.xlen))
     val csrMtvec         = RegInit(0.U(parameter.xlen))
-    val csrMscratch      = RegInit(0.U(parameter.xlen))
+    val csrMscratch      = RegInit(0.B(parameter.xlen))
     val csrMepc          = RegInit(0.U(parameter.xlen))
-    val csrMcause        = RegInit(0.U(parameter.xlen))
+    val csrMcause        = RegInit(0.B(parameter.xlen))
     val csrMtval         = RegInit(0.U(parameter.xlen))
     val trapEventReg       = RegInit(false.B)
     val traceValidReg      = Option.when(parameter.enableTrace)(RegInit(false.B))
@@ -427,40 +421,40 @@ object DitDah32Module
     val pcHalfwordHigh    = Wire(Bool())
     val pcFetchAddr       = Wire(UInt(parameter.xlen))
     val instrAddr         = Wire(UInt(parameter.xlen))
-    val lowerHalfwordBits = Wire(UInt(2))
-    val upperHalfwordBits = Wire(UInt(2))
-    val instrLowBits      = Wire(UInt(2))
+    val lowerHalfwordBits = Wire(Bits(2))
+    val upperHalfwordBits = Wire(Bits(2))
+    val instrLowBits      = Wire(Bits(2))
     val instrCompressed   = Wire(Bool())
     val straddled32       = Wire(Bool())
     val pcPlus2           = Wire(UInt(parameter.xlen))
     val pcPlus4           = Wire(UInt(parameter.xlen))
     val sequentialPc      = Wire(UInt(parameter.xlen))
     val execNextPc        = Wire(UInt(parameter.xlen))
-    val selectedHalfword  = Wire(UInt(16))
-    val selectedInstr     = Wire(UInt(parameter.xlen))
-    val straddledInstr    = Wire(UInt(parameter.xlen))
-    val decodedInstr      = Wire(UInt(parameter.xlen))
-    val cDecodedInstr     = Wire(UInt(parameter.xlen))
+    val selectedHalfword  = Wire(Bits(16))
+    val selectedInstr     = Wire(Bits(parameter.xlen))
+    val straddledInstr    = Wire(Bits(parameter.xlen))
+    val decodedInstr      = Wire(Bits(parameter.xlen))
+    val cDecodedInstr     = Wire(Bits(parameter.xlen))
     val cNoWriteHint      = Wire(Bool())
-    val cInsn             = Wire(UInt(16))
-    val cQuadrant         = Wire(UInt(2))
-    val cFunct3           = Wire(UInt(3))
-    val cRdRs1            = Wire(UInt(5))
-    val cRs2              = Wire(UInt(5))
-    val cRdPrime          = Wire(UInt(5))
-    val cRs1Prime         = Wire(UInt(5))
-    val cRs2Prime         = Wire(UInt(5))
-    val cShamt            = Wire(UInt(5))
-    val cImm6             = Wire(UInt(parameter.xlen))
-    val cAddi4spnImm      = Wire(UInt(parameter.xlen))
-    val cLwImm            = Wire(UInt(parameter.xlen))
-    val cLwspImm          = Wire(UInt(parameter.xlen))
-    val cSwspImm          = Wire(UInt(parameter.xlen))
-    val cAddi16spImm      = Wire(UInt(parameter.xlen))
-    val cBranchImm        = Wire(UInt(parameter.xlen))
-    val cJumpImm          = Wire(UInt(parameter.xlen))
+    val cInsn             = Wire(Bits(16))
+    val cQuadrant         = Wire(Bits(2))
+    val cFunct3           = Wire(Bits(3))
+    val cRdRs1            = Wire(Bits(5))
+    val cRs2              = Wire(Bits(5))
+    val cRdPrime          = Wire(Bits(5))
+    val cRs1Prime         = Wire(Bits(5))
+    val cRs2Prime         = Wire(Bits(5))
+    val cShamt            = Wire(Bits(5))
+    val cImm6             = Wire(Bits(parameter.xlen))
+    val cAddi4spnImm      = Wire(Bits(parameter.xlen))
+    val cLwImm            = Wire(Bits(parameter.xlen))
+    val cLwspImm          = Wire(Bits(parameter.xlen))
+    val cSwspImm          = Wire(Bits(parameter.xlen))
+    val cAddi16spImm      = Wire(Bits(parameter.xlen))
+    val cBranchImm        = Wire(Bits(parameter.xlen))
+    val cJumpImm          = Wire(Bits(parameter.xlen))
     val commitNow         = Wire(Bool())
-    val commitInstr       = Wire(UInt(parameter.xlen))
+    val commitInstr       = Wire(Bits(parameter.xlen))
     val commitLen         = Wire(UInt(3))
     val commitCompressed  = Wire(Bool())
     val fetchRequest      = Wire(Bool())
@@ -471,7 +465,7 @@ object DitDah32Module
     val fetchResponseOk   = Wire(Bool())
     val fetchResponseError = Wire(Bool())
     val instrReady        = Wire(Bool())
-    val instrRdata        = Wire(UInt(parameter.xlen))
+    val instrRdata        = Wire(Bits(parameter.xlen))
     val loadArValid       = Wire(Bool())
     val loadArFire        = Wire(Bool())
     val loadAcceptsResponse = Wire(Bool())
@@ -486,12 +480,12 @@ object DitDah32Module
     val storeResponseFire = Wire(Bool())
     val storeResponseOk   = Wire(Bool())
     val storeResponseError = Wire(Bool())
-    val opcode            = Wire(UInt(7))
-    val rdIndex           = Wire(UInt(5))
-    val rs1Index          = Wire(UInt(5))
-    val rs2Index          = Wire(UInt(5))
-    val funct3            = Wire(UInt(3))
-    val funct7            = Wire(UInt(7))
+    val opcode            = Wire(Bits(7))
+    val rdIndex           = Wire(Bits(5))
+    val rs1Index          = Wire(Bits(5))
+    val rs2Index          = Wire(Bits(5))
+    val funct3            = Wire(Bits(3))
+    val funct7            = Wire(Bits(7))
     val shamt             = Wire(UInt(5))
     val rs1Data           = Wire(UInt(parameter.xlen))
     val rs2Data           = Wire(UInt(parameter.xlen))
@@ -504,11 +498,11 @@ object DitDah32Module
     val jalrTarget        = Wire(UInt(parameter.xlen))
     val memAddr           = Wire(UInt(parameter.xlen))
     val memAlignedAddr    = Wire(UInt(parameter.xlen))
-    val storeData         = Wire(UInt(parameter.xlen))
+    val storeData         = Wire(Bits(parameter.xlen))
     val storeBe           = Wire(UInt(4))
-    val loadByte          = Wire(UInt(8))
-    val loadHalf          = Wire(UInt(16))
-    val loadWdata         = Wire(UInt(parameter.xlen))
+    val loadByte          = Wire(Bits(8))
+    val loadHalf          = Wire(Bits(16))
+    val loadWdata         = Wire(Bits(parameter.xlen))
     val loadMemMask       = Wire(UInt(4))
     val rs1SignedOrder    = Wire(UInt(parameter.xlen))
     val rs2SignedOrder    = Wire(UInt(parameter.xlen))
@@ -533,31 +527,31 @@ object DitDah32Module
     val isMret            = Wire(Bool())
     val isCsr             = Wire(Bool())
     val isCsrImm          = Wire(Bool())
-    val csrAddr           = Wire(UInt(12))
-    val csrOperand        = Wire(UInt(parameter.xlen))
-    val csrWriteData      = Wire(UInt(parameter.xlen))
-    val csrTraceWriteData = Wire(UInt(parameter.xlen))
+    val csrAddr           = Wire(Bits(12))
+    val csrOperand        = Wire(Bits(parameter.xlen))
+    val csrWriteData      = Wire(Bits(parameter.xlen))
+    val csrTraceWriteData = Wire(Bits(parameter.xlen))
     val csrWriteEnable    = Wire(Bool())
     val csrUsesRs1        = Wire(Bool())
     val csrIllegal        = Wire(Bool())
-    val postCommitMstatus = Wire(UInt(parameter.xlen))
-    val postCommitMie     = Wire(UInt(parameter.xlen))
-    val irqMip            = Wire(UInt(parameter.xlen))
-    val irqEnabledMask    = Wire(UInt(parameter.xlen))
+    val postCommitMstatus = Wire(Bits(parameter.xlen))
+    val postCommitMie     = Wire(Bits(parameter.xlen))
+    val irqMip            = Wire(Bits(parameter.xlen))
+    val irqEnabledMask    = Wire(Bits(parameter.xlen))
     val irqSoftwareEnabled = Wire(Bool())
     val irqTimerEnabled   = Wire(Bool())
     val irqExternalEnabled = Wire(Bool())
     val irqIndividuallyPending = Wire(Bool())
     val irqTrapPending    = Wire(Bool())
-    val irqCause          = Wire(UInt(parameter.xlen))
-    val postCommitIrqEnabledMask = Wire(UInt(parameter.xlen))
+    val irqCause          = Wire(Bits(parameter.xlen))
+    val postCommitIrqEnabledMask = Wire(Bits(parameter.xlen))
     val postCommitIrqSoftwareEnabled = Wire(Bool())
     val postCommitIrqTimerEnabled = Wire(Bool())
     val postCommitIrqExternalEnabled = Wire(Bool())
     val postCommitIrqTrapPending = Wire(Bool())
-    val postCommitIrqCause = Wire(UInt(parameter.xlen))
+    val postCommitIrqCause = Wire(Bits(parameter.xlen))
     val trapVector        = Wire(UInt(parameter.xlen))
-    val standardTrapCause = Wire(UInt(parameter.xlen))
+    val standardTrapCause = Wire(Bits(parameter.xlen))
     val standardTrapValue = Wire(UInt(parameter.xlen))
     val isCNop            = Wire(Bool())
     val rdIllegal         = Wire(Bool())
@@ -585,7 +579,7 @@ object DitDah32Module
     stateSleep := state === CoreState.SLEEP.U(3)
     stateIrq   := state === CoreState.IRQ.U(3)
     pcHalfwordHigh := pc.asBits.bit(1)
-    pcFetchAddr := (pc.asBits.bits(parameter.xlen - 1, 2) ## 0.U(2).asBits).asUInt
+    pcFetchAddr := (pc.asBits.bits(parameter.xlen - 1, 2) ## 0.B(2)).asUInt
 
     fetchRequest := stateRun | stateStraddle
     fetchArValid := fetchRequest & !fetchOutstanding
@@ -595,7 +589,7 @@ object DitDah32Module
     fetchResponseError := fetchResponseFire & (io.axi_rresp =/= 0.U(2))
     fetchResponseOk := fetchResponseFire & !fetchResponseError
     instrReady := fetchResponseOk
-    instrRdata := io.axi_rdata
+    instrRdata := io.axi_rdata.asBits
 
     loadArValid := stateLoad & !memOutstanding
     loadArFire := loadArValid & io.axi_arready
@@ -613,425 +607,417 @@ object DitDah32Module
     storeResponseError := storeResponseFire & (io.axi_bresp =/= 0.U(2))
     storeResponseOk := storeResponseFire & !storeResponseError
 
-    lowerHalfwordBits := instrRdata.asBits.bits(1, 0).asUInt
-    upperHalfwordBits := instrRdata.asBits.bits(17, 16).asUInt
+    lowerHalfwordBits := instrRdata.bits(1, 0)
+    upperHalfwordBits := instrRdata.bits(17, 16)
     instrLowBits      := pcHalfwordHigh.?(upperHalfwordBits, lowerHalfwordBits)
-    instrCompressed   := instrLowBits =/= 3.U(2)
+    instrCompressed   := instrLowBits =/= 3.B(2)
     straddled32       := pcHalfwordHigh & !instrCompressed
-    selectedHalfword  := pcHalfwordHigh.?(instrRdata.asBits.bits(31, 16).asUInt, instrRdata.asBits.bits(15, 0).asUInt)
+    selectedHalfword  := pcHalfwordHigh.?(instrRdata.bits(31, 16), instrRdata.bits(15, 0))
 
     pcPlus2 := (pc + 2.U(parameter.xlen)).asBits.bits(parameter.xlen - 1, 0).asUInt
     pcPlus4 := (pc + 4.U(parameter.xlen)).asBits.bits(parameter.xlen - 1, 0).asUInt
     sequentialPc := commitCompressed.?(pcPlus2, pcPlus4)
     instrAddr := stateStraddle.?(pcPlus2, pcFetchAddr)
-    selectedInstr := instrCompressed.?((0.U(16).asBits ## selectedHalfword.asBits).asUInt, instrRdata)
-    straddledInstr := (instrRdata.asBits.bits(15, 0) ## straddleLowHalfword.asBits).asUInt
+    selectedInstr := instrCompressed.?(0.B(16) ## selectedHalfword, instrRdata)
+    straddledInstr := instrRdata.bits(15, 0) ## straddleLowHalfword
 
     commitNow := (stateStraddle & instrReady) | (stateRun & instrReady & !straddled32)
     commitInstr := stateStraddle.?(straddledInstr, selectedInstr)
     commitLen := stateStraddle.?(4.U(3), instrCompressed.?(2.U(3), 4.U(3)))
     commitCompressed := commitLen === 2.U(3)
 
-    cInsn := commitInstr.asBits.bits(15, 0).asUInt
-    cQuadrant := cInsn.asBits.bits(1, 0).asUInt
-    cFunct3 := cInsn.asBits.bits(15, 13).asUInt
-    cRdRs1 := cInsn.asBits.bits(11, 7).asUInt
-    cRs2 := cInsn.asBits.bits(6, 2).asUInt
-    cRdPrime := (1.U(2).asBits ## cInsn.asBits.bits(4, 2)).asUInt
-    cRs1Prime := (1.U(2).asBits ## cInsn.asBits.bits(9, 7)).asUInt
-    cRs2Prime := (1.U(2).asBits ## cInsn.asBits.bits(4, 2)).asUInt
-    cShamt := cInsn.asBits.bits(6, 2).asUInt
-    cImm6 := (
-      cInsn.asBits.bit(12).?(0x3ffffff.U(26), 0.U(26)).asBits ##
-      cInsn.asBits.bits(12, 12) ##
-      cInsn.asBits.bits(6, 2)
-    ).asUInt
-    cAddi4spnImm := (
-      0.U(22).asBits ##
-      cInsn.asBits.bits(10, 7) ##
-      cInsn.asBits.bits(12, 11) ##
-      cInsn.asBits.bits(5, 5) ##
-      cInsn.asBits.bits(6, 6) ##
-      0.U(2).asBits
-    ).asUInt
-    cLwImm := (
-      0.U(25).asBits ##
-      cInsn.asBits.bits(5, 5) ##
-      cInsn.asBits.bits(12, 10) ##
-      cInsn.asBits.bits(6, 6) ##
-      0.U(2).asBits
-    ).asUInt
-    cLwspImm := (
-      0.U(24).asBits ##
-      cInsn.asBits.bits(3, 2) ##
-      cInsn.asBits.bits(12, 12) ##
-      cInsn.asBits.bits(6, 4) ##
-      0.U(2).asBits
-    ).asUInt
-    cSwspImm := (
-      0.U(24).asBits ##
-      cInsn.asBits.bits(8, 7) ##
-      cInsn.asBits.bits(12, 9) ##
-      0.U(2).asBits
-    ).asUInt
-    cAddi16spImm := (
-      cInsn.asBits.bit(12).?(0x3fffff.U(22), 0.U(22)).asBits ##
-      cInsn.asBits.bits(12, 12) ##
-      cInsn.asBits.bits(4, 3) ##
-      cInsn.asBits.bits(5, 5) ##
-      cInsn.asBits.bits(2, 2) ##
-      cInsn.asBits.bits(6, 6) ##
-      0.U(4).asBits
-    ).asUInt
-    cBranchImm := (
-      cInsn.asBits.bit(12).?(0x7fffff.U(23), 0.U(23)).asBits ##
-      cInsn.asBits.bits(12, 12) ##
-      cInsn.asBits.bits(6, 5) ##
-      cInsn.asBits.bits(2, 2) ##
-      cInsn.asBits.bits(11, 10) ##
-      cInsn.asBits.bits(4, 3) ##
-      0.U(1).asBits
-    ).asUInt
-    cJumpImm := (
-      cInsn.asBits.bit(12).?(0xfffff.U(20), 0.U(20)).asBits ##
-      cInsn.asBits.bits(12, 12) ##
-      cInsn.asBits.bits(8, 8) ##
-      cInsn.asBits.bits(10, 9) ##
-      cInsn.asBits.bits(6, 6) ##
-      cInsn.asBits.bits(7, 7) ##
-      cInsn.asBits.bits(2, 2) ##
-      cInsn.asBits.bits(11, 11) ##
-      cInsn.asBits.bits(5, 3) ##
-      0.U(1).asBits
-    ).asUInt
+    cInsn := commitInstr.bits(15, 0)
+    cQuadrant := cInsn.bits(1, 0)
+    cFunct3 := cInsn.bits(15, 13)
+    cRdRs1 := cInsn.bits(11, 7)
+    cRs2 := cInsn.bits(6, 2)
+    cRdPrime := 1.B(2) ## cInsn.bits(4, 2)
+    cRs1Prime := 1.B(2) ## cInsn.bits(9, 7)
+    cRs2Prime := 1.B(2) ## cInsn.bits(4, 2)
+    cShamt := cInsn.bits(6, 2)
+    cImm6 :=
+      cInsn.bit(12).?(0x3ffffff.B(26), 0.B(26)) ##
+      cInsn.bits(12, 12) ##
+      cInsn.bits(6, 2)
+    cAddi4spnImm :=
+      0.B(22) ##
+      cInsn.bits(10, 7) ##
+      cInsn.bits(12, 11) ##
+      cInsn.bits(5, 5) ##
+      cInsn.bits(6, 6) ##
+      0.B(2)
+    cLwImm :=
+      0.B(25) ##
+      cInsn.bits(5, 5) ##
+      cInsn.bits(12, 10) ##
+      cInsn.bits(6, 6) ##
+      0.B(2)
+    cLwspImm :=
+      0.B(24) ##
+      cInsn.bits(3, 2) ##
+      cInsn.bits(12, 12) ##
+      cInsn.bits(6, 4) ##
+      0.B(2)
+    cSwspImm :=
+      0.B(24) ##
+      cInsn.bits(8, 7) ##
+      cInsn.bits(12, 9) ##
+      0.B(2)
+    cAddi16spImm :=
+      cInsn.bit(12).?(0x3fffff.B(22), 0.B(22)) ##
+      cInsn.bits(12, 12) ##
+      cInsn.bits(4, 3) ##
+      cInsn.bits(5, 5) ##
+      cInsn.bits(2, 2) ##
+      cInsn.bits(6, 6) ##
+      0.B(4)
+    cBranchImm :=
+      cInsn.bit(12).?(0x7fffff.B(23), 0.B(23)) ##
+      cInsn.bits(12, 12) ##
+      cInsn.bits(6, 5) ##
+      cInsn.bits(2, 2) ##
+      cInsn.bits(11, 10) ##
+      cInsn.bits(4, 3) ##
+      0.B(1)
+    cJumpImm :=
+      cInsn.bit(12).?(0xfffff.B(20), 0.B(20)) ##
+      cInsn.bits(12, 12) ##
+      cInsn.bits(8, 8) ##
+      cInsn.bits(10, 9) ##
+      cInsn.bits(6, 6) ##
+      cInsn.bits(7, 7) ##
+      cInsn.bits(2, 2) ##
+      cInsn.bits(11, 11) ##
+      cInsn.bits(5, 3) ##
+      0.B(1)
 
-    cDecodedInstr := 0.U(parameter.xlen)
+    cDecodedInstr := 0.B(parameter.xlen)
     cNoWriteHint := false.B
-    when(cQuadrant === 0.U(2)) {
-      when((cFunct3 === 0.U(3)) & (cAddi4spnImm =/= 0.U(parameter.xlen))) {
+    when(cQuadrant === 0.B(2)) {
+      when((cFunct3 === 0.B(3)) & (cAddi4spnImm =/= 0.B(parameter.xlen))) {
         cDecodedInstr := (
-          cAddi4spnImm.asBits.bits(11, 0) ##
-          2.U(5).asBits ##
-          0.U(3).asBits ##
-          cRdPrime.asBits ##
-          0x13.U(7).asBits
-        ).asUInt
+          cAddi4spnImm.bits(11, 0) ##
+          2.B(5) ##
+          0.B(3) ##
+          cRdPrime ##
+          0x13.B(7)
+        )
       }
-      when(cFunct3 === 2.U(3)) {
+      when(cFunct3 === 2.B(3)) {
         cDecodedInstr := (
-          cLwImm.asBits.bits(11, 0) ##
-          cRs1Prime.asBits ##
-          2.U(3).asBits ##
-          cRdPrime.asBits ##
-          0x03.U(7).asBits
-        ).asUInt
+          cLwImm.bits(11, 0) ##
+          cRs1Prime ##
+          2.B(3) ##
+          cRdPrime ##
+          0x03.B(7)
+        )
       }
-      when(cFunct3 === 6.U(3)) {
+      when(cFunct3 === 6.B(3)) {
         cDecodedInstr := (
-          cLwImm.asBits.bits(11, 5) ##
-          cRs2Prime.asBits ##
-          cRs1Prime.asBits ##
-          2.U(3).asBits ##
-          cLwImm.asBits.bits(4, 0) ##
-          0x23.U(7).asBits
-        ).asUInt
+          cLwImm.bits(11, 5) ##
+          cRs2Prime ##
+          cRs1Prime ##
+          2.B(3) ##
+          cLwImm.bits(4, 0) ##
+          0x23.B(7)
+        )
       }
     }
-    when(cQuadrant === 1.U(2)) {
-      when(cFunct3 === 0.U(3)) {
+    when(cQuadrant === 1.B(2)) {
+      when(cFunct3 === 0.B(3)) {
         cDecodedInstr := (
-          cImm6.asBits.bits(11, 0) ##
-          cRdRs1.asBits ##
-          0.U(3).asBits ##
-          cRdRs1.asBits ##
-          0x13.U(7).asBits
-        ).asUInt
+          cImm6.bits(11, 0) ##
+          cRdRs1 ##
+          0.B(3) ##
+          cRdRs1 ##
+          0x13.B(7)
+        )
       }
-      when(cFunct3 === 1.U(3)) {
+      when(cFunct3 === 1.B(3)) {
         cDecodedInstr := (
-          cJumpImm.asBits.bits(20, 20) ##
-          cJumpImm.asBits.bits(10, 1) ##
-          cJumpImm.asBits.bits(11, 11) ##
-          cJumpImm.asBits.bits(19, 12) ##
-          1.U(5).asBits ##
-          0x6f.U(7).asBits
-        ).asUInt
+          cJumpImm.bits(20, 20) ##
+          cJumpImm.bits(10, 1) ##
+          cJumpImm.bits(11, 11) ##
+          cJumpImm.bits(19, 12) ##
+          1.B(5) ##
+          0x6f.B(7)
+        )
       }
-      when(cFunct3 === 2.U(3)) {
+      when(cFunct3 === 2.B(3)) {
         cDecodedInstr := (
-          cImm6.asBits.bits(11, 0) ##
-          0.U(5).asBits ##
-          0.U(3).asBits ##
-          cRdRs1.asBits ##
-          0x13.U(7).asBits
-        ).asUInt
+          cImm6.bits(11, 0) ##
+          0.B(5) ##
+          0.B(3) ##
+          cRdRs1 ##
+          0x13.B(7)
+        )
       }
-      when(cFunct3 === 3.U(3)) {
-        when((cRdRs1 === 0.U(5)) & (cImm6 =/= 0.U(parameter.xlen))) {
+      when(cFunct3 === 3.B(3)) {
+        when((cRdRs1 === 0.B(5)) & (cImm6 =/= 0.B(parameter.xlen))) {
           cDecodedInstr := (
-            cImm6.asBits.bits(19, 0) ##
-            cRdRs1.asBits ##
-            0x37.U(7).asBits
-          ).asUInt
+            cImm6.bits(19, 0) ##
+            cRdRs1 ##
+            0x37.B(7)
+          )
         }
-        when((cRdRs1 === 2.U(5)) & (cAddi16spImm =/= 0.U(parameter.xlen))) {
+        when((cRdRs1 === 2.B(5)) & (cAddi16spImm =/= 0.B(parameter.xlen))) {
           cDecodedInstr := (
-            cAddi16spImm.asBits.bits(11, 0) ##
-            2.U(5).asBits ##
-            0.U(3).asBits ##
-            2.U(5).asBits ##
-            0x13.U(7).asBits
-          ).asUInt
+            cAddi16spImm.bits(11, 0) ##
+            2.B(5) ##
+            0.B(3) ##
+            2.B(5) ##
+            0x13.B(7)
+          )
         }
-        when((cRdRs1 =/= 0.U(5)) & (cRdRs1 =/= 2.U(5)) & ((cImm6 =/= 0.U(parameter.xlen)) | cRdRs1.asBits.bit(4))) {
+        when((cRdRs1 =/= 0.B(5)) & (cRdRs1 =/= 2.B(5)) & ((cImm6 =/= 0.B(parameter.xlen)) | cRdRs1.bit(4))) {
           cDecodedInstr := (
-            cImm6.asBits.bits(19, 0) ##
-            cRdRs1.asBits ##
-            0x37.U(7).asBits
-          ).asUInt
+            cImm6.bits(19, 0) ##
+            cRdRs1 ##
+            0x37.B(7)
+          )
         }
       }
-      when(cFunct3 === 4.U(3)) {
-        when(cInsn.asBits.bits(11, 10).asUInt === 0.U(2)) {
-          when(!cInsn.asBits.bit(12)) {
+      when(cFunct3 === 4.B(3)) {
+        when(cInsn.bits(11, 10) === 0.B(2)) {
+          when(!cInsn.bit(12)) {
             cDecodedInstr := (
-              0.U(7).asBits ##
-              cShamt.asBits ##
-              cRs1Prime.asBits ##
-              5.U(3).asBits ##
-              cRs1Prime.asBits ##
-              0x13.U(7).asBits
-            ).asUInt
+              0.B(7) ##
+              cShamt ##
+              cRs1Prime ##
+              5.B(3) ##
+              cRs1Prime ##
+              0x13.B(7)
+            )
           }
         }
-        when(cInsn.asBits.bits(11, 10).asUInt === 1.U(2)) {
-          when(!cInsn.asBits.bit(12)) {
+        when(cInsn.bits(11, 10) === 1.B(2)) {
+          when(!cInsn.bit(12)) {
             cDecodedInstr := (
-              0x20.U(7).asBits ##
-              cShamt.asBits ##
-              cRs1Prime.asBits ##
-              5.U(3).asBits ##
-              cRs1Prime.asBits ##
-              0x13.U(7).asBits
-            ).asUInt
+              0x20.B(7) ##
+              cShamt ##
+              cRs1Prime ##
+              5.B(3) ##
+              cRs1Prime ##
+              0x13.B(7)
+            )
           }
         }
-        when(cInsn.asBits.bits(11, 10).asUInt === 2.U(2)) {
+        when(cInsn.bits(11, 10) === 2.B(2)) {
           cDecodedInstr := (
-            cImm6.asBits.bits(11, 0) ##
-            cRs1Prime.asBits ##
-            7.U(3).asBits ##
-            cRs1Prime.asBits ##
-            0x13.U(7).asBits
-          ).asUInt
+            cImm6.bits(11, 0) ##
+            cRs1Prime ##
+            7.B(3) ##
+            cRs1Prime ##
+            0x13.B(7)
+          )
         }
-        when(cInsn.asBits.bits(11, 10).asUInt === 3.U(2)) {
-          when(!cInsn.asBits.bit(12)) {
-            when(cInsn.asBits.bits(6, 5).asUInt === 0.U(2)) {
+        when(cInsn.bits(11, 10) === 3.B(2)) {
+          when(!cInsn.bit(12)) {
+            when(cInsn.bits(6, 5) === 0.B(2)) {
               cDecodedInstr := (
-                0x20.U(7).asBits ##
-                cRs2Prime.asBits ##
-                cRs1Prime.asBits ##
-                0.U(3).asBits ##
-                cRs1Prime.asBits ##
-                0x33.U(7).asBits
-              ).asUInt
+                0x20.B(7) ##
+                cRs2Prime ##
+                cRs1Prime ##
+                0.B(3) ##
+                cRs1Prime ##
+                0x33.B(7)
+              )
             }
-            when(cInsn.asBits.bits(6, 5).asUInt === 1.U(2)) {
+            when(cInsn.bits(6, 5) === 1.B(2)) {
               cDecodedInstr := (
-                0.U(7).asBits ##
-                cRs2Prime.asBits ##
-                cRs1Prime.asBits ##
-                4.U(3).asBits ##
-                cRs1Prime.asBits ##
-                0x33.U(7).asBits
-              ).asUInt
+                0.B(7) ##
+                cRs2Prime ##
+                cRs1Prime ##
+                4.B(3) ##
+                cRs1Prime ##
+                0x33.B(7)
+              )
             }
-            when(cInsn.asBits.bits(6, 5).asUInt === 2.U(2)) {
+            when(cInsn.bits(6, 5) === 2.B(2)) {
               cDecodedInstr := (
-                0.U(7).asBits ##
-                cRs2Prime.asBits ##
-                cRs1Prime.asBits ##
-                6.U(3).asBits ##
-                cRs1Prime.asBits ##
-                0x33.U(7).asBits
-              ).asUInt
+                0.B(7) ##
+                cRs2Prime ##
+                cRs1Prime ##
+                6.B(3) ##
+                cRs1Prime ##
+                0x33.B(7)
+              )
             }
-            when(cInsn.asBits.bits(6, 5).asUInt === 3.U(2)) {
+            when(cInsn.bits(6, 5) === 3.B(2)) {
               cDecodedInstr := (
-                0.U(7).asBits ##
-                cRs2Prime.asBits ##
-                cRs1Prime.asBits ##
-                7.U(3).asBits ##
-                cRs1Prime.asBits ##
-                0x33.U(7).asBits
-              ).asUInt
+                0.B(7) ##
+                cRs2Prime ##
+                cRs1Prime ##
+                7.B(3) ##
+                cRs1Prime ##
+                0x33.B(7)
+              )
             }
           }
         }
       }
-      when(cFunct3 === 5.U(3)) {
+      when(cFunct3 === 5.B(3)) {
         cDecodedInstr := (
-          cJumpImm.asBits.bits(20, 20) ##
-          cJumpImm.asBits.bits(10, 1) ##
-          cJumpImm.asBits.bits(11, 11) ##
-          cJumpImm.asBits.bits(19, 12) ##
-          0.U(5).asBits ##
-          0x6f.U(7).asBits
-        ).asUInt
+          cJumpImm.bits(20, 20) ##
+          cJumpImm.bits(10, 1) ##
+          cJumpImm.bits(11, 11) ##
+          cJumpImm.bits(19, 12) ##
+          0.B(5) ##
+          0x6f.B(7)
+        )
       }
-      when((cFunct3 === 6.U(3)) | (cFunct3 === 7.U(3))) {
+      when((cFunct3 === 6.B(3)) | (cFunct3 === 7.B(3))) {
         cDecodedInstr := (
-          cBranchImm.asBits.bits(12, 12) ##
-          cBranchImm.asBits.bits(10, 5) ##
-          0.U(5).asBits ##
-          cRs1Prime.asBits ##
-          (cFunct3 === 6.U(3)).?(0.U(3), 1.U(3)).asBits ##
-          cBranchImm.asBits.bits(4, 1) ##
-          cBranchImm.asBits.bits(11, 11) ##
-          0x63.U(7).asBits
-        ).asUInt
+          cBranchImm.bits(12, 12) ##
+          cBranchImm.bits(10, 5) ##
+          0.B(5) ##
+          cRs1Prime ##
+          (cFunct3 === 6.B(3)).?(0.B(3), 1.B(3)) ##
+          cBranchImm.bits(4, 1) ##
+          cBranchImm.bits(11, 11) ##
+          0x63.B(7)
+        )
       }
     }
-    when(cQuadrant === 2.U(2)) {
-      when(cFunct3 === 0.U(3)) {
-        when(!cInsn.asBits.bit(12)) {
+    when(cQuadrant === 2.B(2)) {
+      when(cFunct3 === 0.B(3)) {
+        when(!cInsn.bit(12)) {
           cDecodedInstr := (
-            0.U(7).asBits ##
-            cShamt.asBits ##
-            cRdRs1.asBits ##
-            1.U(3).asBits ##
-            cRdRs1.asBits ##
-            0x13.U(7).asBits
-          ).asUInt
+            0.B(7) ##
+            cShamt ##
+            cRdRs1 ##
+            1.B(3) ##
+            cRdRs1 ##
+            0x13.B(7)
+          )
         }
       }
-      when((cFunct3 === 2.U(3)) & (cRdRs1 =/= 0.U(5))) {
+      when((cFunct3 === 2.B(3)) & (cRdRs1 =/= 0.B(5))) {
         cDecodedInstr := (
-          cLwspImm.asBits.bits(11, 0) ##
-          2.U(5).asBits ##
-          2.U(3).asBits ##
-          cRdRs1.asBits ##
-          0x03.U(7).asBits
-        ).asUInt
+          cLwspImm.bits(11, 0) ##
+          2.B(5) ##
+          2.B(3) ##
+          cRdRs1 ##
+          0x03.B(7)
+        )
       }
-      when(cFunct3 === 4.U(3)) {
-        when(!cInsn.asBits.bit(12) & (cRs2 === 0.U(5)) & (cRdRs1 =/= 0.U(5))) {
+      when(cFunct3 === 4.B(3)) {
+        when(!cInsn.bit(12) & (cRs2 === 0.B(5)) & (cRdRs1 =/= 0.B(5))) {
           cDecodedInstr := (
-            0.U(12).asBits ##
-            cRdRs1.asBits ##
-            0.U(3).asBits ##
-            0.U(5).asBits ##
-            0x67.U(7).asBits
-          ).asUInt
+            0.B(12) ##
+            cRdRs1 ##
+            0.B(3) ##
+            0.B(5) ##
+            0x67.B(7)
+          )
         }
-        when(!cInsn.asBits.bit(12) & (cRs2 =/= 0.U(5))) {
+        when(!cInsn.bit(12) & (cRs2 =/= 0.B(5))) {
           cDecodedInstr := (
-            0.U(7).asBits ##
-            cRs2.asBits ##
-            0.U(5).asBits ##
-            0.U(3).asBits ##
-            cRdRs1.asBits ##
-            0x33.U(7).asBits
-          ).asUInt
+            0.B(7) ##
+            cRs2 ##
+            0.B(5) ##
+            0.B(3) ##
+            cRdRs1 ##
+            0x33.B(7)
+          )
         }
-        when(cInsn.asBits.bit(12) & (cRs2 === 0.U(5)) & (cRdRs1 === 0.U(5))) {
-          cDecodedInstr := 0x00100073.U(parameter.xlen)
+        when(cInsn.bit(12) & (cRs2 === 0.B(5)) & (cRdRs1 === 0.B(5))) {
+          cDecodedInstr := 0x00100073.B(parameter.xlen)
         }
-        when(cInsn.asBits.bit(12) & (cRs2 === 0.U(5)) & (cRdRs1 =/= 0.U(5))) {
+        when(cInsn.bit(12) & (cRs2 === 0.B(5)) & (cRdRs1 =/= 0.B(5))) {
           cDecodedInstr := (
-            0.U(12).asBits ##
-            cRdRs1.asBits ##
-            0.U(3).asBits ##
-            1.U(5).asBits ##
-            0x67.U(7).asBits
-          ).asUInt
+            0.B(12) ##
+            cRdRs1 ##
+            0.B(3) ##
+            1.B(5) ##
+            0x67.B(7)
+          )
         }
-        when(cInsn.asBits.bit(12) & (cRs2 =/= 0.U(5))) {
+        when(cInsn.bit(12) & (cRs2 =/= 0.B(5))) {
           cDecodedInstr := (
-            0.U(7).asBits ##
-            cRs2.asBits ##
-            cRdRs1.asBits ##
-            0.U(3).asBits ##
-            cRdRs1.asBits ##
-            0x33.U(7).asBits
-          ).asUInt
+            0.B(7) ##
+            cRs2 ##
+            cRdRs1 ##
+            0.B(3) ##
+            cRdRs1 ##
+            0x33.B(7)
+          )
         }
       }
-      when(cFunct3 === 6.U(3)) {
+      when(cFunct3 === 6.B(3)) {
         cDecodedInstr := (
-          cSwspImm.asBits.bits(11, 5) ##
-          cRs2.asBits ##
-          2.U(5).asBits ##
-          2.U(3).asBits ##
-          cSwspImm.asBits.bits(4, 0) ##
-          0x23.U(7).asBits
-        ).asUInt
+          cSwspImm.bits(11, 5) ##
+          cRs2 ##
+          2.B(5) ##
+          2.B(3) ##
+          cSwspImm.bits(4, 0) ##
+          0x23.B(7)
+        )
       }
     }
     decodedInstr := commitCompressed.?(cDecodedInstr, commitInstr)
 
-    opcode   := decodedInstr.asBits.bits(6, 0).asUInt
-    rdIndex  := decodedInstr.asBits.bits(11, 7).asUInt
-    funct3   := decodedInstr.asBits.bits(14, 12).asUInt
-    rs1Index := decodedInstr.asBits.bits(19, 15).asUInt
-    rs2Index := decodedInstr.asBits.bits(24, 20).asUInt
-    shamt    := decodedInstr.asBits.bits(24, 20).asUInt
-    funct7   := decodedInstr.asBits.bits(31, 25).asUInt
+    opcode   := decodedInstr.bits(6, 0)
+    rdIndex  := decodedInstr.bits(11, 7)
+    funct3   := decodedInstr.bits(14, 12)
+    rs1Index := decodedInstr.bits(19, 15)
+    rs2Index := decodedInstr.bits(24, 20)
+    shamt    := decodedInstr.bits(24, 20).asUInt
+    funct7   := decodedInstr.bits(31, 25)
 
     rs1Data := readGpr(rs1Index, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15, parameter)
     rs2Data := readGpr(rs2Index, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15, parameter)
 
-    csrAddr := decodedInstr.asBits.bits(31, 20).asUInt
-    isCsr := (opcode === 0x73.U(7)) & (funct3 =/= 0.U(3))
-    isCsrImm := isCsr & funct3.asBits.bit(2)
-    csrOperand := isCsrImm.?((0.U(27).asBits ## rs1Index.asBits).asUInt, rs1Data)
+    csrAddr := decodedInstr.bits(31, 20)
+    isCsr := (opcode === 0x73.B(7)) & (funct3 =/= 0.B(3))
+    isCsrImm := isCsr & funct3.bit(2)
+    csrOperand := isCsrImm.?(0.B(27) ## rs1Index, rs1Data.asBits)
     // CSR write attempt per Priv Spec v1.12 §9.4: CSRRW/CSRRWI always write;
     // CSRRS/CSRRC/CSRRSI/CSRRCI do NOT write iff rs1/uimm field (insn[19:15])
     // is 0. Using rs1Index (architectural), not runtime data, keeps the
     // illegal-instruction trap on read-only CSRs spec-conformant.
     csrWriteEnable := isCsr & (
-      (funct3 === 1.U(3)) |
-      (funct3 === 5.U(3)) |
-      ((funct3 =/= 0.U(3)) & (funct3 =/= 4.U(3)) & (rs1Index =/= 0.U(5)))
+      (funct3 === 1.B(3)) |
+      (funct3 === 5.B(3)) |
+      ((funct3 =/= 0.B(3)) & (funct3 =/= 4.B(3)) & (rs1Index =/= 0.B(5)))
     )
     csrUsesRs1 := isCsr & !isCsrImm & (
-      (funct3 === 1.U(3)) |
-      (((funct3 === 2.U(3)) | (funct3 === 3.U(3))) & (rs1Index =/= 0.U(5)))
+      (funct3 === 1.B(3)) |
+      (((funct3 === 2.B(3)) | (funct3 === 3.B(3))) & (rs1Index =/= 0.B(5)))
     )
 
     irqMip := (
       io.irq_software.?(8.U(parameter.xlen), 0.U(parameter.xlen)) +
       io.irq_timer.?(0x80.U(parameter.xlen), 0.U(parameter.xlen)) +
       io.irq_external.?(0x800.U(parameter.xlen), 0.U(parameter.xlen))
-    ).asBits.bits(parameter.xlen - 1, 0).asUInt
-    irqEnabledMask := (csrMie.asBits & irqMip.asBits).bits(parameter.xlen - 1, 0).asUInt
-    irqSoftwareEnabled := irqEnabledMask.asBits.bit(CsrBits.IRQ_SOFTWARE)
-    irqTimerEnabled := irqEnabledMask.asBits.bit(CsrBits.IRQ_TIMER)
-    irqExternalEnabled := irqEnabledMask.asBits.bit(CsrBits.IRQ_EXTERNAL)
-    irqIndividuallyPending := irqEnabledMask =/= 0.U(parameter.xlen)
-    irqTrapPending := irqIndividuallyPending & csrMstatus.asBits.bit(CsrBits.MSTATUS_MIE)
-    irqCause := BigInt("80000007", 16).U(parameter.xlen)
+    ).asBits.bits(parameter.xlen - 1, 0)
+    irqEnabledMask := (csrMie & irqMip).bits(parameter.xlen - 1, 0)
+    irqSoftwareEnabled := irqEnabledMask.bit(CsrBits.IRQ_SOFTWARE)
+    irqTimerEnabled := irqEnabledMask.bit(CsrBits.IRQ_TIMER)
+    irqExternalEnabled := irqEnabledMask.bit(CsrBits.IRQ_EXTERNAL)
+    irqIndividuallyPending := irqEnabledMask =/= 0.B(parameter.xlen)
+    irqTrapPending := irqIndividuallyPending & csrMstatus.bit(CsrBits.MSTATUS_MIE)
+    irqCause := BigInt("80000007", 16).B(parameter.xlen)
     when(irqSoftwareEnabled) {
-      irqCause := BigInt("80000003", 16).U(parameter.xlen)
+      irqCause := BigInt("80000003", 16).B(parameter.xlen)
     }
     when(irqExternalEnabled) {
-      irqCause := BigInt("8000000b", 16).U(parameter.xlen)
+      irqCause := BigInt("8000000b", 16).B(parameter.xlen)
     }
-    trapVector := (csrMtvec.asBits.bits(parameter.xlen - 1, 2) ## 0.U(2).asBits).asUInt
+    trapVector := (csrMtvec.asBits.bits(parameter.xlen - 1, 2) ## 0.B(2)).asUInt
 
     val (csrReadData, csrValid, csrReadOnly) =
-      csrReadSignals(csrAddr, csrMstatus, csrMie, csrMtvec, csrMscratch, csrMepc, csrMcause, csrMtval, irqMip, parameter)
+      csrReadSignals(csrAddr, csrMstatus, csrMie, csrMtvec.asBits, csrMscratch, csrMepc.asBits, csrMcause, csrMtval.asBits, irqMip, parameter)
 
     csrWriteData := csrReadData
-    when((funct3 === 1.U(3)) | (funct3 === 5.U(3))) {
+    when((funct3 === 1.B(3)) | (funct3 === 5.B(3))) {
       csrWriteData := csrOperand
     }
-    when((funct3 === 2.U(3)) | (funct3 === 6.U(3))) {
-      csrWriteData := (csrReadData.asBits | csrOperand.asBits).bits(parameter.xlen - 1, 0).asUInt
+    when((funct3 === 2.B(3)) | (funct3 === 6.B(3))) {
+      csrWriteData := (csrReadData | csrOperand).bits(parameter.xlen - 1, 0)
     }
-    when((funct3 === 3.U(3)) | (funct3 === 7.U(3))) {
-      csrWriteData := (csrReadData.asBits & (csrOperand.asBits ^ BigInt("ffffffff", 16).U(parameter.xlen).asBits)).bits(parameter.xlen - 1, 0).asUInt
+    when((funct3 === 3.B(3)) | (funct3 === 7.B(3))) {
+      csrWriteData := (csrReadData & (csrOperand ^ BigInt("ffffffff", 16).B(parameter.xlen))).bits(parameter.xlen - 1, 0)
     }
     // RVFI csr_<name>_wdata reports the user-intended next value before
     // any WARL legalization, matching the RVFI convention
@@ -1040,122 +1026,122 @@ object DitDah32Module
     csrTraceWriteData := csrWriteData
 
     postCommitMstatus := csrMstatus
-    when(csrWriteEnable & (csrAddr === CsrAddr.MSTATUS.U(12)) & !execTrap) {
+    when(csrWriteEnable & (csrAddr === CsrAddr.MSTATUS.B(12)) & !execTrap) {
       postCommitMstatus := writableMstatus(csrWriteData)
     }
     when(isMret & !execTrap) {
       postCommitMstatus := mretMstatus(csrMstatus)
     }
     postCommitMie := csrMie
-    when(csrWriteEnable & (csrAddr === CsrAddr.MIE.U(12)) & !execTrap) {
-      postCommitMie := (csrWriteData.asBits & 0x888.U(parameter.xlen).asBits).bits(parameter.xlen - 1, 0).asUInt
+    when(csrWriteEnable & (csrAddr === CsrAddr.MIE.B(12)) & !execTrap) {
+      postCommitMie := (csrWriteData & 0x888.B(parameter.xlen)).bits(parameter.xlen - 1, 0)
     }
-    postCommitIrqEnabledMask := (postCommitMie.asBits & irqMip.asBits).bits(parameter.xlen - 1, 0).asUInt
-    postCommitIrqSoftwareEnabled := postCommitIrqEnabledMask.asBits.bit(CsrBits.IRQ_SOFTWARE)
-    postCommitIrqTimerEnabled := postCommitIrqEnabledMask.asBits.bit(CsrBits.IRQ_TIMER)
-    postCommitIrqExternalEnabled := postCommitIrqEnabledMask.asBits.bit(CsrBits.IRQ_EXTERNAL)
-    postCommitIrqTrapPending := (postCommitIrqEnabledMask =/= 0.U(parameter.xlen)) & postCommitMstatus.asBits.bit(CsrBits.MSTATUS_MIE)
-    postCommitIrqCause := BigInt("80000007", 16).U(parameter.xlen)
+    postCommitIrqEnabledMask := (postCommitMie & irqMip).bits(parameter.xlen - 1, 0)
+    postCommitIrqSoftwareEnabled := postCommitIrqEnabledMask.bit(CsrBits.IRQ_SOFTWARE)
+    postCommitIrqTimerEnabled := postCommitIrqEnabledMask.bit(CsrBits.IRQ_TIMER)
+    postCommitIrqExternalEnabled := postCommitIrqEnabledMask.bit(CsrBits.IRQ_EXTERNAL)
+    postCommitIrqTrapPending := (postCommitIrqEnabledMask =/= 0.B(parameter.xlen)) & postCommitMstatus.bit(CsrBits.MSTATUS_MIE)
+    postCommitIrqCause := BigInt("80000007", 16).B(parameter.xlen)
     when(postCommitIrqSoftwareEnabled) {
-      postCommitIrqCause := BigInt("80000003", 16).U(parameter.xlen)
+      postCommitIrqCause := BigInt("80000003", 16).B(parameter.xlen)
     }
     when(postCommitIrqExternalEnabled) {
-      postCommitIrqCause := BigInt("8000000b", 16).U(parameter.xlen)
+      postCommitIrqCause := BigInt("8000000b", 16).B(parameter.xlen)
     }
-    csrIllegal := isCsr & (!csrValid | (funct3 === 4.U(3)) | (csrWriteEnable & csrReadOnly))
+    csrIllegal := isCsr & (!csrValid | (funct3 === 4.B(3)) | (csrWriteEnable & csrReadOnly))
 
-    imm12 := (decodedInstr.asBits.bit(31).?(0xfffff.U(20), 0.U(20)).asBits ## decodedInstr.asBits.bits(31, 20)).asUInt
+    imm12 := (decodedInstr.bit(31).?(0xfffff.B(20), 0.B(20)) ## decodedInstr.bits(31, 20)).asUInt
     immS := (
-      decodedInstr.asBits.bit(31).?(0xfffff.U(20), 0.U(20)).asBits ##
-      decodedInstr.asBits.bits(31, 25) ##
-      decodedInstr.asBits.bits(11, 7)
+      decodedInstr.bit(31).?(0xfffff.B(20), 0.B(20)) ##
+      decodedInstr.bits(31, 25) ##
+      decodedInstr.bits(11, 7)
     ).asUInt
     immB := (
-      decodedInstr.asBits.bit(31).?(0x7ffff.U(19), 0.U(19)).asBits ##
-      decodedInstr.asBits.bits(31, 31) ##
-      decodedInstr.asBits.bits(7, 7) ##
-      decodedInstr.asBits.bits(30, 25) ##
-      decodedInstr.asBits.bits(11, 8) ##
-      0.U(1).asBits
+      decodedInstr.bit(31).?(0x7ffff.B(19), 0.B(19)) ##
+      decodedInstr.bits(31, 31) ##
+      decodedInstr.bits(7, 7) ##
+      decodedInstr.bits(30, 25) ##
+      decodedInstr.bits(11, 8) ##
+      0.B(1)
     ).asUInt
     immJ := (
-      decodedInstr.asBits.bit(31).?(0x7ff.U(11), 0.U(11)).asBits ##
-      decodedInstr.asBits.bits(31, 31) ##
-      decodedInstr.asBits.bits(19, 12) ##
-      decodedInstr.asBits.bits(20, 20) ##
-      decodedInstr.asBits.bits(30, 21) ##
-      0.U(1).asBits
+      decodedInstr.bit(31).?(0x7ff.B(11), 0.B(11)) ##
+      decodedInstr.bits(31, 31) ##
+      decodedInstr.bits(19, 12) ##
+      decodedInstr.bits(20, 20) ##
+      decodedInstr.bits(30, 21) ##
+      0.B(1)
     ).asUInt
-    upperImm := (decodedInstr.asBits.bits(31, 12) ## 0.U(12).asBits).asUInt
-    jalrTarget := ((rs1Data + imm12).asBits.bits(parameter.xlen - 1, 1) ## 0.U(1).asBits).asUInt
+    upperImm := (decodedInstr.bits(31, 12) ## 0.B(12)).asUInt
+    jalrTarget := ((rs1Data + imm12).asBits.bits(parameter.xlen - 1, 1) ## 0.B(1)).asUInt
     memAddr := (isStore).?((rs1Data + immS).asBits.bits(parameter.xlen - 1, 0).asUInt, (rs1Data + imm12).asBits.bits(parameter.xlen - 1, 0).asUInt)
-    memAlignedAddr := (memAddr.asBits.bits(parameter.xlen - 1, 2) ## 0.U(2).asBits).asUInt
-    storeData := rs2Data
+    memAlignedAddr := (memAddr.asBits.bits(parameter.xlen - 1, 2) ## 0.B(2)).asUInt
+    storeData := rs2Data.asBits
     storeBe := 0.U(4)
     when(isStore) {
-      when(funct3 === 0.U(3)) {
-        when(memAddr.asBits.bits(1, 0).asUInt === 0.U(2)) {
-          storeData := (0.U(24).asBits ## rs2Data.asBits.bits(7, 0)).asUInt
+      when(funct3 === 0.B(3)) {
+        when(memAddr.asBits.bits(1, 0) === 0.B(2)) {
+          storeData := 0.B(24) ## rs2Data.asBits.bits(7, 0)
           storeBe := 1.U(4)
         }
-        when(memAddr.asBits.bits(1, 0).asUInt === 1.U(2)) {
-          storeData := (0.U(16).asBits ## rs2Data.asBits.bits(7, 0) ## 0.U(8).asBits).asUInt
+        when(memAddr.asBits.bits(1, 0) === 1.B(2)) {
+          storeData := 0.B(16) ## rs2Data.asBits.bits(7, 0) ## 0.B(8)
           storeBe := 2.U(4)
         }
-        when(memAddr.asBits.bits(1, 0).asUInt === 2.U(2)) {
-          storeData := (0.U(8).asBits ## rs2Data.asBits.bits(7, 0) ## 0.U(16).asBits).asUInt
+        when(memAddr.asBits.bits(1, 0) === 2.B(2)) {
+          storeData := 0.B(8) ## rs2Data.asBits.bits(7, 0) ## 0.B(16)
           storeBe := 4.U(4)
         }
-        when(memAddr.asBits.bits(1, 0).asUInt === 3.U(2)) {
-          storeData := (rs2Data.asBits.bits(7, 0) ## 0.U(24).asBits).asUInt
+        when(memAddr.asBits.bits(1, 0) === 3.B(2)) {
+          storeData := rs2Data.asBits.bits(7, 0) ## 0.B(24)
           storeBe := 8.U(4)
         }
       }
-      when(funct3 === 1.U(3)) {
+      when(funct3 === 1.B(3)) {
         when(!memAddr.asBits.bit(1)) {
-          storeData := (0.U(16).asBits ## rs2Data.asBits.bits(15, 0)).asUInt
+          storeData := 0.B(16) ## rs2Data.asBits.bits(15, 0)
           storeBe := 3.U(4)
         }
         when(memAddr.asBits.bit(1)) {
-          storeData := (rs2Data.asBits.bits(15, 0) ## 0.U(16).asBits).asUInt
+          storeData := rs2Data.asBits.bits(15, 0) ## 0.B(16)
           storeBe := 0xc.U(4)
         }
       }
-      when(funct3 === 2.U(3)) {
-        storeData := rs2Data
+      when(funct3 === 2.B(3)) {
+        storeData := rs2Data.asBits
         storeBe := 0xf.U(4)
       }
     }
-    loadByte := io.axi_rdata.asBits.bits(7, 0).asUInt
-    when(memAddrReg.asBits.bits(1, 0).asUInt === 1.U(2)) {
-      loadByte := io.axi_rdata.asBits.bits(15, 8).asUInt
+    loadByte := io.axi_rdata.asBits.bits(7, 0)
+    when(memAddrReg.asBits.bits(1, 0) === 1.B(2)) {
+      loadByte := io.axi_rdata.asBits.bits(15, 8)
     }
-    when(memAddrReg.asBits.bits(1, 0).asUInt === 2.U(2)) {
-      loadByte := io.axi_rdata.asBits.bits(23, 16).asUInt
+    when(memAddrReg.asBits.bits(1, 0) === 2.B(2)) {
+      loadByte := io.axi_rdata.asBits.bits(23, 16)
     }
-    when(memAddrReg.asBits.bits(1, 0).asUInt === 3.U(2)) {
-      loadByte := io.axi_rdata.asBits.bits(31, 24).asUInt
+    when(memAddrReg.asBits.bits(1, 0) === 3.B(2)) {
+      loadByte := io.axi_rdata.asBits.bits(31, 24)
     }
-    loadHalf := memAddrReg.asBits.bit(1).?(io.axi_rdata.asBits.bits(31, 16).asUInt, io.axi_rdata.asBits.bits(15, 0).asUInt)
-    loadWdata := io.axi_rdata
+    loadHalf := memAddrReg.asBits.bit(1).?(io.axi_rdata.asBits.bits(31, 16), io.axi_rdata.asBits.bits(15, 0))
+    loadWdata := io.axi_rdata.asBits
     when(memFunct3Reg === 0.U(3)) {
-      loadWdata := (loadByte.asBits.bit(7).?(0xffffff.U(24), 0.U(24)).asBits ## loadByte.asBits).asUInt
+      loadWdata := loadByte.bit(7).?(0xffffff.B(24), 0.B(24)) ## loadByte
     }
     when(memFunct3Reg === 1.U(3)) {
-      loadWdata := (loadHalf.asBits.bit(15).?(0xffff.U(16), 0.U(16)).asBits ## loadHalf.asBits).asUInt
+      loadWdata := loadHalf.bit(15).?(0xffff.B(16), 0.B(16)) ## loadHalf
     }
     when(memFunct3Reg === 4.U(3)) {
-      loadWdata := (0.U(24).asBits ## loadByte.asBits).asUInt
+      loadWdata := 0.B(24) ## loadByte
     }
     when(memFunct3Reg === 5.U(3)) {
-      loadWdata := (0.U(16).asBits ## loadHalf.asBits).asUInt
+      loadWdata := 0.B(16) ## loadHalf
     }
     loadMemMask := 0.U(4)
     when((memFunct3Reg === 0.U(3)) | (memFunct3Reg === 4.U(3))) {
-      when(memAddrReg.asBits.bits(1, 0).asUInt === 0.U(2)) { loadMemMask := 1.U(4) }
-      when(memAddrReg.asBits.bits(1, 0).asUInt === 1.U(2)) { loadMemMask := 2.U(4) }
-      when(memAddrReg.asBits.bits(1, 0).asUInt === 2.U(2)) { loadMemMask := 4.U(4) }
-      when(memAddrReg.asBits.bits(1, 0).asUInt === 3.U(2)) { loadMemMask := 8.U(4) }
+      when(memAddrReg.asBits.bits(1, 0) === 0.B(2)) { loadMemMask := 1.U(4) }
+      when(memAddrReg.asBits.bits(1, 0) === 1.B(2)) { loadMemMask := 2.U(4) }
+      when(memAddrReg.asBits.bits(1, 0) === 2.B(2)) { loadMemMask := 4.U(4) }
+      when(memAddrReg.asBits.bits(1, 0) === 3.B(2)) { loadMemMask := 8.U(4) }
     }
     when((memFunct3Reg === 1.U(3)) | (memFunct3Reg === 5.U(3))) {
       loadMemMask := memAddrReg.asBits.bit(1).?(0xc.U(4), 3.U(4))
@@ -1170,72 +1156,72 @@ object DitDah32Module
     sraImmWdata := ((rs1Data.asBits.bits(parameter.xlen - 1, parameter.xlen - 1) ## rs1Data.asBits).asSInt >> shamt).asBits.bits(parameter.xlen - 1, 0).asUInt
     sraRegWdata := ((rs1Data.asBits.bits(parameter.xlen - 1, parameter.xlen - 1) ## rs1Data.asBits).asSInt >> rs2Shamt).asBits.bits(parameter.xlen - 1, 0).asUInt
 
-    isLui    := opcode === 0x37.U(7)
-    isAuipc  := opcode === 0x17.U(7)
-    isJal    := opcode === 0x6f.U(7)
-    isJalr   := (opcode === 0x67.U(7)) & (funct3 === 0.U(3))
-    isBranch := (opcode === 0x63.U(7)) & (
-      (funct3 === 0.U(3)) |
-      (funct3 === 1.U(3)) |
-      (funct3 === 4.U(3)) |
-      (funct3 === 5.U(3)) |
-      (funct3 === 6.U(3)) |
-      (funct3 === 7.U(3))
+    isLui    := opcode === 0x37.B(7)
+    isAuipc  := opcode === 0x17.B(7)
+    isJal    := opcode === 0x6f.B(7)
+    isJalr   := (opcode === 0x67.B(7)) & (funct3 === 0.B(3))
+    isBranch := (opcode === 0x63.B(7)) & (
+      (funct3 === 0.B(3)) |
+      (funct3 === 1.B(3)) |
+      (funct3 === 4.B(3)) |
+      (funct3 === 5.B(3)) |
+      (funct3 === 6.B(3)) |
+      (funct3 === 7.B(3))
     )
-    isLoad := (opcode === 0x03.U(7)) & (
-      (funct3 === 0.U(3)) |
-      (funct3 === 1.U(3)) |
-      (funct3 === 2.U(3)) |
-      (funct3 === 4.U(3)) |
-      (funct3 === 5.U(3))
+    isLoad := (opcode === 0x03.B(7)) & (
+      (funct3 === 0.B(3)) |
+      (funct3 === 1.B(3)) |
+      (funct3 === 2.B(3)) |
+      (funct3 === 4.B(3)) |
+      (funct3 === 5.B(3))
     )
-    isStore := (opcode === 0x23.U(7)) & (
-      (funct3 === 0.U(3)) |
-      (funct3 === 1.U(3)) |
-      (funct3 === 2.U(3))
+    isStore := (opcode === 0x23.B(7)) & (
+      (funct3 === 0.B(3)) |
+      (funct3 === 1.B(3)) |
+      (funct3 === 2.B(3))
     )
-    isOpImm  := opcode === 0x13.U(7)
+    isOpImm  := opcode === 0x13.B(7)
     isAluImm := isOpImm & (
-      (funct3 === 0.U(3)) |
-      (funct3 === 2.U(3)) |
-      (funct3 === 3.U(3)) |
-      (funct3 === 4.U(3)) |
-      (funct3 === 6.U(3)) |
-      (funct3 === 7.U(3)) |
-      ((funct3 === 1.U(3)) & (funct7 === 0.U(7))) |
-      ((funct3 === 5.U(3)) & ((funct7 === 0.U(7)) | (funct7 === 0x20.U(7))))
+      (funct3 === 0.B(3)) |
+      (funct3 === 2.B(3)) |
+      (funct3 === 3.B(3)) |
+      (funct3 === 4.B(3)) |
+      (funct3 === 6.B(3)) |
+      (funct3 === 7.B(3)) |
+      ((funct3 === 1.B(3)) & (funct7 === 0.B(7))) |
+      ((funct3 === 5.B(3)) & ((funct7 === 0.B(7)) | (funct7 === 0x20.B(7))))
     )
-    isOpReg  := opcode === 0x33.U(7)
+    isOpReg  := opcode === 0x33.B(7)
     isAluReg := isOpReg & (
-      ((funct7 === 0.U(7)) & (
-        (funct3 === 0.U(3)) |
-        (funct3 === 1.U(3)) |
-        (funct3 === 2.U(3)) |
-        (funct3 === 3.U(3)) |
-        (funct3 === 4.U(3)) |
-        (funct3 === 5.U(3)) |
-        (funct3 === 6.U(3)) |
-        (funct3 === 7.U(3))
+      ((funct7 === 0.B(7)) & (
+        (funct3 === 0.B(3)) |
+        (funct3 === 1.B(3)) |
+        (funct3 === 2.B(3)) |
+        (funct3 === 3.B(3)) |
+        (funct3 === 4.B(3)) |
+        (funct3 === 5.B(3)) |
+        (funct3 === 6.B(3)) |
+        (funct3 === 7.B(3))
       )) |
-      ((funct7 === 0x20.U(7)) & ((funct3 === 0.U(3)) | (funct3 === 5.U(3))))
+      ((funct7 === 0x20.B(7)) & ((funct3 === 0.B(3)) | (funct3 === 5.B(3))))
     )
-    isFence  := (opcode === 0x0f.U(7)) & (funct3 === 0.U(3))
-    isEcall  := decodedInstr === 0x00000073.U(parameter.xlen)
-    isEbreak := decodedInstr === 0x00100073.U(parameter.xlen)
-    isWfi    := decodedInstr === 0x10500073.U(parameter.xlen)
-    isMret   := decodedInstr === 0x30200073.U(parameter.xlen)
-    isCNop   := commitCompressed & (commitInstr === 1.U(parameter.xlen))
+    isFence  := (opcode === 0x0f.B(7)) & (funct3 === 0.B(3))
+    isEcall  := decodedInstr === 0x00000073.B(parameter.xlen)
+    isEbreak := decodedInstr === 0x00100073.B(parameter.xlen)
+    isWfi    := decodedInstr === 0x10500073.B(parameter.xlen)
+    isMret   := decodedInstr === 0x30200073.B(parameter.xlen)
+    isCNop   := commitCompressed & (commitInstr === 1.B(parameter.xlen))
 
-    rdIllegal  := rdIndex.asBits.bit(4)
-    rs1Illegal := rs1Index.asBits.bit(4)
-    rs2Illegal := rs2Index.asBits.bit(4)
+    rdIllegal  := rdIndex.bit(4)
+    rs1Illegal := rs1Index.bit(4)
+    rs2Illegal := rs2Index.bit(4)
     loadMisaligned := isLoad & (
-      (((funct3 === 1.U(3)) | (funct3 === 5.U(3))) & memAddr.asBits.bit(0)) |
-      ((funct3 === 2.U(3)) & (memAddr.asBits.bits(1, 0).asUInt =/= 0.U(2)))
+      (((funct3 === 1.B(3)) | (funct3 === 5.B(3))) & memAddr.asBits.bit(0)) |
+      ((funct3 === 2.B(3)) & (memAddr.asBits.bits(1, 0) =/= 0.B(2)))
     )
     storeMisaligned := isStore & (
-      ((funct3 === 1.U(3)) & memAddr.asBits.bit(0)) |
-      ((funct3 === 2.U(3)) & (memAddr.asBits.bits(1, 0).asUInt =/= 0.U(2)))
+      ((funct3 === 1.B(3)) & memAddr.asBits.bit(0)) |
+      ((funct3 === 2.B(3)) & (memAddr.asBits.bits(1, 0) =/= 0.B(2)))
     )
     execUsesRd  := isLui | isAuipc | isJal | isJalr | isLoad | isAluImm | isAluReg | isCsr
     execUsesRs1 := isJalr | isBranch | isLoad | isStore | isAluImm | isAluReg | csrUsesRs1
@@ -1264,22 +1250,22 @@ object DitDah32Module
       execTrapCause := TrapCause.EBREAK.U(4)
     }
 
-    standardTrapCause := StandardCause.ILLEGAL_INSTRUCTION.U(parameter.xlen)
+    standardTrapCause := StandardCause.ILLEGAL_INSTRUCTION.B(parameter.xlen)
     when(loadMisaligned) {
-      standardTrapCause := StandardCause.LOAD_MISALIGNED.U(parameter.xlen)
+      standardTrapCause := StandardCause.LOAD_MISALIGNED.B(parameter.xlen)
     }
     when(storeMisaligned) {
-      standardTrapCause := StandardCause.STORE_MISALIGNED.U(parameter.xlen)
+      standardTrapCause := StandardCause.STORE_MISALIGNED.B(parameter.xlen)
     }
     when(isEcall) {
-      standardTrapCause := StandardCause.ECALL_M.U(parameter.xlen)
+      standardTrapCause := StandardCause.ECALL_M.B(parameter.xlen)
     }
     when(isEbreak) {
-      standardTrapCause := StandardCause.BREAKPOINT.U(parameter.xlen)
+      standardTrapCause := StandardCause.BREAKPOINT.B(parameter.xlen)
     }
     standardTrapValue := 0.U(parameter.xlen)
     when(!execKnown | csrIllegal) {
-      standardTrapValue := commitInstr
+      standardTrapValue := commitInstr.asUInt
     }
     when(loadMisaligned | storeMisaligned) {
       standardTrapValue := memAddr
@@ -1296,70 +1282,70 @@ object DitDah32Module
       execWdata := sequentialPc
     }
     when(isAluImm) {
-      when(funct3 === 0.U(3)) {
+      when(funct3 === 0.B(3)) {
         execWdata := (rs1Data + imm12).asBits.bits(parameter.xlen - 1, 0).asUInt
       }
-      when(funct3 === 2.U(3)) {
+      when(funct3 === 2.B(3)) {
         execWdata := (rs1SignedOrder < imm12SignedOrder).?(1.U(parameter.xlen), 0.U(parameter.xlen))
       }
-      when(funct3 === 3.U(3)) {
+      when(funct3 === 3.B(3)) {
         execWdata := (rs1Data < imm12).?(1.U(parameter.xlen), 0.U(parameter.xlen))
       }
-      when(funct3 === 4.U(3)) {
+      when(funct3 === 4.B(3)) {
         execWdata := (rs1Data.asBits ^ imm12.asBits).bits(parameter.xlen - 1, 0).asUInt
       }
-      when(funct3 === 6.U(3)) {
+      when(funct3 === 6.B(3)) {
         execWdata := (rs1Data.asBits | imm12.asBits).bits(parameter.xlen - 1, 0).asUInt
       }
-      when(funct3 === 7.U(3)) {
+      when(funct3 === 7.B(3)) {
         execWdata := (rs1Data.asBits & imm12.asBits).bits(parameter.xlen - 1, 0).asUInt
       }
-      when(funct3 === 1.U(3)) {
+      when(funct3 === 1.B(3)) {
         execWdata := (rs1Data << shamt).asBits.bits(parameter.xlen - 1, 0).asUInt
       }
-      when((funct3 === 5.U(3)) & (funct7 === 0.U(7))) {
+      when((funct3 === 5.B(3)) & (funct7 === 0.B(7))) {
         execWdata := (rs1Data >> shamt).asBits.bits(parameter.xlen - 1, 0).asUInt
       }
-      when((funct3 === 5.U(3)) & (funct7 === 0x20.U(7))) {
+      when((funct3 === 5.B(3)) & (funct7 === 0x20.B(7))) {
         execWdata := sraImmWdata
       }
     }
     when(isAluReg) {
-      when((funct3 === 0.U(3)) & (funct7 === 0.U(7))) {
+      when((funct3 === 0.B(3)) & (funct7 === 0.B(7))) {
         execWdata := (rs1Data + rs2Data).asBits.bits(parameter.xlen - 1, 0).asUInt
       }
-      when((funct3 === 0.U(3)) & (funct7 === 0x20.U(7))) {
+      when((funct3 === 0.B(3)) & (funct7 === 0x20.B(7))) {
         execWdata := (rs1Data - rs2Data).asBits.bits(parameter.xlen - 1, 0).asUInt
       }
-      when(funct3 === 1.U(3)) {
+      when(funct3 === 1.B(3)) {
         execWdata := (rs1Data << rs2Shamt).asBits.bits(parameter.xlen - 1, 0).asUInt
       }
-      when(funct3 === 2.U(3)) {
+      when(funct3 === 2.B(3)) {
         execWdata := (rs1SignedOrder < rs2SignedOrder).?(1.U(parameter.xlen), 0.U(parameter.xlen))
       }
-      when(funct3 === 3.U(3)) {
+      when(funct3 === 3.B(3)) {
         execWdata := (rs1Data < rs2Data).?(1.U(parameter.xlen), 0.U(parameter.xlen))
       }
-      when(funct3 === 4.U(3)) {
+      when(funct3 === 4.B(3)) {
         execWdata := (rs1Data.asBits ^ rs2Data.asBits).bits(parameter.xlen - 1, 0).asUInt
       }
-      when((funct3 === 5.U(3)) & (funct7 === 0.U(7))) {
+      when((funct3 === 5.B(3)) & (funct7 === 0.B(7))) {
         execWdata := (rs1Data >> rs2Shamt).asBits.bits(parameter.xlen - 1, 0).asUInt
       }
-      when((funct3 === 5.U(3)) & (funct7 === 0x20.U(7))) {
+      when((funct3 === 5.B(3)) & (funct7 === 0x20.B(7))) {
         execWdata := sraRegWdata
       }
-      when(funct3 === 6.U(3)) {
+      when(funct3 === 6.B(3)) {
         execWdata := (rs1Data.asBits | rs2Data.asBits).bits(parameter.xlen - 1, 0).asUInt
       }
-      when(funct3 === 7.U(3)) {
+      when(funct3 === 7.B(3)) {
         execWdata := (rs1Data.asBits & rs2Data.asBits).bits(parameter.xlen - 1, 0).asUInt
       }
     }
     when(isCsr) {
-      execWdata := csrReadData
+      execWdata := csrReadData.asUInt
     }
-    execWriteRd := execUsesRd & !execTrap & (rdIndex =/= 0.U(5)) & !cNoWriteHint
+    execWriteRd := execUsesRd & !execTrap & (rdIndex =/= 0.B(5)) & !cNoWriteHint
     execWaitsForMem := (isLoad | isStore) & !execTrap
 
     // Commit-cycle outcomes: a committing instruction either enters the
@@ -1369,22 +1355,22 @@ object DitDah32Module
 
     branchTaken := false.B
     when(isBranch) {
-      when(funct3 === 0.U(3)) {
+      when(funct3 === 0.B(3)) {
         branchTaken := rs1Data === rs2Data
       }
-      when(funct3 === 1.U(3)) {
+      when(funct3 === 1.B(3)) {
         branchTaken := rs1Data =/= rs2Data
       }
-      when(funct3 === 4.U(3)) {
+      when(funct3 === 4.B(3)) {
         branchTaken := rs1SignedOrder < rs2SignedOrder
       }
-      when(funct3 === 5.U(3)) {
+      when(funct3 === 5.B(3)) {
         branchTaken := !(rs1SignedOrder < rs2SignedOrder)
       }
-      when(funct3 === 6.U(3)) {
+      when(funct3 === 6.B(3)) {
         branchTaken := rs1Data < rs2Data
       }
-      when(funct3 === 7.U(3)) {
+      when(funct3 === 7.B(3)) {
         branchTaken := !(rs1Data < rs2Data)
       }
     }
@@ -1404,14 +1390,14 @@ object DitDah32Module
     }
 
     io.axi_awvalid := storeAwValid
-    io.axi_awaddr  := (memAddrReg.asBits.bits(parameter.xlen - 1, 2) ## 0.U(2).asBits).asUInt
+    io.axi_awaddr  := (memAddrReg.asBits.bits(parameter.xlen - 1, 2) ## 0.B(2)).asUInt
     io.axi_awprot  := 2.U(3)
     io.axi_wvalid  := storeWValid
-    io.axi_wdata   := memStoreDataReg
+    io.axi_wdata   := memStoreDataReg.asUInt
     io.axi_wstrb   := memStoreBeReg
     io.axi_bready  := storeComplete
     io.axi_arvalid := loadArValid | fetchArValid
-    io.axi_araddr  := stateLoad.?((memAddrReg.asBits.bits(parameter.xlen - 1, 2) ## 0.U(2).asBits).asUInt, instrAddr)
+    io.axi_araddr  := stateLoad.?((memAddrReg.asBits.bits(parameter.xlen - 1, 2) ## 0.B(2)).asUInt, instrAddr)
     io.axi_arprot  := stateLoad.?(2.U(3), 6.U(3))
     io.axi_rready  := loadAcceptsResponse | fetchAcceptsResponse
 
@@ -1447,15 +1433,15 @@ object DitDah32Module
     traceCsrWdataReg.foreach(reg => io.trace_csr_wdata.foreach(_ := reg))
     traceTrapReg.foreach(reg => io.trace_trap.foreach(_ := reg))
     traceTrapCauseReg.foreach(reg => io.trace_trap_cause.foreach(_ := reg))
-    io.trace_mstatus.foreach(_ := csrMstatus)
-    io.trace_mip.foreach(_ := irqMip)
-    io.trace_mcause.foreach(_ := csrMcause)
+    io.trace_mstatus.foreach(_ := csrMstatus.asUInt)
+    io.trace_mip.foreach(_ := irqMip.asUInt)
+    io.trace_mcause.foreach(_ := csrMcause.asUInt)
     // trace_mstatus_pre_trap exposes RegNext(csrMstatus). For 1-cycle-delay
     // exception trap paths (fetch/load/store fault and execTrap) this aligns
     // with the trace_trap retire cycle and lets the wrapper prove MPIE=MIE.
     // Interrupt entry paths use a 2-cycle delay and a CSR-write-aware input,
     // so the wrapper restricts the MPIE swap assertion to !rvfi_intr retires.
-    tracePreTrapMstatusReg.foreach(_ := csrMstatus)
+    tracePreTrapMstatusReg.foreach(_ := csrMstatus.asUInt)
     tracePreTrapMstatusReg.foreach(reg => io.trace_mstatus_pre_trap.foreach(_ := reg))
 
     when(stateReset) {
@@ -1546,7 +1532,7 @@ object DitDah32Module
       when(fetchResponseError) {
         // Recoverable instruction access fault per doc/memory_fault_contract.md.
         state := CoreState.IRQ.U(3)
-        csrMcause := 1.U(parameter.xlen)
+        csrMcause := 1.B(parameter.xlen)
         csrMtval := pc
         csrMepc := pc
         csrMstatus := trapMstatus(csrMstatus)
@@ -1562,14 +1548,14 @@ object DitDah32Module
         traceRs1RdataReg.foreach(_ := 0.U(parameter.xlen))
         traceRs2AddrReg.foreach(_ := 0.U(5))
         traceRs2RdataReg.foreach(_ := 0.U(parameter.xlen))
-        traceMemAddrReg.foreach(_ := (pc.asBits.bits(parameter.xlen - 1, 2) ## 0.U(2).asBits).asUInt)
+        traceMemAddrReg.foreach(_ := (pc.asBits.bits(parameter.xlen - 1, 2) ## 0.B(2)).asUInt)
         traceMemFaultReg.foreach(_ := true.B)
         traceMemFaultRmaskReg.foreach(_ := 0.U(4))
         traceMemFaultWmaskReg.foreach(_ := 0.U(4))
         traceCsrAddrReg.foreach(_ := CsrAddr.MCAUSE.U(12))
         traceCsrRmaskReg.foreach(_ := BigInt("ffffffff", 16).U(parameter.xlen))
         traceCsrWmaskReg.foreach(_ := BigInt("ffffffff", 16).U(parameter.xlen))
-        traceCsrRdataReg.foreach(_ := csrMcause)
+        traceCsrRdataReg.foreach(_ := csrMcause.asUInt)
         traceCsrWdataReg.foreach(_ := 1.U(parameter.xlen))
         trapEventReg := true.B
         traceTrapReg.foreach(_ := true.B)
@@ -1579,14 +1565,14 @@ object DitDah32Module
       when(loadResponseError) {
         // Recoverable load access fault per doc/memory_fault_contract.md.
         state := CoreState.IRQ.U(3)
-        csrMcause := 5.U(parameter.xlen)
+        csrMcause := 5.B(parameter.xlen)
         csrMtval := memAddrReg
         csrMepc := memPcReg
         csrMstatus := trapMstatus(csrMstatus)
         traceValidReg.foreach(_ := true.B)
         tracePcReg.foreach(_ := memPcReg)
         traceNextPcReg.foreach(_ := memPcReg)
-        traceInstrReg.foreach(_ := memInstrReg)
+        traceInstrReg.foreach(_ := memInstrReg.asUInt)
         traceLenReg.foreach(_ := memLenReg)
         traceRdWeReg.foreach(_ := false.B)
         traceRdReg.foreach(_ := 0.U(parameter.registerIndexBits))
@@ -1595,14 +1581,14 @@ object DitDah32Module
         traceRs1RdataReg.foreach(_ := 0.U(parameter.xlen))
         traceRs2AddrReg.foreach(_ := 0.U(5))
         traceRs2RdataReg.foreach(_ := 0.U(parameter.xlen))
-        traceMemAddrReg.foreach(_ := (memAddrReg.asBits.bits(parameter.xlen - 1, 2) ## 0.U(2).asBits).asUInt)
+        traceMemAddrReg.foreach(_ := (memAddrReg.asBits.bits(parameter.xlen - 1, 2) ## 0.B(2)).asUInt)
         traceMemFaultReg.foreach(_ := true.B)
         traceMemFaultRmaskReg.foreach(_ := loadMemMask)
         traceMemFaultWmaskReg.foreach(_ := 0.U(4))
         traceCsrAddrReg.foreach(_ := CsrAddr.MCAUSE.U(12))
         traceCsrRmaskReg.foreach(_ := BigInt("ffffffff", 16).U(parameter.xlen))
         traceCsrWmaskReg.foreach(_ := BigInt("ffffffff", 16).U(parameter.xlen))
-        traceCsrRdataReg.foreach(_ := csrMcause)
+        traceCsrRdataReg.foreach(_ := csrMcause.asUInt)
         traceCsrWdataReg.foreach(_ := 5.U(parameter.xlen))
         trapEventReg := true.B
         traceTrapReg.foreach(_ := true.B)
@@ -1614,14 +1600,14 @@ object DitDah32Module
         storeAwDone := false.B
         storeWDone := false.B
         state := CoreState.IRQ.U(3)
-        csrMcause := 7.U(parameter.xlen)
+        csrMcause := 7.B(parameter.xlen)
         csrMtval := memAddrReg
         csrMepc := memPcReg
         csrMstatus := trapMstatus(csrMstatus)
         traceValidReg.foreach(_ := true.B)
         tracePcReg.foreach(_ := memPcReg)
         traceNextPcReg.foreach(_ := memPcReg)
-        traceInstrReg.foreach(_ := memInstrReg)
+        traceInstrReg.foreach(_ := memInstrReg.asUInt)
         traceLenReg.foreach(_ := memLenReg)
         traceRdWeReg.foreach(_ := false.B)
         traceRdReg.foreach(_ := 0.U(parameter.registerIndexBits))
@@ -1630,14 +1616,14 @@ object DitDah32Module
         traceRs1RdataReg.foreach(_ := 0.U(parameter.xlen))
         traceRs2AddrReg.foreach(_ := 0.U(5))
         traceRs2RdataReg.foreach(_ := 0.U(parameter.xlen))
-        traceMemAddrReg.foreach(_ := (memAddrReg.asBits.bits(parameter.xlen - 1, 2) ## 0.U(2).asBits).asUInt)
+        traceMemAddrReg.foreach(_ := (memAddrReg.asBits.bits(parameter.xlen - 1, 2) ## 0.B(2)).asUInt)
         traceMemFaultReg.foreach(_ := true.B)
         traceMemFaultRmaskReg.foreach(_ := 0.U(4))
         traceMemFaultWmaskReg.foreach(_ := memStoreBeReg)
         traceCsrAddrReg.foreach(_ := CsrAddr.MCAUSE.U(12))
         traceCsrRmaskReg.foreach(_ := BigInt("ffffffff", 16).U(parameter.xlen))
         traceCsrWmaskReg.foreach(_ := BigInt("ffffffff", 16).U(parameter.xlen))
-        traceCsrRdataReg.foreach(_ := csrMcause)
+        traceCsrRdataReg.foreach(_ := csrMcause.asUInt)
         traceCsrWdataReg.foreach(_ := 7.U(parameter.xlen))
         trapEventReg := true.B
         traceTrapReg.foreach(_ := true.B)
@@ -1652,16 +1638,16 @@ object DitDah32Module
         traceValidReg.foreach(_ := true.B)
         tracePcReg.foreach(_ := memPcReg)
         traceNextPcReg.foreach(_ := memNextPcReg)
-        traceInstrReg.foreach(_ := memInstrReg)
+        traceInstrReg.foreach(_ := memInstrReg.asUInt)
         traceLenReg.foreach(_ := memLenReg)
-        traceRdWeReg.foreach(_ := memRdReg =/= 0.U(5))
-        traceRdReg.foreach(_ := memRdReg.asBits.bits(3, 0).asUInt)
-        traceRdWdataReg.foreach(_ := (memRdReg =/= 0.U(5)).?(loadWdata, 0.U(parameter.xlen)))
+        traceRdWeReg.foreach(_ := memRdReg =/= 0.B(5))
+        traceRdReg.foreach(_ := memRdReg.bits(3, 0).asUInt)
+        traceRdWdataReg.foreach(_ := (memRdReg =/= 0.B(5)).?(loadWdata.asUInt, 0.U(parameter.xlen)))
         memTraceRs1AddrReg.foreach(mem => traceRs1AddrReg.foreach(_ := mem))
         memTraceRs1RdataReg.foreach(mem => traceRs1RdataReg.foreach(_ := mem))
         memTraceRs2AddrReg.foreach(mem => traceRs2AddrReg.foreach(_ := mem))
         memTraceRs2RdataReg.foreach(mem => traceRs2RdataReg.foreach(_ := mem))
-        traceMemAddrReg.foreach(_ := (memAddrReg.asBits.bits(parameter.xlen - 1, 2) ## 0.U(2).asBits).asUInt)
+        traceMemAddrReg.foreach(_ := (memAddrReg.asBits.bits(parameter.xlen - 1, 2) ## 0.B(2)).asUInt)
         traceMemRmaskReg.foreach(_ := loadMemMask)
         traceMemWmaskReg.foreach(_ := 0.U(4))
         traceMemRdataReg.foreach(_ := io.axi_rdata)
@@ -1669,7 +1655,7 @@ object DitDah32Module
         traceTrapReg.foreach(_ := false.B)
         traceTrapCauseReg.foreach(_ := 0.U(4))
 
-        writeGpr(memRdReg =/= 0.U(5), memRdReg, loadWdata, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15)
+        writeGpr(memRdReg =/= 0.B(5), memRdReg, loadWdata.asUInt, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15)
 
         when(irqTrapPending) {
           state := CoreState.IRQ.U(3)
@@ -1691,7 +1677,7 @@ object DitDah32Module
         traceValidReg.foreach(_ := true.B)
         tracePcReg.foreach(_ := memPcReg)
         traceNextPcReg.foreach(_ := memNextPcReg)
-        traceInstrReg.foreach(_ := memInstrReg)
+        traceInstrReg.foreach(_ := memInstrReg.asUInt)
         traceLenReg.foreach(_ := memLenReg)
         traceRdWeReg.foreach(_ := false.B)
         traceRdReg.foreach(_ := 0.U(parameter.registerIndexBits))
@@ -1700,11 +1686,11 @@ object DitDah32Module
         memTraceRs1RdataReg.foreach(mem => traceRs1RdataReg.foreach(_ := mem))
         memTraceRs2AddrReg.foreach(mem => traceRs2AddrReg.foreach(_ := mem))
         memTraceRs2RdataReg.foreach(mem => traceRs2RdataReg.foreach(_ := mem))
-        traceMemAddrReg.foreach(_ := (memAddrReg.asBits.bits(parameter.xlen - 1, 2) ## 0.U(2).asBits).asUInt)
+        traceMemAddrReg.foreach(_ := (memAddrReg.asBits.bits(parameter.xlen - 1, 2) ## 0.B(2)).asUInt)
         traceMemRmaskReg.foreach(_ := 0.U(4))
         traceMemWmaskReg.foreach(_ := memStoreBeReg)
         traceMemRdataReg.foreach(_ := 0.U(parameter.xlen))
-        traceMemWdataReg.foreach(_ := memStoreDataReg)
+        traceMemWdataReg.foreach(_ := memStoreDataReg.asUInt)
         traceTrapReg.foreach(_ := false.B)
         traceTrapCauseReg.foreach(_ := 0.U(4))
 
@@ -1728,14 +1714,14 @@ object DitDah32Module
             traceValidReg.foreach(_ := true.B)
             tracePcReg.foreach(_ := pc)
             traceNextPcReg.foreach(_ := execNextPc)
-            traceInstrReg.foreach(_ := straddledInstr)
+            traceInstrReg.foreach(_ := straddledInstr.asUInt)
             traceLenReg.foreach(_ := 4.U(3))
           }
         }
       }.otherwise {
         when(stateRun & instrReady) {
           when(straddled32) {
-            straddleLowHalfword := instrRdata.asBits.bits(31, 16).asUInt
+            straddleLowHalfword := instrRdata.bits(31, 16)
             state := CoreState.STRADDLE.U(3)
           }.otherwise {
             instrReg := instrRdata
@@ -1745,7 +1731,7 @@ object DitDah32Module
               traceValidReg.foreach(_ := true.B)
               tracePcReg.foreach(_ := pc)
               traceNextPcReg.foreach(_ := execNextPc)
-              traceInstrReg.foreach(_ := selectedInstr)
+              traceInstrReg.foreach(_ := selectedInstr.asUInt)
               traceLenReg.foreach(_ := instrCompressed.?(2.U(3), 4.U(3)))
             }
           }
@@ -1759,12 +1745,12 @@ object DitDah32Module
         memNextPcReg    := sequentialPc
         memAddrReg      := memAddr
         memRdReg        := rdIndex
-        memFunct3Reg    := funct3
+        memFunct3Reg    := funct3.asUInt
         memStoreDataReg := storeData
         memStoreBeReg   := storeBe
-        memTraceRs1AddrReg.foreach(_ := execUsesRs1.?(rs1Index, 0.U(5)))
+        memTraceRs1AddrReg.foreach(_ := execUsesRs1.?(rs1Index.asUInt, 0.U(5)))
         memTraceRs1RdataReg.foreach(_ := execUsesRs1.?(rs1Data, 0.U(parameter.xlen)))
-        memTraceRs2AddrReg.foreach(_ := execUsesRs2.?(rs2Index, 0.U(5)))
+        memTraceRs2AddrReg.foreach(_ := execUsesRs2.?(rs2Index.asUInt, 0.U(5)))
         memTraceRs2RdataReg.foreach(_ := execUsesRs2.?(rs2Data, 0.U(parameter.xlen)))
         memOutstanding  := false.B
         storeAwDone     := false.B
@@ -1782,46 +1768,46 @@ object DitDah32Module
         traceTrapReg.foreach(_ := execTrap)
         traceTrapCauseReg.foreach(_ := execTrapCause)
         traceRdWeReg.foreach(_ := execWriteRd)
-        traceRdReg.foreach(_ := rdIndex.asBits.bits(3, 0).asUInt)
+        traceRdReg.foreach(_ := rdIndex.bits(3, 0).asUInt)
         traceRdWdataReg.foreach(_ := execWriteRd.?(execWdata, 0.U(parameter.xlen)))
-        traceRs1AddrReg.foreach(_ := (execUsesRs1 & !execTrap).?(rs1Index, 0.U(5)))
+        traceRs1AddrReg.foreach(_ := (execUsesRs1 & !execTrap).?(rs1Index.asUInt, 0.U(5)))
         traceRs1RdataReg.foreach(_ := (execUsesRs1 & !execTrap).?(rs1Data, 0.U(parameter.xlen)))
-        traceRs2AddrReg.foreach(_ := (execUsesRs2 & !execTrap).?(rs2Index, 0.U(5)))
+        traceRs2AddrReg.foreach(_ := (execUsesRs2 & !execTrap).?(rs2Index.asUInt, 0.U(5)))
         traceRs2RdataReg.foreach(_ := (execUsesRs2 & !execTrap).?(rs2Data, 0.U(parameter.xlen)))
         traceNextPcReg.foreach(_ := execTrap.?(trapVector, execNextPc))
         when(isCsr & !execTrap) {
-          traceCsrAddrReg.foreach(_ := csrAddr)
+          traceCsrAddrReg.foreach(_ := csrAddr.asUInt)
           traceCsrRmaskReg.foreach(_ := BigInt("ffffffff", 16).U(parameter.xlen))
-          traceCsrRdataReg.foreach(_ := csrReadData)
+          traceCsrRdataReg.foreach(_ := csrReadData.asUInt)
           when(csrWriteEnable) {
             traceCsrWmaskReg.foreach(_ := BigInt("ffffffff", 16).U(parameter.xlen))
-            traceCsrWdataReg.foreach(_ := csrTraceWriteData)
+            traceCsrWdataReg.foreach(_ := csrTraceWriteData.asUInt)
           }
         }
 
         writeGpr(execWriteRd, rdIndex, execWdata, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15)
 
         when(csrWriteEnable & !execTrap) {
-          when(csrAddr === CsrAddr.MSTATUS.U(12)) {
+          when(csrAddr === CsrAddr.MSTATUS.B(12)) {
             csrMstatus := writableMstatus(csrWriteData)
           }
-          when(csrAddr === CsrAddr.MIE.U(12)) {
-            csrMie := (csrWriteData.asBits & 0x888.U(parameter.xlen).asBits).bits(parameter.xlen - 1, 0).asUInt
+          when(csrAddr === CsrAddr.MIE.B(12)) {
+            csrMie := (csrWriteData & 0x888.B(parameter.xlen)).bits(parameter.xlen - 1, 0)
           }
-          when(csrAddr === CsrAddr.MTVEC.U(12)) {
-            csrMtvec := (csrWriteData.asBits.bits(parameter.xlen - 1, 2) ## 0.U(2).asBits).asUInt
+          when(csrAddr === CsrAddr.MTVEC.B(12)) {
+            csrMtvec := (csrWriteData.bits(parameter.xlen - 1, 2) ## 0.B(2)).asUInt
           }
-          when(csrAddr === CsrAddr.MSCRATCH.U(12)) {
+          when(csrAddr === CsrAddr.MSCRATCH.B(12)) {
             csrMscratch := csrWriteData
           }
-          when(csrAddr === CsrAddr.MEPC.U(12)) {
-            csrMepc := (csrWriteData.asBits.bits(parameter.xlen - 1, 1) ## 0.U(1).asBits).asUInt
+          when(csrAddr === CsrAddr.MEPC.B(12)) {
+            csrMepc := (csrWriteData.bits(parameter.xlen - 1, 1) ## 0.B(1)).asUInt
           }
-          when(csrAddr === CsrAddr.MCAUSE.U(12)) {
+          when(csrAddr === CsrAddr.MCAUSE.B(12)) {
             csrMcause := csrWriteData
           }
-          when(csrAddr === CsrAddr.MTVAL.U(12)) {
-            csrMtval := csrWriteData
+          when(csrAddr === CsrAddr.MTVAL.B(12)) {
+            csrMtval := csrWriteData.asUInt
           }
         }
 
