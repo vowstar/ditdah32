@@ -59,18 +59,6 @@ make audit-gaps            # gap audit, writes result/verification/open_gaps.{js
 
 Reports land under `result/`. See `doc/verification.md` for methodology and pass criteria.
 
-## Layout
-
-```text
-ditdah32/src/     Zaozi RTL source
-doc/              requirements, ISA scope, microarchitecture, verification
-scripts/          reference model, runners, audits
-test/             cocotb suite, compliance gate, ISA regression
-bench/            CoreMark and Dhrystone benchmarks
-formal/           riscv-formal wrapper and configs
-.github/          CI workflow
-```
-
 ## Credits
 
 Independent RV32EC implementation. Verification and tooling build on open-source projects whose methodology influenced this work.
