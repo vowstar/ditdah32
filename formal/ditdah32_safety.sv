@@ -10,33 +10,33 @@ module DitDah32Safety;
         reset <= 1'b0;
     end
 
-    (* anyseq *) reg        axi_awready;
-    (* anyseq *) reg        axi_wready;
-    (* anyseq *) reg        axi_bvalid;
-    (* anyseq *) reg [1:0]  axi_bresp;
-    (* anyseq *) reg        axi_arready;
-    (* anyseq *) reg        axi_rvalid;
-    (* anyseq *) reg [31:0] axi_rdata;
-    (* anyseq *) reg [1:0]  axi_rresp;
+    (* anyseq *) reg        axi_aw_ready;
+    (* anyseq *) reg        axi_w_ready;
+    (* anyseq *) reg        axi_b_valid;
+    (* anyseq *) reg [1:0]  axi_b_bits_resp;
+    (* anyseq *) reg        axi_ar_ready;
+    (* anyseq *) reg        axi_r_valid;
+    (* anyseq *) reg [31:0] axi_r_bits_data;
+    (* anyseq *) reg [1:0]  axi_r_bits_resp;
 
     (* anyseq *) reg        irq_software;
     (* anyseq *) reg        irq_timer;
     (* anyseq *) reg        irq_external;
     wire        irq_pending;
-    wire        axi_awvalid;
-    wire [31:0] axi_awaddr;
-    wire [2:0]  axi_awprot;
-    wire        axi_wvalid;
-    wire [31:0] axi_wdata;
-    wire [3:0]  axi_wstrb;
-    wire        axi_bready;
-    wire        axi_arvalid;
-    wire [31:0] axi_araddr;
-    wire [2:0]  axi_arprot;
-    wire        axi_rready;
-    wire        trap;
-    wire        core_busy;
-    wire        core_sleep;
+    wire        axi_aw_valid;
+    wire [31:0] axi_aw_bits_addr;
+    wire [2:0]  axi_aw_bits_prot;
+    wire        axi_w_valid;
+    wire [31:0] axi_w_bits_data;
+    wire [3:0]  axi_w_bits_strb;
+    wire        axi_b_ready;
+    wire        axi_ar_valid;
+    wire [31:0] axi_ar_bits_addr;
+    wire [2:0]  axi_ar_bits_prot;
+    wire        axi_r_ready;
+    wire        status_trap;
+    wire        status_busy;
+    wire        status_sleep;
     wire        trace_valid;
     wire [31:0] trace_pc;
     wire [31:0] trace_instr;
@@ -52,32 +52,32 @@ module DitDah32Safety;
     ditdah32_trace_top dut (
         .clock(clock),
         .reset(reset),
-        .axi_awvalid(axi_awvalid),
-        .axi_awaddr(axi_awaddr),
-        .axi_awprot(axi_awprot),
-        .axi_awready(axi_awready),
-        .axi_wvalid(axi_wvalid),
-        .axi_wdata(axi_wdata),
-        .axi_wstrb(axi_wstrb),
-        .axi_wready(axi_wready),
-        .axi_bvalid(axi_bvalid),
-        .axi_bready(axi_bready),
-        .axi_bresp(axi_bresp),
-        .axi_arvalid(axi_arvalid),
-        .axi_araddr(axi_araddr),
-        .axi_arprot(axi_arprot),
-        .axi_arready(axi_arready),
-        .axi_rvalid(axi_rvalid),
-        .axi_rready(axi_rready),
-        .axi_rdata(axi_rdata),
-        .axi_rresp(axi_rresp),
+        .axi_aw_valid(axi_aw_valid),
+        .axi_aw_bits_addr(axi_aw_bits_addr),
+        .axi_aw_bits_prot(axi_aw_bits_prot),
+        .axi_aw_ready(axi_aw_ready),
+        .axi_w_valid(axi_w_valid),
+        .axi_w_bits_data(axi_w_bits_data),
+        .axi_w_bits_strb(axi_w_bits_strb),
+        .axi_w_ready(axi_w_ready),
+        .axi_b_valid(axi_b_valid),
+        .axi_b_ready(axi_b_ready),
+        .axi_b_bits_resp(axi_b_bits_resp),
+        .axi_ar_valid(axi_ar_valid),
+        .axi_ar_bits_addr(axi_ar_bits_addr),
+        .axi_ar_bits_prot(axi_ar_bits_prot),
+        .axi_ar_ready(axi_ar_ready),
+        .axi_r_valid(axi_r_valid),
+        .axi_r_ready(axi_r_ready),
+        .axi_r_bits_data(axi_r_bits_data),
+        .axi_r_bits_resp(axi_r_bits_resp),
         .irq_software(irq_software),
         .irq_timer(irq_timer),
         .irq_external(irq_external),
         .irq_pending(irq_pending),
-        .trap(trap),
-        .core_busy(core_busy),
-        .core_sleep(core_sleep),
+        .status_trap(status_trap),
+        .status_busy(status_busy),
+        .status_sleep(status_sleep),
         .trace_valid(trace_valid),
         .trace_pc(trace_pc),
         .trace_instr(trace_instr),
@@ -94,11 +94,11 @@ module DitDah32Safety;
         f_past_valid <= 1'b1;
     end
 
-    wire ar_fire = axi_arvalid && axi_arready;
-    wire r_fire = axi_rvalid && axi_rready;
-    wire aw_fire = axi_awvalid && axi_awready;
-    wire w_fire = axi_wvalid && axi_wready;
-    wire b_fire = axi_bvalid && axi_bready;
+    wire ar_fire = axi_ar_valid && axi_ar_ready;
+    wire r_fire = axi_r_valid && axi_r_ready;
+    wire aw_fire = axi_aw_valid && axi_aw_ready;
+    wire w_fire = axi_w_valid && axi_w_ready;
+    wire b_fire = axi_b_valid && axi_b_ready;
 
     reg [63:0] rvfi_order = 64'd0;
     wire       rvfi_valid = trace_valid;
@@ -117,8 +117,8 @@ module DitDah32Safety;
 
     always @(*) begin
         if (!reset) begin
-            assume(!(axi_rvalid && !read_outstanding && !ar_fire));
-            assume(!(axi_bvalid && !write_resp_pending && !(write_aw_seen && write_w_seen)));
+            assume(!(axi_r_valid && !read_outstanding && !ar_fire));
+            assume(!(axi_b_valid && !write_resp_pending && !(write_aw_seen && write_w_seen)));
         end
     end
 
@@ -163,29 +163,29 @@ module DitDah32Safety;
 
     always @(posedge clock) begin
         if (f_past_valid && !$past(reset)) begin
-            if ($past(axi_arvalid && !axi_arready)) begin
-                assert(axi_arvalid);
-                assert(axi_araddr == $past(axi_araddr));
-                assert(axi_arprot == $past(axi_arprot));
+            if ($past(axi_ar_valid && !axi_ar_ready)) begin
+                assert(axi_ar_valid);
+                assert(axi_ar_bits_addr == $past(axi_ar_bits_addr));
+                assert(axi_ar_bits_prot == $past(axi_ar_bits_prot));
             end
-            if ($past(axi_awvalid && !axi_awready)) begin
-                assert(axi_awvalid);
-                assert(axi_awaddr == $past(axi_awaddr));
-                assert(axi_awprot == $past(axi_awprot));
+            if ($past(axi_aw_valid && !axi_aw_ready)) begin
+                assert(axi_aw_valid);
+                assert(axi_aw_bits_addr == $past(axi_aw_bits_addr));
+                assert(axi_aw_bits_prot == $past(axi_aw_bits_prot));
             end
-            if ($past(axi_wvalid && !axi_wready)) begin
-                assert(axi_wvalid);
-                assert(axi_wdata == $past(axi_wdata));
-                assert(axi_wstrb == $past(axi_wstrb));
+            if ($past(axi_w_valid && !axi_w_ready)) begin
+                assert(axi_w_valid);
+                assert(axi_w_bits_data == $past(axi_w_bits_data));
+                assert(axi_w_bits_strb == $past(axi_w_bits_strb));
             end
 
-            if ($past(r_fire && (axi_rresp != 2'b00))) begin
+            if ($past(r_fire && (axi_r_bits_resp != 2'b00))) begin
                 assert(trace_valid);
                 assert(trace_trap);
                 assert(trace_trap_cause == 4'h7);
                 assert(!trace_rd_we);
             end
-            if ($past(b_fire && (axi_bresp != 2'b00))) begin
+            if ($past(b_fire && (axi_b_bits_resp != 2'b00))) begin
                 assert(trace_valid);
                 assert(trace_trap);
                 assert(trace_trap_cause == 4'h7);
@@ -193,18 +193,18 @@ module DitDah32Safety;
             end
 
             if ($past(fatal_trap_seen)) begin
-                assert(trap);
-                assert(!core_busy);
+                assert(status_trap);
+                assert(!status_busy);
                 assert(!trace_valid);
-                assert(!axi_arvalid);
-                assert(!axi_awvalid);
-                assert(!axi_wvalid);
+                assert(!axi_ar_valid);
+                assert(!axi_aw_valid);
+                assert(!axi_w_valid);
             end
         end
 
         if (!reset) begin
-            assert(!(axi_arvalid && axi_awvalid));
-            assert(!(axi_arvalid && axi_wvalid));
+            assert(!(axi_ar_valid && axi_aw_valid));
+            assert(!(axi_ar_valid && axi_w_valid));
             if (!irq_software && !irq_timer && !irq_external) begin
                 assert(!irq_pending);
             end
@@ -240,13 +240,13 @@ module DitDah32Safety;
                     assert(rvfi_rd_wmask == 4'h0);
                 end
             end
-            if (core_sleep) begin
-                assert(!core_busy);
-                assert(!trap);
+            if (status_sleep) begin
+                assert(!status_busy);
+                assert(!status_trap);
                 assert(!trace_valid);
-                assert(!axi_arvalid);
-                assert(!axi_awvalid);
-                assert(!axi_wvalid);
+                assert(!axi_ar_valid);
+                assert(!axi_aw_valid);
+                assert(!axi_w_valid);
             end
         end
     end

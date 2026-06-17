@@ -7,7 +7,7 @@ module rvfi_wrapper (
     `RVFI_OUTPUTS
     `RVFI_BUS_OUTPUTS
 );
-    (* keep *) `rvformal_rand_reg [31:0] axi_rdata;
+    (* keep *) `rvformal_rand_reg [31:0] axi_r_bits_data;
 `ifdef DITDAH32_RVFI_ENABLE_IRQ
     (* keep *) `rvformal_rand_reg irq_software;
     (* keep *) `rvformal_rand_reg irq_timer;
@@ -18,28 +18,28 @@ module rvfi_wrapper (
     wire irq_external = 1'b0;
 `endif
 
-    wire        axi_awvalid;
-    wire [31:0] axi_awaddr;
-    wire [2:0]  axi_awprot;
-    wire        axi_awready;
-    wire        axi_wvalid;
-    wire [31:0] axi_wdata;
-    wire [3:0]  axi_wstrb;
-    wire        axi_wready;
-    wire        axi_bvalid;
-    wire        axi_bready;
-    wire [1:0]  axi_bresp;
-    wire        axi_arvalid;
-    wire [31:0] axi_araddr;
-    wire [2:0]  axi_arprot;
-    wire        axi_arready;
-    wire        axi_rvalid;
-    wire        axi_rready;
-    wire [1:0]  axi_rresp;
+    wire        axi_aw_valid;
+    wire [31:0] axi_aw_bits_addr;
+    wire [2:0]  axi_aw_bits_prot;
+    wire        axi_aw_ready;
+    wire        axi_w_valid;
+    wire [31:0] axi_w_bits_data;
+    wire [3:0]  axi_w_bits_strb;
+    wire        axi_w_ready;
+    wire        axi_b_valid;
+    wire        axi_b_ready;
+    wire [1:0]  axi_b_bits_resp;
+    wire        axi_ar_valid;
+    wire [31:0] axi_ar_bits_addr;
+    wire [2:0]  axi_ar_bits_prot;
+    wire        axi_ar_ready;
+    wire        axi_r_valid;
+    wire        axi_r_ready;
+    wire [1:0]  axi_r_bits_resp;
     wire        irq_pending;
-    wire        trap;
-    wire        core_busy;
-    wire        core_sleep;
+    wire        status_trap;
+    wire        status_busy;
+    wire        status_sleep;
     wire        trace_valid;
     wire [31:0] trace_pc;
     wire [31:0] trace_next_pc;
@@ -77,32 +77,32 @@ module rvfi_wrapper (
     ditdah32_trace_top dut (
         .clock(clock),
         .reset(reset),
-        .axi_awvalid(axi_awvalid),
-        .axi_awaddr(axi_awaddr),
-        .axi_awprot(axi_awprot),
-        .axi_awready(axi_awready),
-        .axi_wvalid(axi_wvalid),
-        .axi_wdata(axi_wdata),
-        .axi_wstrb(axi_wstrb),
-        .axi_wready(axi_wready),
-        .axi_bvalid(axi_bvalid),
-        .axi_bready(axi_bready),
-        .axi_bresp(axi_bresp),
-        .axi_arvalid(axi_arvalid),
-        .axi_araddr(axi_araddr),
-        .axi_arprot(axi_arprot),
-        .axi_arready(axi_arready),
-        .axi_rvalid(axi_rvalid),
-        .axi_rready(axi_rready),
-        .axi_rdata(axi_rdata),
-        .axi_rresp(axi_rresp),
+        .axi_aw_valid(axi_aw_valid),
+        .axi_aw_bits_addr(axi_aw_bits_addr),
+        .axi_aw_bits_prot(axi_aw_bits_prot),
+        .axi_aw_ready(axi_aw_ready),
+        .axi_w_valid(axi_w_valid),
+        .axi_w_bits_data(axi_w_bits_data),
+        .axi_w_bits_strb(axi_w_bits_strb),
+        .axi_w_ready(axi_w_ready),
+        .axi_b_valid(axi_b_valid),
+        .axi_b_ready(axi_b_ready),
+        .axi_b_bits_resp(axi_b_bits_resp),
+        .axi_ar_valid(axi_ar_valid),
+        .axi_ar_bits_addr(axi_ar_bits_addr),
+        .axi_ar_bits_prot(axi_ar_bits_prot),
+        .axi_ar_ready(axi_ar_ready),
+        .axi_r_valid(axi_r_valid),
+        .axi_r_ready(axi_r_ready),
+        .axi_r_bits_data(axi_r_bits_data),
+        .axi_r_bits_resp(axi_r_bits_resp),
         .irq_software(irq_software),
         .irq_timer(irq_timer),
         .irq_external(irq_external),
         .irq_pending(irq_pending),
-        .trap(trap),
-        .core_busy(core_busy),
-        .core_sleep(core_sleep),
+        .status_trap(status_trap),
+        .status_busy(status_busy),
+        .status_sleep(status_sleep),
         // The trace surface lives in the layer("DV") bind collateral. The
         // ditdah32_trace_top bridge (read via read_slang) resolves the probe
         // XMRs and re-exposes them as ports for the riscv-formal harness.
@@ -141,11 +141,11 @@ module rvfi_wrapper (
         .trace_mcause(trace_mcause)
     );
 
-    wire ar_fire = axi_arvalid && axi_arready;
-    wire r_fire = axi_rvalid && axi_rready;
-    wire aw_fire = axi_awvalid && axi_awready;
-    wire w_fire = axi_wvalid && axi_wready;
-    wire b_fire = axi_bvalid && axi_bready;
+    wire ar_fire = axi_ar_valid && axi_ar_ready;
+    wire r_fire = axi_r_valid && axi_r_ready;
+    wire aw_fire = axi_aw_valid && axi_aw_ready;
+    wire w_fire = axi_w_valid && axi_w_ready;
+    wire b_fire = axi_b_valid && axi_b_ready;
 
     reg read_outstanding = 1'b0;
     reg write_aw_seen = 1'b0;
@@ -177,19 +177,19 @@ module rvfi_wrapper (
     wire       rvfi_intr_now = 1'b0;
 `endif
 
-    assign axi_awready = 1'b1;
-    assign axi_wready = 1'b1;
-    assign axi_bvalid = write_resp_pending;
-    assign axi_bresp = 2'b00;
-    assign axi_arready = 1'b1;
-    assign axi_rvalid = read_outstanding;
-    assign axi_rresp = 2'b00;
+    assign axi_aw_ready = 1'b1;
+    assign axi_w_ready = 1'b1;
+    assign axi_b_valid = write_resp_pending;
+    assign axi_b_bits_resp = 2'b00;
+    assign axi_ar_ready = 1'b1;
+    assign axi_r_valid = read_outstanding;
+    assign axi_r_bits_resp = 2'b00;
 
     assign rvfi_valid = rvfi_visible_valid;
     assign rvfi_order = rvfi_order_q;
     assign rvfi_insn = trace_instr;
     assign rvfi_trap = trace_trap;
-    assign rvfi_halt = trap;
+    assign rvfi_halt = status_trap;
     assign rvfi_intr = rvfi_intr_now;
     assign rvfi_mode = 2'b11;
     assign rvfi_ixl = 2'b01;
@@ -219,11 +219,11 @@ module rvfi_wrapper (
     assign rvfi_bus_valid = rvfi_bus_read_valid || rvfi_bus_write_valid;
     assign rvfi_bus_insn = rvfi_bus_read_valid && bus_ar_is_insn_q;
     assign rvfi_bus_data = (rvfi_bus_read_valid && bus_ar_is_data_q) || rvfi_bus_write_valid;
-    assign rvfi_bus_fault = rvfi_bus_read_valid ? |axi_rresp : rvfi_bus_write_valid ? |axi_bresp : 1'b0;
+    assign rvfi_bus_fault = rvfi_bus_read_valid ? |axi_r_bits_resp : rvfi_bus_write_valid ? |axi_b_bits_resp : 1'b0;
     assign rvfi_bus_addr = rvfi_bus_read_valid ? bus_araddr_q : rvfi_bus_write_valid ? bus_awaddr_q : 32'd0;
     assign rvfi_bus_rmask = rvfi_bus_read_valid ? 4'hf : 4'h0;
     assign rvfi_bus_wmask = rvfi_bus_write_valid ? bus_wstrb_q : 4'h0;
-    assign rvfi_bus_rdata = rvfi_bus_read_valid ? axi_rdata : 32'd0;
+    assign rvfi_bus_rdata = rvfi_bus_read_valid ? axi_r_bits_data : 32'd0;
     assign rvfi_bus_wdata = rvfi_bus_write_valid ? bus_wdata_q : 32'd0;
 `endif
 
@@ -323,8 +323,8 @@ module rvfi_wrapper (
 
     always @(*) begin
         if (!reset) begin
-            assume(!(axi_rvalid && !read_outstanding && !ar_fire));
-            assume(!(axi_bvalid && !write_resp_pending && !(write_aw_seen && write_w_seen)));
+            assume(!(axi_r_valid && !read_outstanding && !ar_fire));
+            assume(!(axi_b_valid && !write_resp_pending && !(write_aw_seen && write_w_seen)));
 `ifdef DITDAH32_RVFI_STANDARD_INTR
             if (rvfi_intr_now) begin
                 assert(rvfi_pc_rdata == rvfi_intr_target_q);
@@ -379,16 +379,16 @@ module rvfi_wrapper (
             end
 `ifdef RISCV_FORMAL_BUS
             if (ar_fire) begin
-                bus_araddr_q <= axi_araddr;
-                bus_ar_is_insn_q <= axi_arprot[2];
-                bus_ar_is_data_q <= !axi_arprot[2];
+                bus_araddr_q <= axi_ar_bits_addr;
+                bus_ar_is_insn_q <= axi_ar_bits_prot[2];
+                bus_ar_is_data_q <= !axi_ar_bits_prot[2];
             end
             if (aw_fire) begin
-                bus_awaddr_q <= axi_awaddr;
+                bus_awaddr_q <= axi_aw_bits_addr;
             end
             if (w_fire) begin
-                bus_wdata_q <= axi_wdata;
-                bus_wstrb_q <= axi_wstrb;
+                bus_wdata_q <= axi_w_bits_data;
+                bus_wstrb_q <= axi_w_bits_strb;
             end
 `endif
             if ((write_aw_seen || aw_fire) && (write_w_seen || w_fire)) begin
@@ -461,7 +461,7 @@ module rvfi_wrapper (
 `endif
 
 `ifdef DITDAH32_RVFI_CSR_READONLY_CHECK
-    // Architectural write to a CSR with addr[11:10]==11 must trap (Priv Spec §2.1).
+    // Architectural write to a CSR with addr[11:10]==11 must status_trap (Priv Spec §2.1).
     // Write attempt: CSRRW/CSRRWI always, others when insn[19:15] != 0.
     wire [6:0] ro_opcode  = rvfi_insn[6:0];
     wire [2:0] ro_funct3  = rvfi_insn[14:12];
@@ -486,7 +486,7 @@ module rvfi_wrapper (
     always @(posedge clock) begin
         if (reset) begin
             wfi_wake_counter <= 4'd0;
-        end else if (core_sleep && irq_pending) begin
+        end else if (status_sleep && irq_pending) begin
             wfi_wake_counter <= wfi_wake_counter + 4'd1;
         end else begin
             wfi_wake_counter <= 4'd0;
