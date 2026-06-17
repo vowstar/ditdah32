@@ -5,7 +5,7 @@
 // master against a behavioural memory whose access latency models the two
 // reported memory systems (0-wait tightly-coupled SRAM vs. AXI with wait
 // states). Cycle count comes from the simulator between the in-program
-// timing markers; runs until the EBREAK trap. Configured via plusargs so a
+// timing markers; runs until the EBREAK status_trap. Configured via plusargs so a
 // single compiled binary scores every benchmark and memory model.
 
 `timescale 1ns / 1ps
@@ -24,62 +24,62 @@ module ditdah32_bench_tb;
   logic        clock = 0;
   logic        reset = 1;
 
-  logic        axi_awvalid;
-  logic [31:0] axi_awaddr;
-  logic [2:0]  axi_awprot;
-  logic        axi_awready;
-  logic        axi_wvalid;
-  logic [31:0] axi_wdata;
-  logic [3:0]  axi_wstrb;
-  logic        axi_wready;
-  logic        axi_bvalid;
-  logic        axi_bready;
-  logic [1:0]  axi_bresp;
-  logic        axi_arvalid;
-  logic [31:0] axi_araddr;
-  logic [2:0]  axi_arprot;
-  logic        axi_arready;
-  logic        axi_rvalid;
-  logic        axi_rready;
-  logic [31:0] axi_rdata;
-  logic [1:0]  axi_rresp;
+  logic        axi_aw_valid;
+  logic [31:0] axi_aw_bits_addr;
+  logic [2:0]  axi_aw_bits_prot;
+  logic        axi_aw_ready;
+  logic        axi_w_valid;
+  logic [31:0] axi_w_bits_data;
+  logic [3:0]  axi_w_bits_strb;
+  logic        axi_w_ready;
+  logic        axi_b_valid;
+  logic        axi_b_ready;
+  logic [1:0]  axi_b_bits_resp;
+  logic        axi_ar_valid;
+  logic [31:0] axi_ar_bits_addr;
+  logic [2:0]  axi_ar_bits_prot;
+  logic        axi_ar_ready;
+  logic        axi_r_valid;
+  logic        axi_r_ready;
+  logic [31:0] axi_r_bits_data;
+  logic [1:0]  axi_r_bits_resp;
   logic        irq_software = 0;
   logic        irq_timer = 0;
   logic        irq_external = 0;
   logic        irq_pending;
-  logic        trap;
-  logic        core_busy;
-  logic        core_sleep;
+  logic        status_trap;
+  logic        status_busy;
+  logic        status_sleep;
 
   DitDah32 dut (
     .clock(clock),
     .reset(reset),
-    .axi_awvalid(axi_awvalid),
-    .axi_awaddr(axi_awaddr),
-    .axi_awprot(axi_awprot),
-    .axi_awready(axi_awready),
-    .axi_wvalid(axi_wvalid),
-    .axi_wdata(axi_wdata),
-    .axi_wstrb(axi_wstrb),
-    .axi_wready(axi_wready),
-    .axi_bvalid(axi_bvalid),
-    .axi_bready(axi_bready),
-    .axi_bresp(axi_bresp),
-    .axi_arvalid(axi_arvalid),
-    .axi_araddr(axi_araddr),
-    .axi_arprot(axi_arprot),
-    .axi_arready(axi_arready),
-    .axi_rvalid(axi_rvalid),
-    .axi_rready(axi_rready),
-    .axi_rdata(axi_rdata),
-    .axi_rresp(axi_rresp),
+    .axi_aw_valid(axi_aw_valid),
+    .axi_aw_bits_addr(axi_aw_bits_addr),
+    .axi_aw_bits_prot(axi_aw_bits_prot),
+    .axi_aw_ready(axi_aw_ready),
+    .axi_w_valid(axi_w_valid),
+    .axi_w_bits_data(axi_w_bits_data),
+    .axi_w_bits_strb(axi_w_bits_strb),
+    .axi_w_ready(axi_w_ready),
+    .axi_b_valid(axi_b_valid),
+    .axi_b_ready(axi_b_ready),
+    .axi_b_bits_resp(axi_b_bits_resp),
+    .axi_ar_valid(axi_ar_valid),
+    .axi_ar_bits_addr(axi_ar_bits_addr),
+    .axi_ar_bits_prot(axi_ar_bits_prot),
+    .axi_ar_ready(axi_ar_ready),
+    .axi_r_valid(axi_r_valid),
+    .axi_r_ready(axi_r_ready),
+    .axi_r_bits_data(axi_r_bits_data),
+    .axi_r_bits_resp(axi_r_bits_resp),
     .irq_software(irq_software),
     .irq_timer(irq_timer),
     .irq_external(irq_external),
     .irq_pending(irq_pending),
-    .trap(trap),
-    .core_busy(core_busy),
-    .core_sleep(core_sleep)
+    .status_trap(status_trap),
+    .status_busy(status_busy),
+    .status_sleep(status_sleep)
   );
 
   logic [31:0] mem [0:MEM_WORDS-1];
@@ -103,22 +103,22 @@ module ditdah32_bench_tb;
   always @(posedge clock) begin
     if (reset) begin
       rstate      <= R_IDLE;
-      axi_arready <= 0;
-      axi_rvalid  <= 0;
-      axi_rdata   <= 0;
-      axi_rresp   <= 0;
+      axi_ar_ready <= 0;
+      axi_r_valid  <= 0;
+      axi_r_bits_data   <= 0;
+      axi_r_bits_resp   <= 0;
     end else begin
       case (rstate)
         R_IDLE: begin
-          axi_rvalid  <= 0;
-          axi_arready <= 1;
-          if (axi_arvalid && axi_arready) begin
-            raddr_q     <= axi_araddr;
-            axi_arready <= 0;
+          axi_r_valid  <= 0;
+          axi_ar_ready <= 1;
+          if (axi_ar_valid && axi_ar_ready) begin
+            raddr_q     <= axi_ar_bits_addr;
+            axi_ar_ready <= 0;
             if (read_latency == 0) begin
-              axi_rdata  <= mem[axi_araddr[17:2]];
-              axi_rresp  <= 0;
-              axi_rvalid <= 1;
+              axi_r_bits_data  <= mem[axi_ar_bits_addr[17:2]];
+              axi_r_bits_resp  <= 0;
+              axi_r_valid <= 1;
               rstate     <= R_RESP;
             end else begin
               rcnt   <= read_latency;
@@ -128,18 +128,18 @@ module ditdah32_bench_tb;
         end
         R_WAIT: begin
           if (rcnt <= 1) begin
-            axi_rdata  <= mem[raddr_q[17:2]];
-            axi_rresp  <= 0;
-            axi_rvalid <= 1;
+            axi_r_bits_data  <= mem[raddr_q[17:2]];
+            axi_r_bits_resp  <= 0;
+            axi_r_valid <= 1;
             rstate     <= R_RESP;
           end else begin
             rcnt <= rcnt - 1;
           end
         end
         R_RESP: begin
-          if (axi_rvalid && axi_rready) begin
-            axi_rvalid  <= 0;
-            axi_arready <= 1;
+          if (axi_r_valid && axi_r_ready) begin
+            axi_r_valid  <= 0;
+            axi_ar_ready <= 1;
             rstate      <= R_IDLE;
           end
         end
@@ -182,43 +182,43 @@ module ditdah32_bench_tb;
   always @(posedge clock) begin
     if (reset) begin
       wstate      <= W_ACCEPT;
-      axi_awready <= 0;
-      axi_wready  <= 0;
-      axi_bvalid  <= 0;
-      axi_bresp   <= 0;
+      axi_aw_ready <= 0;
+      axi_w_ready  <= 0;
+      axi_b_valid  <= 0;
+      axi_b_bits_resp   <= 0;
       aw_seen     <= 0;
       w_seen      <= 0;
     end else begin
       case (wstate)
         W_ACCEPT: begin
-          axi_bvalid  <= 0;
-          axi_awready <= !aw_seen;
-          axi_wready  <= !w_seen;
-          if (axi_awvalid && axi_awready) begin
-            waddr_q     <= axi_awaddr;
+          axi_b_valid  <= 0;
+          axi_aw_ready <= !aw_seen;
+          axi_w_ready  <= !w_seen;
+          if (axi_aw_valid && axi_aw_ready) begin
+            waddr_q     <= axi_aw_bits_addr;
             aw_seen     <= 1;
-            axi_awready <= 0;
+            axi_aw_ready <= 0;
           end
-          if (axi_wvalid && axi_wready) begin
-            wdata_q    <= axi_wdata;
-            wstrb_q    <= axi_wstrb;
+          if (axi_w_valid && axi_w_ready) begin
+            wdata_q    <= axi_w_bits_data;
+            wstrb_q    <= axi_w_bits_strb;
             w_seen     <= 1;
-            axi_wready <= 0;
+            axi_w_ready <= 0;
           end
-          if ((aw_seen || (axi_awvalid && axi_awready)) &&
-              (w_seen  || (axi_wvalid  && axi_wready))) begin
+          if ((aw_seen || (axi_aw_valid && axi_aw_ready)) &&
+              (w_seen  || (axi_w_valid  && axi_w_ready))) begin
             logic [31:0] aaddr;
             logic [31:0] adata;
             logic [3:0]  astrb;
-            aaddr = aw_seen ? waddr_q : axi_awaddr;
-            adata = w_seen  ? wdata_q : axi_wdata;
-            astrb = w_seen  ? wstrb_q : axi_wstrb;
+            aaddr = aw_seen ? waddr_q : axi_aw_bits_addr;
+            adata = w_seen  ? wdata_q : axi_w_bits_data;
+            astrb = w_seen  ? wstrb_q : axi_w_bits_strb;
             do_write(aaddr, adata, astrb);
             aw_seen <= 0;
             w_seen  <= 0;
             if (write_latency == 0) begin
-              axi_bresp  <= 0;
-              axi_bvalid <= 1;
+              axi_b_bits_resp  <= 0;
+              axi_b_valid <= 1;
               wstate     <= W_RESP;
             end else begin
               wcnt   <= write_latency;
@@ -228,16 +228,16 @@ module ditdah32_bench_tb;
         end
         W_WAIT: begin
           if (wcnt <= 1) begin
-            axi_bresp  <= 0;
-            axi_bvalid <= 1;
+            axi_b_bits_resp  <= 0;
+            axi_b_valid <= 1;
             wstate     <= W_RESP;
           end else begin
             wcnt <= wcnt - 1;
           end
         end
         W_RESP: begin
-          if (axi_bvalid && axi_bready) begin
-            axi_bvalid <= 0;
+          if (axi_b_valid && axi_b_ready) begin
+            axi_b_valid <= 0;
             wstate     <= W_ACCEPT;
           end
         end
@@ -265,7 +265,7 @@ module ditdah32_bench_tb;
 
     forever begin
       @(posedge clock);
-      if (trap) begin
+      if (status_trap) begin
         // result struct: magic, id, status, value0..value3 (7 words)
         $display("BENCH_RESULT %0d %0d %0d %0d %0d %0d %0d",
                  mem[(result_addr >> 2) + 0], mem[(result_addr >> 2) + 1],
@@ -277,7 +277,7 @@ module ditdah32_bench_tb;
         $finish;
       end
       if (cycle > max_cycles) begin
-        $display("FATAL: max_cycles %0d exceeded without trap", max_cycles);
+        $display("FATAL: max_cycles %0d exceeded without status_trap", max_cycles);
         $finish;
       end
     end
