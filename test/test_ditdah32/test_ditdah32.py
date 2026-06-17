@@ -13,6 +13,42 @@ from cocotb.clock import Clock
 from cocotb.handle import Immediate
 from cocotb.triggers import ClockCycles, RisingEdge, Timer, with_timeout
 from cocotbext.axi import AxiLiteBus, AxiLiteRam
+from cocotbext.axi.axil_channels import (
+    AxiLiteAWBus, AxiLiteWBus, AxiLiteBBus, AxiLiteARBus, AxiLiteRBus)
+
+
+# DitDah32 exposes AXI4-Lite as Decoupled channels (<ch>_valid/_ready/_bits_<f>),
+# so remap the BFM's flat AXI attrs onto those port names.
+class _AWBus(AxiLiteAWBus):
+    _signals = {"awaddr": "aw_bits_addr", "awvalid": "aw_valid", "awready": "aw_ready"}
+    _optional_signals = {"awprot": "aw_bits_prot"}
+
+
+class _WBus(AxiLiteWBus):
+    _signals = {"wdata": "w_bits_data", "wvalid": "w_valid", "wready": "w_ready"}
+    _optional_signals = {"wstrb": "w_bits_strb"}
+
+
+class _BBus(AxiLiteBBus):
+    _signals = {"bvalid": "b_valid", "bready": "b_ready"}
+    _optional_signals = {"bresp": "b_bits_resp"}
+
+
+class _ARBus(AxiLiteARBus):
+    _signals = {"araddr": "ar_bits_addr", "arvalid": "ar_valid", "arready": "ar_ready"}
+    _optional_signals = {"arprot": "ar_bits_prot"}
+
+
+class _RBus(AxiLiteRBus):
+    _signals = {"rdata": "r_bits_data", "rvalid": "r_valid", "rready": "r_ready"}
+    _optional_signals = {"rresp": "r_bits_resp"}
+
+
+def axil_channel_bus(dut, prefix):
+    return AxiLiteBus.from_channels(
+        _AWBus.from_prefix(dut, prefix), _WBus.from_prefix(dut, prefix),
+        _BBus.from_prefix(dut, prefix), _ARBus.from_prefix(dut, prefix),
+        _RBus.from_prefix(dut, prefix))
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -343,14 +379,14 @@ def sparse_image(entries):
 
 
 def drive_axi_slave_idle(dut):
-    dut.axi_awready.value = 0
-    dut.axi_wready.value = 0
-    dut.axi_bvalid.value = 0
-    dut.axi_bresp.value = AXI_OKAY
-    dut.axi_arready.value = 0
-    dut.axi_rvalid.value = 0
-    dut.axi_rdata.value = 0
-    dut.axi_rresp.value = AXI_OKAY
+    dut.axi_aw_ready.value = 0
+    dut.axi_w_ready.value = 0
+    dut.axi_b_valid.value = 0
+    dut.axi_b_bits_resp.value = AXI_OKAY
+    dut.axi_ar_ready.value = 0
+    dut.axi_r_valid.value = 0
+    dut.axi_r_bits_data.value = 0
+    dut.axi_r_bits_resp.value = AXI_OKAY
 
 
 def drive_irq_idle(dut):
@@ -392,7 +428,7 @@ async def start_core(
     cocotb.start_soon(Clock(dut.clk, 10, unit="ns").start())
     await ClockCycles(dut.clk, 2)
 
-    memory = AxiLiteRam(AxiLiteBus.from_prefix(dut, "axi"), dut.clk, size=size)
+    memory = AxiLiteRam(axil_channel_bus(dut, "axi"), dut.clk, size=size)
     if image:
         memory.write(0, image)
     if axi_pause_generators is not None:
@@ -418,32 +454,32 @@ async def accept_axi_read_request(dut, expected_addr=None, expected_prot=None, m
     for _ in range(max_cycles):
         await RisingEdge(dut.clk)
         await Timer(1, unit="ns")
-        if is_one(dut.axi_arvalid):
-            addr = int(dut.axi_araddr.value)
-            prot = int(dut.axi_arprot.value)
+        if is_one(dut.axi_ar_valid):
+            addr = int(dut.axi_ar_bits_addr.value)
+            prot = int(dut.axi_ar_bits_prot.value)
             if expected_addr is not None:
                 assert addr == expected_addr
             if expected_prot is not None:
                 assert prot == expected_prot
-            dut.axi_arready.value = 1
+            dut.axi_ar_ready.value = 1
             await RisingEdge(dut.clk)
             await Timer(1, unit="ns")
-            dut.axi_arready.value = 0
+            dut.axi_ar_ready.value = 0
             return {"addr": addr, "prot": prot}
     raise AssertionError("timed out waiting for AXI read request")
 
 
 async def send_axi_read_response(dut, data, resp=AXI_OKAY, max_cycles=100):
-    dut.axi_rdata.value = data & 0xFFFF_FFFF
-    dut.axi_rresp.value = resp & 0x3
-    dut.axi_rvalid.value = 1
+    dut.axi_r_bits_data.value = data & 0xFFFF_FFFF
+    dut.axi_r_bits_resp.value = resp & 0x3
+    dut.axi_r_valid.value = 1
     for _ in range(max_cycles):
-        if is_one(dut.axi_rready):
+        if is_one(dut.axi_r_ready):
             await RisingEdge(dut.clk)
             await Timer(1, unit="ns")
-            dut.axi_rvalid.value = 0
-            dut.axi_rresp.value = AXI_OKAY
-            dut.axi_rdata.value = 0
+            dut.axi_r_valid.value = 0
+            dut.axi_r_bits_resp.value = AXI_OKAY
+            dut.axi_r_bits_data.value = 0
             return
         await RisingEdge(dut.clk)
         await Timer(1, unit="ns")
@@ -460,17 +496,17 @@ async def accept_axi_write_address(dut, expected_addr=None, expected_prot=None, 
     for _ in range(max_cycles):
         await RisingEdge(dut.clk)
         await Timer(1, unit="ns")
-        if is_one(dut.axi_awvalid):
-            addr = int(dut.axi_awaddr.value)
-            prot = int(dut.axi_awprot.value)
+        if is_one(dut.axi_aw_valid):
+            addr = int(dut.axi_aw_bits_addr.value)
+            prot = int(dut.axi_aw_bits_prot.value)
             if expected_addr is not None:
                 assert addr == expected_addr
             if expected_prot is not None:
                 assert prot == expected_prot
-            dut.axi_awready.value = 1
+            dut.axi_aw_ready.value = 1
             await RisingEdge(dut.clk)
             await Timer(1, unit="ns")
-            dut.axi_awready.value = 0
+            dut.axi_aw_ready.value = 0
             return {"addr": addr, "prot": prot}
     raise AssertionError("timed out waiting for AXI write address")
 
@@ -479,30 +515,30 @@ async def accept_axi_write_data(dut, expected_data=None, expected_strb=None, max
     for _ in range(max_cycles):
         await RisingEdge(dut.clk)
         await Timer(1, unit="ns")
-        if is_one(dut.axi_wvalid):
-            data = int(dut.axi_wdata.value)
-            strb = int(dut.axi_wstrb.value)
+        if is_one(dut.axi_w_valid):
+            data = int(dut.axi_w_bits_data.value)
+            strb = int(dut.axi_w_bits_strb.value)
             if expected_data is not None:
                 assert data == (expected_data & 0xFFFF_FFFF)
             if expected_strb is not None:
                 assert strb == expected_strb
-            dut.axi_wready.value = 1
+            dut.axi_w_ready.value = 1
             await RisingEdge(dut.clk)
             await Timer(1, unit="ns")
-            dut.axi_wready.value = 0
+            dut.axi_w_ready.value = 0
             return {"data": data, "strb": strb}
     raise AssertionError("timed out waiting for AXI write data")
 
 
 async def send_axi_write_response(dut, resp=AXI_OKAY, max_cycles=100):
-    dut.axi_bresp.value = resp & 0x3
-    dut.axi_bvalid.value = 1
+    dut.axi_b_bits_resp.value = resp & 0x3
+    dut.axi_b_valid.value = 1
     for _ in range(max_cycles):
-        if is_one(dut.axi_bready):
+        if is_one(dut.axi_b_ready):
             await RisingEdge(dut.clk)
             await Timer(1, unit="ns")
-            dut.axi_bvalid.value = 0
-            dut.axi_bresp.value = AXI_OKAY
+            dut.axi_b_valid.value = 0
+            dut.axi_b_bits_resp.value = AXI_OKAY
             return
         await RisingEdge(dut.clk)
         await Timer(1, unit="ns")
@@ -552,38 +588,38 @@ async def monitor_axi(dut, events, cycles=400):
     for _ in range(cycles):
         await RisingEdge(dut.clk)
         await Timer(1, unit="ns")
-        if int(dut.axi_arvalid.value) and int(dut.axi_arready.value):
+        if int(dut.axi_ar_valid.value) and int(dut.axi_ar_ready.value):
             event = {
                 "kind": "read_addr",
-                "addr": int(dut.axi_araddr.value),
-                "prot": int(dut.axi_arprot.value),
+                "addr": int(dut.axi_ar_bits_addr.value),
+                "prot": int(dut.axi_ar_bits_prot.value),
             }
             events.append(event)
             pending_reads.append(event)
-        if int(dut.axi_rvalid.value) and int(dut.axi_rready.value) and pending_reads:
+        if int(dut.axi_r_valid.value) and int(dut.axi_r_ready.value) and pending_reads:
             read_event = pending_reads.pop(0)
             events.append(
                 {
                     "kind": "read_data",
                     "addr": read_event["addr"],
                     "prot": read_event["prot"],
-                    "data": int(dut.axi_rdata.value),
+                    "data": int(dut.axi_r_bits_data.value),
                 }
             )
-        if int(dut.axi_awvalid.value) and int(dut.axi_awready.value):
+        if int(dut.axi_aw_valid.value) and int(dut.axi_aw_ready.value):
             events.append(
                 {
                     "kind": "write_addr",
-                    "addr": int(dut.axi_awaddr.value),
-                    "prot": int(dut.axi_awprot.value),
+                    "addr": int(dut.axi_aw_bits_addr.value),
+                    "prot": int(dut.axi_aw_bits_prot.value),
                 }
             )
-        if int(dut.axi_wvalid.value) and int(dut.axi_wready.value):
+        if int(dut.axi_w_valid.value) and int(dut.axi_w_ready.value):
             events.append(
                 {
                     "kind": "write_data",
-                    "data": int(dut.axi_wdata.value),
-                    "strb": int(dut.axi_wstrb.value),
+                    "data": int(dut.axi_w_bits_data.value),
+                    "strb": int(dut.axi_w_bits_strb.value),
                 }
             )
 
@@ -624,21 +660,21 @@ def apply_axi_pause_generators(memory, generators):
 
 def axi_payload(dut, channel):
     if channel == "ar":
-        return {"addr": int(dut.axi_araddr.value), "prot": int(dut.axi_arprot.value)}
+        return {"addr": int(dut.axi_ar_bits_addr.value), "prot": int(dut.axi_ar_bits_prot.value)}
     if channel == "aw":
-        return {"addr": int(dut.axi_awaddr.value), "prot": int(dut.axi_awprot.value)}
+        return {"addr": int(dut.axi_aw_bits_addr.value), "prot": int(dut.axi_aw_bits_prot.value)}
     if channel == "w":
-        return {"data": int(dut.axi_wdata.value), "strb": int(dut.axi_wstrb.value)}
+        return {"data": int(dut.axi_w_bits_data.value), "strb": int(dut.axi_w_bits_strb.value)}
     raise ValueError(f"unknown AXI channel {channel}")
 
 
 def axi_valid_ready(dut, channel):
     if channel == "ar":
-        return int(dut.axi_arvalid.value), int(dut.axi_arready.value)
+        return int(dut.axi_ar_valid.value), int(dut.axi_ar_ready.value)
     if channel == "aw":
-        return int(dut.axi_awvalid.value), int(dut.axi_awready.value)
+        return int(dut.axi_aw_valid.value), int(dut.axi_aw_ready.value)
     if channel == "w":
-        return int(dut.axi_wvalid.value), int(dut.axi_wready.value)
+        return int(dut.axi_w_valid.value), int(dut.axi_w_ready.value)
     raise ValueError(f"unknown AXI channel {channel}")
 
 
@@ -686,27 +722,27 @@ async def monitor_axi_protocol(dut, events, cycles=400):
             elif not valid:
                 holds[channel] = None
 
-        if int(dut.axi_arvalid.value) and int(dut.axi_arready.value):
+        if int(dut.axi_ar_valid.value) and int(dut.axi_ar_ready.value):
             outstanding_reads += 1
             events.append(
                 {
                     "kind": "read_addr",
                     "cycle": cycle,
-                    "addr": int(dut.axi_araddr.value),
-                    "prot": int(dut.axi_arprot.value),
+                    "addr": int(dut.axi_ar_bits_addr.value),
+                    "prot": int(dut.axi_ar_bits_prot.value),
                     "outstanding_reads": outstanding_reads,
                 }
             )
             if outstanding_reads > 1:
                 append_axi_violation(events, cycle, "more than one outstanding read", "ar")
 
-        if int(dut.axi_rvalid.value) and int(dut.axi_rready.value):
+        if int(dut.axi_r_valid.value) and int(dut.axi_r_ready.value):
             events.append(
                 {
                     "kind": "read_data",
                     "cycle": cycle,
-                    "data": int(dut.axi_rdata.value),
-                    "resp": int(dut.axi_rresp.value),
+                    "data": int(dut.axi_r_bits_data.value),
+                    "resp": int(dut.axi_r_bits_resp.value),
                     "outstanding_reads": outstanding_reads,
                 }
             )
@@ -715,26 +751,26 @@ async def monitor_axi_protocol(dut, events, cycles=400):
             else:
                 outstanding_reads -= 1
 
-        if int(dut.axi_awvalid.value) and int(dut.axi_awready.value):
+        if int(dut.axi_aw_valid.value) and int(dut.axi_aw_ready.value):
             events.append(
                 {
                     "kind": "write_addr",
                     "cycle": cycle,
-                    "addr": int(dut.axi_awaddr.value),
-                    "prot": int(dut.axi_awprot.value),
+                    "addr": int(dut.axi_aw_bits_addr.value),
+                    "prot": int(dut.axi_aw_bits_prot.value),
                 }
             )
             if aw_seen or b_waiting:
                 append_axi_violation(events, cycle, "second AW before write response", "aw")
             aw_seen = True
 
-        if int(dut.axi_wvalid.value) and int(dut.axi_wready.value):
+        if int(dut.axi_w_valid.value) and int(dut.axi_w_ready.value):
             events.append(
                 {
                     "kind": "write_data",
                     "cycle": cycle,
-                    "data": int(dut.axi_wdata.value),
-                    "strb": int(dut.axi_wstrb.value),
+                    "data": int(dut.axi_w_bits_data.value),
+                    "strb": int(dut.axi_w_bits_strb.value),
                 }
             )
             if w_seen or b_waiting:
@@ -744,12 +780,12 @@ async def monitor_axi_protocol(dut, events, cycles=400):
         if aw_seen and w_seen:
             b_waiting = True
 
-        if int(dut.axi_bvalid.value) and int(dut.axi_bready.value):
+        if int(dut.axi_b_valid.value) and int(dut.axi_b_ready.value):
             events.append(
                 {
                     "kind": "write_resp",
                     "cycle": cycle,
-                    "resp": int(dut.axi_bresp.value),
+                    "resp": int(dut.axi_b_bits_resp.value),
                     "b_waiting": b_waiting,
                 }
             )
@@ -984,10 +1020,10 @@ async def run_benchmark_until_trap(dut, name, benchmark_id, max_cycles):
         await RisingEdge(dut.clk)
         await Timer(1, unit="ns")
         cycles = cycle
-        if int(dut.axi_awvalid.value) and int(dut.axi_awready.value):
-            pending_write_addrs.append(int(dut.axi_awaddr.value))
-        if int(dut.axi_wvalid.value) and int(dut.axi_wready.value):
-            pending_write_data.append(int(dut.axi_wdata.value))
+        if int(dut.axi_aw_valid.value) and int(dut.axi_aw_ready.value):
+            pending_write_addrs.append(int(dut.axi_aw_bits_addr.value))
+        if int(dut.axi_w_valid.value) and int(dut.axi_w_ready.value):
+            pending_write_data.append(int(dut.axi_w_bits_data.value))
         while pending_write_addrs and pending_write_data:
             addr = pending_write_addrs.pop(0)
             data = pending_write_data.pop(0)
@@ -996,7 +1032,7 @@ async def run_benchmark_until_trap(dut, name, benchmark_id, max_cycles):
                     timing["start_cycle"] = cycle
                 if data == BENCH_TIMING_STOP:
                     timing["stop_cycle"] = cycle
-        if int(dut.trap.value) == 1:
+        if int(dut.status_trap.value) == 1:
             trapped = True
             break
 
@@ -1159,7 +1195,7 @@ async def reset_and_fetch_nops(dut):
         if event["kind"] == "read_addr" and (event["prot"] & 0x4)
     ]
     assert [event["addr"] for event in instruction_reads[:3]] == [0, 4, 8]
-    assert int(dut.trap.value) == 0
+    assert int(dut.status_trap.value) == 0
 
 
 @cocotb.test()
@@ -1218,7 +1254,7 @@ async def compressed_halfwords_advance_pc_by_two(dut):
 
     assert_trace(traces[0], 0, C_NOP, length=2)
     assert_trace(traces[1], 2, C_NOP, length=2)
-    assert int(dut.trap.value) == 0
+    assert int(dut.status_trap.value) == 0
 
 
 @cocotb.test()
@@ -1230,7 +1266,7 @@ async def straddled_32_bit_instruction_fetches_next_word(dut):
 
     assert_trace(traces[0], 0, C_NOP, length=2)
     assert_trace(traces[1], 2, NOP, length=4)
-    assert int(dut.trap.value) == 0
+    assert int(dut.status_trap.value) == 0
 
 
 @cocotb.test()
@@ -1280,7 +1316,7 @@ async def rv32ec_compressed_integer_ops_execute(dut):
         assert_trace(traces[index], index * 2, program[index], length=2, rd=rd, rd_wdata=rd_wdata)
     assert_trace(traces[-1], 32, program[-1], length=2, trap=True, cause=2)
     await ClockCycles(dut.clk, 1)
-    assert int(dut.trap.value) == 1
+    assert int(dut.status_trap.value) == 1
 
 
 @cocotb.test()
@@ -1387,7 +1423,7 @@ async def assert_single_compressed_trap(dut, insn, cause):
 
     assert_trace(trace[0], 0, insn, length=2, trap=True, cause=cause)
     await ClockCycles(dut.clk, 1)
-    assert int(dut.trap.value) == 1
+    assert int(dut.status_trap.value) == 1
 
 
 @cocotb.test()
@@ -1489,7 +1525,7 @@ async def minimal_ex_wb_writes_registers_and_traps_on_ebreak(dut):
     assert_trace(traces[2], 8, LUI_X3_12345, rd=3, rd_wdata=0x12345000)
     assert_trace(traces[3], 12, EBREAK, trap=True, cause=2)
     await ClockCycles(dut.clk, 1)
-    assert int(dut.trap.value) == 1
+    assert int(dut.status_trap.value) == 1
 
 
 @cocotb.test()
@@ -1547,7 +1583,7 @@ async def rv32e_alu_immediate_and_register_ops(dut):
     assert_trace(traces[19], 76, FENCE)
     assert_trace(traces[20], 80, ECALL, trap=True, cause=4)
     await ClockCycles(dut.clk, 1)
-    assert int(dut.trap.value) == 1
+    assert int(dut.status_trap.value) == 1
 
 
 @cocotb.test()
@@ -1559,7 +1595,7 @@ async def rv32e_register_index_violation_traps(dut):
 
     assert_trace(traces[0], 0, program[0], trap=True, cause=3)
     await ClockCycles(dut.clk, 1)
-    assert int(dut.trap.value) == 1
+    assert int(dut.status_trap.value) == 1
 
 
 @cocotb.test()
@@ -1571,7 +1607,7 @@ async def rv32e_unknown_32bit_instruction_traps(dut):
 
     assert_trace(traces[0], 0, program[0], trap=True, cause=1)
     await ClockCycles(dut.clk, 1)
-    assert int(dut.trap.value) == 1
+    assert int(dut.status_trap.value) == 1
 
 
 @cocotb.test()
@@ -1972,8 +2008,8 @@ async def wfi_sleeps_until_enabled_software_interrupt_and_mret_returns(dut):
     for _ in range(5):
         await RisingEdge(dut.clk)
         await Timer(1, unit="ns")
-        assert int(dut.core_sleep.value) == 1
-        assert int(dut.axi_arvalid.value) == 0
+        assert int(dut.status_sleep.value) == 1
+        assert int(dut.axi_ar_valid.value) == 0
 
     dut.irq_software.value = 1
     suffix = await with_timeout(collect_trace(dut, 3, max_cycles=200), 20, "us")
@@ -2011,8 +2047,8 @@ async def wfi_sleeps_until_enabled_machine_timer_interrupt_and_mret_returns(dut)
     for _ in range(5):
         await RisingEdge(dut.clk)
         await Timer(1, unit="ns")
-        assert int(dut.core_sleep.value) == 1
-        assert int(dut.axi_arvalid.value) == 0
+        assert int(dut.status_sleep.value) == 1
+        assert int(dut.axi_ar_valid.value) == 0
 
     dut.irq_timer.value = 1
     suffix = await with_timeout(collect_trace(dut, 3, max_cycles=200), 20, "us")
@@ -2051,8 +2087,8 @@ async def wfi_sleeps_until_enabled_machine_external_interrupt_and_mret_returns(d
     for _ in range(5):
         await RisingEdge(dut.clk)
         await Timer(1, unit="ns")
-        assert int(dut.core_sleep.value) == 1
-        assert int(dut.axi_arvalid.value) == 0
+        assert int(dut.status_sleep.value) == 1
+        assert int(dut.axi_ar_valid.value) == 0
 
     dut.irq_external.value = 1
     suffix = await with_timeout(collect_trace(dut, 3, max_cycles=200), 20, "us")
@@ -2086,8 +2122,8 @@ async def wfi_wakes_without_trap_when_global_mie_is_clear(dut):
     for _ in range(5):
         await RisingEdge(dut.clk)
         await Timer(1, unit="ns")
-        assert int(dut.core_sleep.value) == 1
-        assert int(dut.axi_arvalid.value) == 0
+        assert int(dut.status_sleep.value) == 1
+        assert int(dut.axi_ar_valid.value) == 0
 
     dut.irq_software.value = 1
     suffix = await with_timeout(collect_trace(dut, 2, max_cycles=160), 20, "us")
@@ -2346,7 +2382,7 @@ async def axi_fetch_non_okay_response_takes_recoverable_access_fault(dut):
         csr_wdata=1,
     )
     await ClockCycles(dut.clk, 1)
-    assert int(dut.trap.value) == 1
+    assert int(dut.status_trap.value) == 1
 
 
 @cocotb.test()
@@ -2377,7 +2413,7 @@ async def axi_load_non_okay_response_takes_recoverable_access_fault(dut):
         csr_wdata=5,
     )
     await ClockCycles(dut.clk, 1)
-    assert int(dut.trap.value) == 1
+    assert int(dut.status_trap.value) == 1
 
 
 @cocotb.test()
@@ -2413,7 +2449,7 @@ async def axi_store_non_okay_response_takes_recoverable_access_fault(dut):
         csr_wdata=7,
     )
     await ClockCycles(dut.clk, 1)
-    assert int(dut.trap.value) == 1
+    assert int(dut.status_trap.value) == 1
 
 
 @cocotb.test()
@@ -2432,7 +2468,7 @@ async def rv32e_misaligned_load_traps_without_data_axi(dut):
     ]
     assert data_events == []
     await ClockCycles(dut.clk, 1)
-    assert int(dut.trap.value) == 1
+    assert int(dut.status_trap.value) == 1
 
 
 @cocotb.test()
@@ -2451,7 +2487,7 @@ async def rv32e_misaligned_store_traps_without_data_axi(dut):
     ]
     assert data_events == []
     await ClockCycles(dut.clk, 1)
-    assert int(dut.trap.value) == 1
+    assert int(dut.status_trap.value) == 1
 
 
 # ---------------------------------------------------------------------------

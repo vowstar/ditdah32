@@ -6,33 +6,33 @@ module test_ditdah32;
     reg clk;
     reg reset;
 
-    wire        axi_awvalid;
-    wire [31:0] axi_awaddr;
-    wire [2:0]  axi_awprot;
-    reg         axi_awready;
-    wire        axi_wvalid;
-    wire [31:0] axi_wdata;
-    wire [3:0]  axi_wstrb;
-    reg         axi_wready;
-    reg         axi_bvalid;
-    wire        axi_bready;
-    reg  [1:0]  axi_bresp;
-    wire        axi_arvalid;
-    wire [31:0] axi_araddr;
-    wire [2:0]  axi_arprot;
-    reg         axi_arready;
-    reg         axi_rvalid;
-    wire        axi_rready;
-    reg  [31:0] axi_rdata;
-    reg  [1:0]  axi_rresp;
+    wire        axi_aw_valid;
+    wire [31:0] axi_aw_bits_addr;
+    wire [2:0]  axi_aw_bits_prot;
+    reg         axi_aw_ready;
+    wire        axi_w_valid;
+    wire [31:0] axi_w_bits_data;
+    wire [3:0]  axi_w_bits_strb;
+    reg         axi_w_ready;
+    reg         axi_b_valid;
+    wire        axi_b_ready;
+    reg  [1:0]  axi_b_bits_resp;
+    wire        axi_ar_valid;
+    wire [31:0] axi_ar_bits_addr;
+    wire [2:0]  axi_ar_bits_prot;
+    reg         axi_ar_ready;
+    reg         axi_r_valid;
+    wire        axi_r_ready;
+    reg  [31:0] axi_r_bits_data;
+    reg  [1:0]  axi_r_bits_resp;
 
     reg         irq_software;
     reg         irq_timer;
     reg         irq_external;
     wire        irq_pending;
-    wire        trap;
-    wire        core_busy;
-    wire        core_sleep;
+    wire        status_trap;
+    wire        status_busy;
+    wire        status_sleep;
     wire        trace_valid;
     wire [31:0] trace_pc;
     wire [31:0] trace_next_pc;
@@ -68,14 +68,14 @@ module test_ditdah32;
     initial begin
         clk = 1'b0;
         reset = 1'b1;
-        axi_awready = 1'b0;
-        axi_wready = 1'b0;
-        axi_bvalid = 1'b0;
-        axi_bresp = 2'b00;
-        axi_arready = 1'b0;
-        axi_rvalid = 1'b0;
-        axi_rdata = 32'b0;
-        axi_rresp = 2'b00;
+        axi_aw_ready = 1'b0;
+        axi_w_ready = 1'b0;
+        axi_b_valid = 1'b0;
+        axi_b_bits_resp = 2'b00;
+        axi_ar_ready = 1'b0;
+        axi_r_valid = 1'b0;
+        axi_r_bits_data = 32'b0;
+        axi_r_bits_resp = 2'b00;
         irq_software = 1'b0;
         irq_timer = 1'b0;
         irq_external = 1'b0;
@@ -84,32 +84,32 @@ module test_ditdah32;
     DitDah32 u_ditdah32 (
         .clock          (clk),
         .reset          (reset),
-        .axi_awvalid    (axi_awvalid),
-        .axi_awaddr     (axi_awaddr),
-        .axi_awprot     (axi_awprot),
-        .axi_awready    (axi_awready),
-        .axi_wvalid     (axi_wvalid),
-        .axi_wdata      (axi_wdata),
-        .axi_wstrb      (axi_wstrb),
-        .axi_wready     (axi_wready),
-        .axi_bvalid     (axi_bvalid),
-        .axi_bready     (axi_bready),
-        .axi_bresp      (axi_bresp),
-        .axi_arvalid    (axi_arvalid),
-        .axi_araddr     (axi_araddr),
-        .axi_arprot     (axi_arprot),
-        .axi_arready    (axi_arready),
-        .axi_rvalid     (axi_rvalid),
-        .axi_rready     (axi_rready),
-        .axi_rdata      (axi_rdata),
-        .axi_rresp      (axi_rresp),
+        .axi_aw_valid    (axi_aw_valid),
+        .axi_aw_bits_addr     (axi_aw_bits_addr),
+        .axi_aw_bits_prot     (axi_aw_bits_prot),
+        .axi_aw_ready    (axi_aw_ready),
+        .axi_w_valid     (axi_w_valid),
+        .axi_w_bits_data      (axi_w_bits_data),
+        .axi_w_bits_strb      (axi_w_bits_strb),
+        .axi_w_ready     (axi_w_ready),
+        .axi_b_valid     (axi_b_valid),
+        .axi_b_ready     (axi_b_ready),
+        .axi_b_bits_resp      (axi_b_bits_resp),
+        .axi_ar_valid    (axi_ar_valid),
+        .axi_ar_bits_addr     (axi_ar_bits_addr),
+        .axi_ar_bits_prot     (axi_ar_bits_prot),
+        .axi_ar_ready    (axi_ar_ready),
+        .axi_r_valid     (axi_r_valid),
+        .axi_r_ready     (axi_r_ready),
+        .axi_r_bits_data      (axi_r_bits_data),
+        .axi_r_bits_resp      (axi_r_bits_resp),
         .irq_software   (irq_software),
         .irq_timer      (irq_timer),
         .irq_external   (irq_external),
         .irq_pending    (irq_pending),
-        .trap           (trap),
-        .core_busy      (core_busy),
-        .core_sleep     (core_sleep)
+        .status_trap           (status_trap),
+        .status_busy      (status_busy),
+        .status_sleep     (status_sleep)
     );
 
     // The trace surface lives in the layer("DV") bind instance dV under the
