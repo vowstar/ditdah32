@@ -13,38 +13,55 @@ import java.lang.foreign.Arena
 class DitDah32Layers(parameter: DitDah32Parameter) extends LayerInterface(parameter):
   def layers = Seq(Layer("DV"))
 
+class Decoupled[T <: Data](gen: T) extends Bundle:
+  val ready = Flipped(Bool())
+  val valid = Aligned(Bool())
+  val bits  = Aligned(gen)
+
+class AxiAw(parameter: DitDah32Parameter) extends Bundle:
+  val addr = Aligned(UInt(parameter.xlen))
+  val prot = Aligned(UInt(3))
+
+class AxiW(parameter: DitDah32Parameter) extends Bundle:
+  val data = Aligned(UInt(parameter.xlen))
+  val strb = Aligned(UInt(4))
+
+class AxiB extends Bundle:
+  val resp = Aligned(UInt(2))
+
+class AxiAr(parameter: DitDah32Parameter) extends Bundle:
+  val addr = Aligned(UInt(parameter.xlen))
+  val prot = Aligned(UInt(3))
+
+class AxiR(parameter: DitDah32Parameter) extends Bundle:
+  val data = Aligned(UInt(parameter.xlen))
+  val resp = Aligned(UInt(2))
+
+class AxiLiteBundle(parameter: DitDah32Parameter) extends Bundle:
+  val aw = Aligned(new Decoupled(new AxiAw(parameter)))
+  val w  = Aligned(new Decoupled(new AxiW(parameter)))
+  val b  = Flipped(new Decoupled(new AxiB))
+  val ar = Aligned(new Decoupled(new AxiAr(parameter)))
+  val r  = Flipped(new Decoupled(new AxiR(parameter)))
+
+class InterruptBundle extends Bundle:
+  val software = Flipped(Bool())
+  val timer    = Flipped(Bool())
+  val external = Flipped(Bool())
+  val pending  = Aligned(Bool())
+
+class StatusBundle extends Bundle:
+  val trap  = Aligned(Bool())
+  val busy  = Aligned(Bool())
+  val sleep = Aligned(Bool())
+
 class DitDah32IO(parameter: DitDah32Parameter) extends HWBundle(parameter):
   val clock = Flipped(Clock())
   val reset = Flipped(Reset())
 
-  val axi_awvalid = Aligned(Bool())
-  val axi_awaddr  = Aligned(UInt(parameter.xlen))
-  val axi_awprot  = Aligned(UInt(3))
-  val axi_awready = Flipped(Bool())
-  val axi_wvalid  = Aligned(Bool())
-  val axi_wdata   = Aligned(UInt(parameter.xlen))
-  val axi_wstrb   = Aligned(UInt(4))
-  val axi_wready  = Flipped(Bool())
-  val axi_bvalid  = Flipped(Bool())
-  val axi_bready  = Aligned(Bool())
-  val axi_bresp   = Flipped(UInt(2))
-  val axi_arvalid = Aligned(Bool())
-  val axi_araddr  = Aligned(UInt(parameter.xlen))
-  val axi_arprot  = Aligned(UInt(3))
-  val axi_arready = Flipped(Bool())
-  val axi_rvalid  = Flipped(Bool())
-  val axi_rready  = Aligned(Bool())
-  val axi_rdata   = Flipped(UInt(parameter.xlen))
-  val axi_rresp   = Flipped(UInt(2))
-
-  val irq_software = Flipped(Bool())
-  val irq_timer    = Flipped(Bool())
-  val irq_external = Flipped(Bool())
-  val irq_pending  = Aligned(Bool())
-
-  val trap      = Aligned(Bool())
-  val core_busy = Aligned(Bool())
-  val core_sleep = Aligned(Bool())
+  val axi    = Aligned(new AxiLiteBundle(parameter))
+  val irq    = Aligned(new InterruptBundle)
+  val status = Aligned(new StatusBundle)
 
 // Verification trace surface. Lowered into the layer("DV") bind collateral so
 // the production main module carries no trace ports or registers; the formal
@@ -336,6 +353,13 @@ object DitDah32Module
     val io = summon[Interface[DitDah32IO]]
     val probe = summon[Interface[DitDah32Probe]]
 
+    // Channel locals keep the architecture method under the JVM 64 KB cap.
+    val axiAw = io.axi.aw
+    val axiW  = io.axi.w
+    val axiB  = io.axi.b
+    val axiAr = io.axi.ar
+    val axiR  = io.axi.r
+
     given Ref[Clock] = io.clock
     given Ref[Reset] = io.reset
 
@@ -555,28 +579,28 @@ object DitDah32Module
 
     fetchRequest := stateRun | stateStraddle
     fetchArValid := fetchRequest & !fetchOutstanding
-    fetchArFire := fetchArValid & io.axi_arready
+    fetchArFire := fetchArValid & axiAr.ready
     fetchAcceptsResponse := fetchOutstanding | fetchArFire
-    fetchResponseFire := fetchAcceptsResponse & io.axi_rvalid
-    fetchResponseError := fetchResponseFire & (io.axi_rresp =/= 0.U(2))
+    fetchResponseFire := fetchAcceptsResponse & axiR.valid
+    fetchResponseError := fetchResponseFire & (axiR.bits.resp =/= 0.U(2))
     fetchResponseOk := fetchResponseFire & !fetchResponseError
     instrReady := fetchResponseOk
-    instrRdata := io.axi_rdata.asBits
+    instrRdata := axiR.bits.data.asBits
 
     loadArValid := stateLoad & !memOutstanding
-    loadArFire := loadArValid & io.axi_arready
+    loadArFire := loadArValid & axiAr.ready
     loadAcceptsResponse := stateLoad & (memOutstanding | loadArFire)
-    loadResponseFire := loadAcceptsResponse & io.axi_rvalid
-    loadResponseError := loadResponseFire & (io.axi_rresp =/= 0.U(2))
+    loadResponseFire := loadAcceptsResponse & axiR.valid
+    loadResponseError := loadResponseFire & (axiR.bits.resp =/= 0.U(2))
     loadResponseOk := loadResponseFire & !loadResponseError
     storeAwValid := stateStore & !storeAwDone
     storeWValid := stateStore & !storeWDone
-    storeAwFire := storeAwValid & io.axi_awready
-    storeWFire := storeWValid & io.axi_wready
+    storeAwFire := storeAwValid & axiAw.ready
+    storeWFire := storeWValid & axiW.ready
     storeBothDone := (storeAwDone | storeAwFire) & (storeWDone | storeWFire)
     val storeComplete = stateStore & storeBothDone
-    storeResponseFire := storeComplete & io.axi_bvalid
-    storeResponseError := storeResponseFire & (io.axi_bresp =/= 0.U(2))
+    storeResponseFire := storeComplete & axiB.valid
+    storeResponseError := storeResponseFire & (axiB.bits.resp =/= 0.U(2))
     storeResponseOk := storeResponseFire & !storeResponseError
 
     lowerHalfwordBits := instrRdata.bits(1, 0)
@@ -959,9 +983,9 @@ object DitDah32Module
     )
 
     irqMip := (
-      io.irq_software.?(8.U(parameter.xlen), 0.U(parameter.xlen)) +
-      io.irq_timer.?(0x80.U(parameter.xlen), 0.U(parameter.xlen)) +
-      io.irq_external.?(0x800.U(parameter.xlen), 0.U(parameter.xlen))
+      io.irq.software.?(8.U(parameter.xlen), 0.U(parameter.xlen)) +
+      io.irq.timer.?(0x80.U(parameter.xlen), 0.U(parameter.xlen)) +
+      io.irq.external.?(0x800.U(parameter.xlen), 0.U(parameter.xlen))
     ).asBits.bits(parameter.xlen - 1, 0)
     irqEnabledMask := (csrMie & irqMip).bits(parameter.xlen - 1, 0)
     irqSoftwareEnabled := irqEnabledMask.bit(CsrBits.IRQ_SOFTWARE)
@@ -1084,18 +1108,18 @@ object DitDah32Module
         storeBe := 0xf.U(4)
       }
     }
-    loadByte := io.axi_rdata.asBits.bits(7, 0)
+    loadByte := axiR.bits.data.asBits.bits(7, 0)
     when(memAddrReg.asBits.bits(1, 0) === 1.B(2)) {
-      loadByte := io.axi_rdata.asBits.bits(15, 8)
+      loadByte := axiR.bits.data.asBits.bits(15, 8)
     }
     when(memAddrReg.asBits.bits(1, 0) === 2.B(2)) {
-      loadByte := io.axi_rdata.asBits.bits(23, 16)
+      loadByte := axiR.bits.data.asBits.bits(23, 16)
     }
     when(memAddrReg.asBits.bits(1, 0) === 3.B(2)) {
-      loadByte := io.axi_rdata.asBits.bits(31, 24)
+      loadByte := axiR.bits.data.asBits.bits(31, 24)
     }
-    loadHalf := memAddrReg.asBits.bit(1).?(io.axi_rdata.asBits.bits(31, 16), io.axi_rdata.asBits.bits(15, 0))
-    loadWdata := io.axi_rdata.asBits
+    loadHalf := memAddrReg.asBits.bit(1).?(axiR.bits.data.asBits.bits(31, 16), axiR.bits.data.asBits.bits(15, 0))
+    loadWdata := axiR.bits.data.asBits
     when(memFunct3Reg === 0.U(3)) {
       loadWdata := loadByte.bit(7).?(0xffffff.B(24), 0.B(24)) ## loadByte
     }
@@ -1361,22 +1385,22 @@ object DitDah32Module
       execNextPc := csrMepc
     }
 
-    io.axi_awvalid := storeAwValid
-    io.axi_awaddr  := (memAddrReg.asBits.bits(parameter.xlen - 1, 2) ## 0.B(2)).asUInt
-    io.axi_awprot  := 2.U(3)
-    io.axi_wvalid  := storeWValid
-    io.axi_wdata   := memStoreDataReg.asUInt
-    io.axi_wstrb   := memStoreBeReg
-    io.axi_bready  := storeComplete
-    io.axi_arvalid := loadArValid | fetchArValid
-    io.axi_araddr  := stateLoad.?((memAddrReg.asBits.bits(parameter.xlen - 1, 2) ## 0.B(2)).asUInt, instrAddr)
-    io.axi_arprot  := stateLoad.?(2.U(3), 6.U(3))
-    io.axi_rready  := loadAcceptsResponse | fetchAcceptsResponse
+    axiAw.valid := storeAwValid
+    axiAw.bits.addr  := (memAddrReg.asBits.bits(parameter.xlen - 1, 2) ## 0.B(2)).asUInt
+    axiAw.bits.prot  := 2.U(3)
+    axiW.valid  := storeWValid
+    axiW.bits.data   := memStoreDataReg.asUInt
+    axiW.bits.strb   := memStoreBeReg
+    axiB.ready  := storeComplete
+    axiAr.valid := loadArValid | fetchArValid
+    axiAr.bits.addr  := stateLoad.?((memAddrReg.asBits.bits(parameter.xlen - 1, 2) ## 0.B(2)).asUInt, instrAddr)
+    axiAr.bits.prot  := stateLoad.?(2.U(3), 6.U(3))
+    axiR.ready  := loadAcceptsResponse | fetchAcceptsResponse
 
-    io.irq_pending := irqIndividuallyPending
-    io.trap      := stateTrap | trapEventReg
-    io.core_busy := stateRun | stateStraddle | stateLoad | stateStore | stateIrq
-    io.core_sleep := stateSleep
+    io.irq.pending := irqIndividuallyPending
+    io.status.trap      := stateTrap | trapEventReg
+    io.status.busy := stateRun | stateStraddle | stateLoad | stateStore | stateIrq
+    io.status.sleep := stateSleep
 
     when(stateReset) {
       state := CoreState.RUN.U(3)
@@ -1777,7 +1801,7 @@ object DitDah32Module
           traceMemAddrReg := (memAddrReg.asBits.bits(parameter.xlen - 1, 2) ## 0.B(2)).asUInt
           traceMemRmaskReg := loadMemMask
           traceMemWmaskReg := 0.U(4)
-          traceMemRdataReg := io.axi_rdata
+          traceMemRdataReg := axiR.bits.data
           traceMemWdataReg := 0.U(parameter.xlen)
           traceTrapReg := false.B
           traceTrapCauseReg := 0.U(4)
