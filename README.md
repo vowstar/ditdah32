@@ -12,15 +12,15 @@ Out-of-scope: RV32I 32-register mode, M/A/F/D/B/V extensions, caches, MMU, PMP, 
 
 Process: TSMC 16FFCLL, 9-track (BWP16P90CPD), Calibre-clean LVS and DRC signoff.
 
-Area: 14.5 kGE, 2254 um^2 standard cell (5687 combinational and 861 flops).
+Area: 14.3 kGE, 2219 um^2 standard cell (5534 combinational and 861 flops).
 
 | Corner | Fmax | Dynamic (CoreMark) | Leakage |
 | --- | ---: | ---: | ---: |
-| SS 0.72 V 125 C, signoff | 391 MHz | 0.66 uW/MHz | 10.0 uW |
-| TT 0.80 V 25 C, typical | 556 MHz | 0.80 uW/MHz | 0.7 uW |
-| TT 0.55 V 25 C, near-threshold | 180 MHz | 0.35 uW/MHz | 0.4 uW |
+| SS 0.72 V 125 C, signoff | 314 MHz | 0.63 uW/MHz | 6.2 uW |
+| TT 0.80 V 25 C, typical | 455 MHz | 0.76 uW/MHz | 0.4 uW |
+| TT 0.55 V 25 C, near-threshold | 146 MHz | 0.33 uW/MHz | 0.2 uW |
 
-Post-layout STA at typical RC; register-to-register timing closes, residual hold is on AXI input paths only (an integration-time budget). Power from CoreMark activity, about 0.8 pJ/cycle at 0.80 V.
+Post-layout STA at typical RC; the worst path is AXI-input to register (an integration-time budget). Power from CoreMark activity, about 0.76 pJ/cycle at 0.80 V.
 
 RV32EC has no hardware multiply or divide. Benchmark numbers are RTL cycle-accurate and frequency-normalised, not EEMBC-certified.
 
