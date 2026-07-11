@@ -8,6 +8,12 @@ In-scope: RV32E with Zca compressed, `Zicsr`, direct M-mode traps, `MRET`, WFI, 
 
 Out-of-scope: RV32I 32-register mode, M/A/F/D/B/V extensions, caches, MMU, PMP, debug, vectored traps, delegation, user and supervisor modes.
 
+## Architecture
+
+[![DitDah32 microarchitecture](doc/ditdah32_microarchitecture.drawio.svg)](doc/microarchitecture.md)
+
+See `doc/microarchitecture.md` for the pipeline and unit contracts.
+
 ## Results
 
 Process: TSMC 16FFCLL, 9-track (BWP16P90CPD), Calibre-clean LVS and DRC signoff.

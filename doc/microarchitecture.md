@@ -1,5 +1,7 @@
 # DitDah32 Microarchitecture
 
+![DitDah32 microarchitecture](ditdah32_microarchitecture.drawio.svg)
+
 ## Overview
 
 DitDah32 is a two-stage in-order RV32EC core:
@@ -45,11 +47,8 @@ The core keeps a small compact internal request/response shape:
   valid/ready port.
 
 This keeps AXI timing, response, and future interconnect details out of the
-decode and execute logic. The structure keeps IF and LSU
-separate inside the core, but follows PicoRV32's integration style by exposing a
-single external memory master. T1 and open AXI muxes are used as references for
-explicit AXI channel separation and traceable memory verification, not for
-vector LSU or crossbar complexity.
+decode and execute logic. IF and LSU remain separate inside the core while
+sharing one external memory master.
 
 ## IF Stage
 

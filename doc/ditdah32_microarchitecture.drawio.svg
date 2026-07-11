@@ -1,0 +1,644 @@
+<svg host="65bd71144e" xmlns="http://www.w3.org/2000/svg" style="background: transparent; background-color: transparent;" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="1524px" height="819px" viewBox="-0.5 -0.5 1524 819" content="&lt;mxfile&gt;&lt;diagram id=&quot;ditdah32&quot; name=&quot;DitDah32&quot;&gt;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&lt;/diagram&gt;&lt;/mxfile&gt;">
+    <defs/>
+    <g>
+        <g data-cell-id="0">
+            <g data-cell-id="1">
+                <g data-cell-id="title">
+                    <g>
+                        <rect x="337" y="0" width="760" height="30" fill="none" stroke="none" pointer-events="all"/>
+                    </g>
+                    <g>
+                        <g fill="#282828" font-family="&quot;Helvetica&quot;" font-weight="bold" text-anchor="middle" font-size="18px" style="fill: rgb(40, 40, 40);">
+                            <text x="716.5" y="22.5">
+                                DitDah32 — RV32EC Core Microarchitecture
+                            </text>
+                        </g>
+                    </g>
+                </g>
+                <g data-cell-id="fsm">
+                    <g>
+                        <rect x="253" y="52" width="826" height="84" fill="#d5c4a1" stroke="#7c6f64" pointer-events="all" style="fill: rgb(213, 196, 161); stroke: rgb(124, 111, 100);"/>
+                    </g>
+                    <g>
+                        <g fill="#282828" font-family="&quot;Helvetica&quot;" font-weight="bold" text-anchor="middle" font-size="12px" style="fill: rgb(40, 40, 40);">
+                            <text x="665.5" y="91.5">
+                                Control FSM
+                            </text>
+                            <text x="665.5" y="105.5">
+                                RESET · RUN · STRADDLE · LOAD · STORE · TRAP · IRQ · SLEEP
+                            </text>
+                        </g>
+                    </g>
+                </g>
+                <g data-cell-id="isu">
+                    <g>
+                        <rect x="1141" y="52" width="211" height="230" fill="#e4d7b4" stroke="#a89984" pointer-events="all" style="fill: rgb(228, 215, 180); stroke: rgb(168, 153, 132);"/>
+                    </g>
+                    <g>
+                        <g fill="#282828" font-family="&quot;Helvetica&quot;" font-weight="bold" text-anchor="middle" font-size="12px" style="fill: rgb(40, 40, 40);">
+                            <text x="1246" y="164.5">
+                                Interrupt &amp; Status Unit
+                            </text>
+                            <text x="1246" y="178.5">
+                                MIP / MIE trap cause vector
+                            </text>
+                        </g>
+                    </g>
+                </g>
+                <g data-cell-id="npc">
+                    <g>
+                        <path d="M 45 329 L 60.2 245 L 105.8 245 L 121 329 Z" fill="#e7dcc3" stroke="#7c6f64" stroke-miterlimit="10" transform="rotate(90,83,287)" pointer-events="all" style="fill: rgb(231, 220, 195); stroke: rgb(124, 111, 100);"/>
+                    </g>
+                    <g>
+                        <g fill="#282828" font-family="&quot;Helvetica&quot;" font-weight="bold" text-anchor="middle" font-size="12px" style="fill: rgb(40, 40, 40);">
+                            <text x="82.5" y="291.5">
+                                next PC
+                            </text>
+                        </g>
+                    </g>
+                </g>
+                <g data-cell-id="pc">
+                    <g>
+                        <rect x="145" y="259" width="92" height="56" fill="#bcd3d2" stroke="#458588" pointer-events="all" style="fill: rgb(188, 211, 210); stroke: rgb(69, 133, 136);"/>
+                    </g>
+                    <g>
+                        <g fill="#282828" font-family="&quot;Helvetica&quot;" font-weight="bold" text-anchor="middle" font-size="12px" style="fill: rgb(40, 40, 40);">
+                            <text x="190.5" y="291.5">
+                                PC
+                            </text>
+                        </g>
+                    </g>
+                </g>
+                <g data-cell-id="if">
+                    <g>
+                        <rect x="258" y="259" width="158" height="56" fill="#bcd3d2" stroke="#458588" pointer-events="all" style="fill: rgb(188, 211, 210); stroke: rgb(69, 133, 136);"/>
+                    </g>
+                    <g>
+                        <g fill="#282828" font-family="&quot;Helvetica&quot;" font-weight="bold" text-anchor="middle" font-size="12px" style="fill: rgb(40, 40, 40);">
+                            <text x="336.5" y="291.5">
+                                Instruction Fetch
+                            </text>
+                        </g>
+                    </g>
+                </g>
+                <g data-cell-id="dec">
+                    <g>
+                        <rect x="465" y="259" width="168" height="56" fill="#bcd3d2" stroke="#458588" pointer-events="all" style="fill: rgb(188, 211, 210); stroke: rgb(69, 133, 136);"/>
+                    </g>
+                    <g>
+                        <g fill="#282828" font-family="&quot;Helvetica&quot;" font-weight="bold" text-anchor="middle" font-size="12px" style="fill: rgb(40, 40, 40);">
+                            <text x="548.5" y="291.5">
+                                Decode + RVC Expand
+                            </text>
+                        </g>
+                    </g>
+                </g>
+                <g data-cell-id="rf">
+                    <g>
+                        <rect x="689" y="206" width="118" height="152" fill="#d9d6a0" stroke="#98971a" pointer-events="all" style="fill: rgb(217, 214, 160); stroke: rgb(152, 151, 26);"/>
+                    </g>
+                    <g>
+                        <g fill="#282828" font-family="&quot;Helvetica&quot;" font-weight="bold" text-anchor="middle" font-size="12px" style="fill: rgb(40, 40, 40);">
+                            <text x="747.5" y="279.5">
+                                Register File
+                            </text>
+                            <text x="747.5" y="293.5">
+                                16 × 32 (x1–x15)
+                            </text>
+                        </g>
+                    </g>
+                </g>
+                <g data-cell-id="alu">
+                    <g>
+                        <rect x="895" y="322" width="188" height="96" fill="#f2c9a0" stroke="#d65d0e" pointer-events="all" style="fill: rgb(242, 201, 160); stroke: rgb(214, 93, 14);"/>
+                    </g>
+                    <g>
+                        <g fill="#282828" font-family="&quot;Helvetica&quot;" font-weight="bold" text-anchor="middle" font-size="12px" style="fill: rgb(40, 40, 40);">
+                            <text x="988.5" y="367.5">
+                                ALU
+                            </text>
+                            <text x="988.5" y="381.5">
+                                add · sub · shift logic · compare
+                            </text>
+                        </g>
+                    </g>
+                </g>
+                <g data-cell-id="lsu">
+                    <g>
+                        <rect x="1141" y="413" width="125" height="56" fill="#e2c2d0" stroke="#b16286" pointer-events="all" style="fill: rgb(226, 194, 208); stroke: rgb(177, 98, 134);"/>
+                    </g>
+                    <g>
+                        <g fill="#282828" font-family="&quot;Helvetica&quot;" font-weight="bold" text-anchor="middle" font-size="12px" style="fill: rgb(40, 40, 40);">
+                            <text x="1203" y="445.5">
+                                Load / Store Unit
+                            </text>
+                        </g>
+                    </g>
+                </g>
+                <g data-cell-id="wb">
+                    <g>
+                        <path d="M 1300 411 L 1319.2 341 L 1376.8 341 L 1396 411 Z" fill="#e7dcc3" stroke="#7c6f64" stroke-miterlimit="10" transform="rotate(90,1348,376)" pointer-events="all" style="fill: rgb(231, 220, 195); stroke: rgb(124, 111, 100);"/>
+                    </g>
+                    <g>
+                        <g fill="#282828" font-family="&quot;Helvetica&quot;" font-weight="bold" text-anchor="middle" font-size="12px" style="fill: rgb(40, 40, 40);">
+                            <text x="1347.5" y="380.5">
+                                WB mux
+                            </text>
+                        </g>
+                    </g>
+                </g>
+                <g data-cell-id="imm">
+                    <g>
+                        <rect x="466" y="368" width="168" height="50" fill="#bcd3d2" stroke="#458588" pointer-events="all" style="fill: rgb(188, 211, 210); stroke: rgb(69, 133, 136);"/>
+                    </g>
+                    <g>
+                        <g fill="#282828" font-family="&quot;Helvetica&quot;" font-weight="bold" text-anchor="middle" font-size="12px" style="fill: rgb(40, 40, 40);">
+                            <text x="549.5" y="397.5">
+                                Immediate Gen
+                            </text>
+                        </g>
+                    </g>
+                </g>
+                <g data-cell-id="br">
+                    <g>
+                        <rect x="894" y="454" width="190" height="64" fill="#f2c9a0" stroke="#d65d0e" pointer-events="all" style="fill: rgb(242, 201, 160); stroke: rgb(214, 93, 14);"/>
+                    </g>
+                    <g>
+                        <g fill="#282828" font-family="&quot;Helvetica&quot;" font-weight="bold" text-anchor="middle" font-size="12px" style="fill: rgb(40, 40, 40);">
+                            <text x="988.5" y="483.5">
+                                Branch / Jump
+                            </text>
+                            <text x="988.5" y="497.5">
+                                Comparator
+                            </text>
+                        </g>
+                    </g>
+                </g>
+                <g data-cell-id="csr">
+                    <g>
+                        <rect x="893" y="206" width="187" height="88" fill="#efdca2" stroke="#d79921" pointer-events="all" style="fill: rgb(239, 220, 162); stroke: rgb(215, 153, 33);"/>
+                    </g>
+                    <g>
+                        <g fill="#282828" font-family="&quot;Helvetica&quot;" font-weight="bold" text-anchor="middle" font-size="12px" style="fill: rgb(40, 40, 40);">
+                            <text x="986" y="247.5">
+                                CSR File
+                            </text>
+                            <text x="986" y="261.5">
+                                MSTATUS·MIE·MEPC
+                            </text>
+                        </g>
+                    </g>
+                </g>
+                <g data-cell-id="axi">
+                    <g>
+                        <rect x="277" y="630" width="992" height="64" fill="#c8debb" stroke="#689d6a" pointer-events="all" style="fill: rgb(200, 222, 187); stroke: rgb(104, 157, 106);"/>
+                    </g>
+                    <g>
+                        <g fill="#282828" font-family="&quot;Helvetica&quot;" font-weight="bold" text-anchor="middle" font-size="12px" style="fill: rgb(40, 40, 40);">
+                            <text x="772.5" y="659.5">
+                                AXI4-Lite Master Interface
+                            </text>
+                            <text x="772.5" y="673.5">
+                                AW · W · B · AR · R   (32-bit addr/data)
+                            </text>
+                        </g>
+                    </g>
+                </g>
+                <g data-cell-id="mem">
+                    <g>
+                        <rect x="623" y="754" width="300" height="64" fill="#edbaaa" stroke="#cc241d" pointer-events="all" style="fill: rgb(237, 186, 170); stroke: rgb(204, 36, 29);"/>
+                    </g>
+                    <g>
+                        <g fill="#282828" font-family="&quot;Helvetica&quot;" font-weight="bold" text-anchor="middle" font-size="12px" style="fill: rgb(40, 40, 40);">
+                            <text x="772.5" y="790.5">
+                                External Memory / SoC Bus
+                            </text>
+                        </g>
+                    </g>
+                </g>
+                <g data-cell-id="clk">
+                    <g>
+                        <rect x="17" y="61" width="86" height="26" fill="#f2ead0" stroke="#a89984" pointer-events="all" style="fill: rgb(242, 234, 208); stroke: rgb(168, 153, 132);"/>
+                    </g>
+                    <g>
+                        <g fill="#3c3836" font-family="&quot;Helvetica&quot;" text-anchor="middle" font-size="12px" style="fill: rgb(60, 56, 54);">
+                            <text x="59.5" y="78.5">
+                                clock
+                            </text>
+                        </g>
+                    </g>
+                </g>
+                <g data-cell-id="rst">
+                    <g>
+                        <rect x="17" y="101" width="86" height="26" fill="#f2ead0" stroke="#a89984" pointer-events="all" style="fill: rgb(242, 234, 208); stroke: rgb(168, 153, 132);"/>
+                    </g>
+                    <g>
+                        <g fill="#3c3836" font-family="&quot;Helvetica&quot;" text-anchor="middle" font-size="12px" style="fill: rgb(60, 56, 54);">
+                            <text x="59.5" y="118.5">
+                                reset
+                            </text>
+                        </g>
+                    </g>
+                </g>
+                <g data-cell-id="irqs">
+                    <g>
+                        <rect x="1407" y="52" width="116" height="24" fill="#f2ead0" stroke="#a89984" pointer-events="all" style="fill: rgb(242, 234, 208); stroke: rgb(168, 153, 132);"/>
+                    </g>
+                    <g>
+                        <g fill="#3c3836" font-family="&quot;Helvetica&quot;" text-anchor="middle" font-size="12px" style="fill: rgb(60, 56, 54);">
+                            <text x="1464.5" y="68.5">
+                                irq_software
+                            </text>
+                        </g>
+                    </g>
+                </g>
+                <g data-cell-id="irqt">
+                    <g>
+                        <rect x="1407" y="87" width="116" height="24" fill="#f2ead0" stroke="#a89984" pointer-events="all" style="fill: rgb(242, 234, 208); stroke: rgb(168, 153, 132);"/>
+                    </g>
+                    <g>
+                        <g fill="#3c3836" font-family="&quot;Helvetica&quot;" text-anchor="middle" font-size="12px" style="fill: rgb(60, 56, 54);">
+                            <text x="1464.5" y="103.5">
+                                irq_timer
+                            </text>
+                        </g>
+                    </g>
+                </g>
+                <g data-cell-id="irqe">
+                    <g>
+                        <rect x="1407" y="121" width="116" height="24" fill="#f2ead0" stroke="#a89984" pointer-events="all" style="fill: rgb(242, 234, 208); stroke: rgb(168, 153, 132);"/>
+                    </g>
+                    <g>
+                        <g fill="#3c3836" font-family="&quot;Helvetica&quot;" text-anchor="middle" font-size="12px" style="fill: rgb(60, 56, 54);">
+                            <text x="1464.5" y="137.5">
+                                irq_external
+                            </text>
+                        </g>
+                    </g>
+                </g>
+                <g data-cell-id="irqp">
+                    <g>
+                        <rect x="1407" y="156" width="116" height="24" fill="#f2ead0" stroke="#a89984" pointer-events="all" style="fill: rgb(242, 234, 208); stroke: rgb(168, 153, 132);"/>
+                    </g>
+                    <g>
+                        <g fill="#3c3836" font-family="&quot;Helvetica&quot;" text-anchor="middle" font-size="12px" style="fill: rgb(60, 56, 54);">
+                            <text x="1464.5" y="172.5">
+                                irq_pending
+                            </text>
+                        </g>
+                    </g>
+                </g>
+                <g data-cell-id="sttr">
+                    <g>
+                        <rect x="1407" y="191" width="116" height="24" fill="#f2ead0" stroke="#a89984" pointer-events="all" style="fill: rgb(242, 234, 208); stroke: rgb(168, 153, 132);"/>
+                    </g>
+                    <g>
+                        <g fill="#3c3836" font-family="&quot;Helvetica&quot;" text-anchor="middle" font-size="12px" style="fill: rgb(60, 56, 54);">
+                            <text x="1464.5" y="207.5">
+                                status_trap
+                            </text>
+                        </g>
+                    </g>
+                </g>
+                <g data-cell-id="stbu">
+                    <g>
+                        <rect x="1407" y="225" width="116" height="24" fill="#f2ead0" stroke="#a89984" pointer-events="all" style="fill: rgb(242, 234, 208); stroke: rgb(168, 153, 132);"/>
+                    </g>
+                    <g>
+                        <g fill="#3c3836" font-family="&quot;Helvetica&quot;" text-anchor="middle" font-size="12px" style="fill: rgb(60, 56, 54);">
+                            <text x="1464.5" y="241.5">
+                                status_busy
+                            </text>
+                        </g>
+                    </g>
+                </g>
+                <g data-cell-id="stsl">
+                    <g>
+                        <rect x="1407" y="260" width="116" height="24" fill="#f2ead0" stroke="#a89984" pointer-events="all" style="fill: rgb(242, 234, 208); stroke: rgb(168, 153, 132);"/>
+                    </g>
+                    <g>
+                        <g fill="#3c3836" font-family="&quot;Helvetica&quot;" text-anchor="middle" font-size="12px" style="fill: rgb(60, 56, 54);">
+                            <text x="1464.5" y="276.5">
+                                status_sleep
+                            </text>
+                        </g>
+                    </g>
+                </g>
+                <g data-cell-id="e_npc_pc">
+                    <g>
+                        <path d="M 125 287 L 136.88 287" fill="none" stroke="#3c3836" stroke-miterlimit="10" pointer-events="stroke" style="stroke: rgb(60, 56, 54);"/>
+                        <path d="M 143.88 287 L 136.88 290.5 L 136.88 283.5 Z" fill="#3c3836" stroke="#3c3836" stroke-miterlimit="10" pointer-events="all" style="fill: rgb(60, 56, 54); stroke: rgb(60, 56, 54);"/>
+                    </g>
+                </g>
+                <g data-cell-id="e_pc_if">
+                    <g>
+                        <path d="M 237 287 L 249.88 287" fill="none" stroke="#3c3836" stroke-miterlimit="10" pointer-events="stroke" style="stroke: rgb(60, 56, 54);"/>
+                        <path d="M 256.88 287 L 249.88 290.5 L 249.88 283.5 Z" fill="#3c3836" stroke="#3c3836" stroke-miterlimit="10" pointer-events="all" style="fill: rgb(60, 56, 54); stroke: rgb(60, 56, 54);"/>
+                    </g>
+                </g>
+                <g data-cell-id="e_if_dec">
+                    <g>
+                        <path d="M 416 287 L 456.88 287" fill="none" stroke="#3c3836" stroke-miterlimit="10" pointer-events="stroke" style="stroke: rgb(60, 56, 54);"/>
+                        <path d="M 463.88 287 L 456.88 290.5 L 456.88 283.5 Z" fill="#3c3836" stroke="#3c3836" stroke-miterlimit="10" pointer-events="all" style="fill: rgb(60, 56, 54); stroke: rgb(60, 56, 54);"/>
+                    </g>
+                    <g>
+                        <g fill="#3c3836" font-family="&quot;Helvetica&quot;" text-anchor="middle" font-size="11px" style="fill: rgb(60, 56, 54);">
+                            <text x="433.5" y="283">
+                                instr
+                            </text>
+                        </g>
+                    </g>
+                </g>
+                <g data-cell-id="e_dec_rf">
+                    <g>
+                        <path d="M 633 281.4 L 680.88 281.83" fill="none" stroke="#3c3836" stroke-miterlimit="10" pointer-events="stroke" style="stroke: rgb(60, 56, 54);"/>
+                        <path d="M 687.88 281.98 L 680.81 285.33 L 680.96 278.33 Z" fill="#3c3836" stroke="#3c3836" stroke-miterlimit="10" pointer-events="all" style="fill: rgb(60, 56, 54); stroke: rgb(60, 56, 54);"/>
+                    </g>
+                    <g>
+                        <g fill="#3c3836" font-family="&quot;Helvetica&quot;" text-anchor="middle" font-size="11px" style="fill: rgb(60, 56, 54);">
+                            <text x="654.5" y="277.4">
+                                rs1/rs2
+                            </text>
+                        </g>
+                    </g>
+                </g>
+                <g data-cell-id="e_dec_imm">
+                    <g>
+                        <path d="M 549 315 L 549.61 357.77" fill="none" stroke="#3c3836" stroke-width="2" stroke-miterlimit="10" pointer-events="stroke" style="stroke: rgb(60, 56, 54);"/>
+                        <path d="M 549.92 365.77 L 545.62 357.92 L 553.61 357.62 Z" fill="#3c3836" stroke="#3c3836" stroke-width="2" stroke-miterlimit="10" pointer-events="all" style="fill: rgb(60, 56, 54); stroke: rgb(60, 56, 54);"/>
+                    </g>
+                </g>
+                <g data-cell-id="e_rf_alu">
+                    <g>
+                        <path d="M 807 274.4 L 874 274.4 L 874 355.6 L 886.88 355.6" fill="none" stroke="#3c3836" stroke-miterlimit="10" pointer-events="stroke" style="stroke: rgb(60, 56, 54);"/>
+                        <path d="M 893.88 355.6 L 886.88 359.1 L 886.88 352.1 Z" fill="#3c3836" stroke="#3c3836" stroke-miterlimit="10" pointer-events="all" style="fill: rgb(60, 56, 54); stroke: rgb(60, 56, 54);"/>
+                    </g>
+                    <g>
+                        <g fill="#3c3836" font-family="&quot;Helvetica&quot;" text-anchor="middle" font-size="11px" style="fill: rgb(60, 56, 54);">
+                            <text x="830.5" y="269.4">
+                                rs1/rs2
+                            </text>
+                        </g>
+                    </g>
+                </g>
+                <g data-cell-id="e_imm_alu">
+                    <g>
+                        <path d="M 634 393 L 886.88 393.97" fill="none" stroke="#3c3836" stroke-miterlimit="10" pointer-events="stroke" style="stroke: rgb(60, 56, 54);"/>
+                        <path d="M 893.88 394 L 886.87 397.47 L 886.9 390.47 Z" fill="#3c3836" stroke="#3c3836" stroke-miterlimit="10" pointer-events="all" style="fill: rgb(60, 56, 54); stroke: rgb(60, 56, 54);"/>
+                    </g>
+                    <g>
+                        <g fill="#3c3836" font-family="&quot;Helvetica&quot;" text-anchor="middle" font-size="11px" style="fill: rgb(60, 56, 54);">
+                            <text x="655.53" y="388.08">
+                                imm
+                            </text>
+                        </g>
+                    </g>
+                </g>
+                <g data-cell-id="e_rf_br">
+                    <g>
+                        <path d="M 807 320 L 832 320 L 832 388.76 C 838.5 388.76 838.5 398.76 832 398.76 L 832 398.76 L 832 473.2 L 885.88 473.2" fill="none" stroke="#3c3836" stroke-miterlimit="10" pointer-events="stroke" style="stroke: rgb(60, 56, 54);"/>
+                        <path d="M 892.88 473.2 L 885.88 476.7 L 885.88 469.7 Z" fill="#3c3836" stroke="#3c3836" stroke-miterlimit="10" pointer-events="all" style="fill: rgb(60, 56, 54); stroke: rgb(60, 56, 54);"/>
+                    </g>
+                </g>
+                <g data-cell-id="e_alu_lsu">
+                    <g>
+                        <path d="M 1083 394 L 1112 394 L 1112 441 L 1132.88 441" fill="none" stroke="#3c3836" stroke-miterlimit="10" pointer-events="stroke" style="stroke: rgb(60, 56, 54);"/>
+                        <path d="M 1139.88 441 L 1132.88 444.5 L 1132.88 437.5 Z" fill="#3c3836" stroke="#3c3836" stroke-miterlimit="10" pointer-events="all" style="fill: rgb(60, 56, 54); stroke: rgb(60, 56, 54);"/>
+                    </g>
+                    <g>
+                        <g fill="#3c3836" font-family="&quot;Helvetica&quot;" text-anchor="middle" font-size="11px" style="fill: rgb(60, 56, 54);">
+                            <text x="1140.5" y="405">
+                                addr/data
+                            </text>
+                        </g>
+                    </g>
+                </g>
+                <g data-cell-id="e_alu_wb">
+                    <g>
+                        <path d="M 1082.81 376.05 L 1304.88 376" fill="none" stroke="#3c3836" stroke-miterlimit="10" pointer-events="stroke" style="stroke: rgb(60, 56, 54);"/>
+                        <path d="M 1311.88 376 L 1304.88 379.5 L 1304.88 372.5 Z" fill="#3c3836" stroke="#3c3836" stroke-miterlimit="10" pointer-events="all" style="fill: rgb(60, 56, 54); stroke: rgb(60, 56, 54);"/>
+                    </g>
+                    <g>
+                        <g fill="#3c3836" font-family="&quot;Helvetica&quot;" text-anchor="middle" font-size="11px" style="fill: rgb(60, 56, 54);">
+                            <text x="1128.31" y="372.04">
+                                exec
+                            </text>
+                        </g>
+                    </g>
+                </g>
+                <g data-cell-id="e_lsu_wb">
+                    <g>
+                        <path d="M 1266 441 L 1292 441 L 1292 399 L 1304.88 399" fill="none" stroke="#3c3836" stroke-miterlimit="10" pointer-events="stroke" style="stroke: rgb(60, 56, 54);"/>
+                        <path d="M 1311.88 399 L 1304.88 402.5 L 1304.88 395.5 Z" fill="#3c3836" stroke="#3c3836" stroke-miterlimit="10" pointer-events="all" style="fill: rgb(60, 56, 54); stroke: rgb(60, 56, 54);"/>
+                    </g>
+                    <g>
+                        <g fill="#3c3836" font-family="&quot;Helvetica&quot;" text-anchor="middle" font-size="11px" style="fill: rgb(60, 56, 54);">
+                            <text x="1276.5" y="405">
+                                load
+                            </text>
+                        </g>
+                    </g>
+                </g>
+                <g data-cell-id="e_csr_wb">
+                    <g>
+                        <path d="M 1080 272 L 1110 272 L 1110 313 L 1293 313 L 1293 354 L 1304.88 353.99" fill="none" stroke="#3c3836" stroke-miterlimit="10" pointer-events="stroke" style="stroke: rgb(60, 56, 54);"/>
+                        <path d="M 1311.88 353.98 L 1304.89 357.49 L 1304.88 350.49 Z" fill="#3c3836" stroke="#3c3836" stroke-miterlimit="10" pointer-events="all" style="fill: rgb(60, 56, 54); stroke: rgb(60, 56, 54);"/>
+                    </g>
+                    <g>
+                        <g fill="#3c3836" font-family="&quot;Helvetica&quot;" text-anchor="middle" font-size="11px" style="fill: rgb(60, 56, 54);">
+                            <text x="1124.5" y="307">
+                                csr
+                            </text>
+                        </g>
+                    </g>
+                </g>
+                <g data-cell-id="e_wb_rf">
+                    <g>
+                        <path d="M 1383 376 L 1401 376 L 1401 533 L 748 533 L 748 398.44 C 754.5 398.44 754.5 388.44 748 388.44 L 748 388.44 L 748 366.12" fill="none" stroke="#3c3836" stroke-miterlimit="10" pointer-events="stroke" style="stroke: rgb(60, 56, 54);"/>
+                        <path d="M 748 359.12 L 751.5 366.12 L 744.5 366.12 Z" fill="#3c3836" stroke="#3c3836" stroke-miterlimit="10" pointer-events="all" style="fill: rgb(60, 56, 54); stroke: rgb(60, 56, 54);"/>
+                    </g>
+                    <g>
+                        <g fill="#3c3836" font-family="&quot;Helvetica&quot;" text-anchor="middle" font-size="11px" style="fill: rgb(60, 56, 54);">
+                            <text x="814.5" y="528">
+                                wb_data
+                            </text>
+                        </g>
+                    </g>
+                </g>
+                <g data-cell-id="e_br_npc">
+                    <g>
+                        <path d="M 1084 486 L 1112 486 L 1112 528 C 1118.5 528 1118.5 538 1112 538 L 1112 538 L 1112 569 L 83.6 569 L 83.51 326.2" fill="none" stroke="#3c3836" stroke-miterlimit="10" pointer-events="stroke" style="stroke: rgb(60, 56, 54);"/>
+                        <path d="M 83.5 319.2 L 87.01 326.2 L 80.01 326.2 Z" fill="#3c3836" stroke="#3c3836" stroke-miterlimit="10" pointer-events="all" style="fill: rgb(60, 56, 54); stroke: rgb(60, 56, 54);"/>
+                    </g>
+                    <g>
+                        <g fill="#3c3836" font-family="&quot;Helvetica&quot;" text-anchor="middle" font-size="11px" style="fill: rgb(60, 56, 54);">
+                            <text x="520.5" y="561">
+                                branch / jump target
+                            </text>
+                        </g>
+                    </g>
+                </g>
+                <g data-cell-id="e_isu_npc">
+                    <g>
+                        <path d="M 1299.25 282 L 1299.4 300 L 1456 300 L 1456 602 L 7 602 L 7 287 L 32.88 287" fill="none" stroke="#3c3836" stroke-miterlimit="10" pointer-events="stroke" style="stroke: rgb(60, 56, 54);"/>
+                        <path d="M 39.88 287 L 32.88 290.5 L 32.88 283.5 Z" fill="#3c3836" stroke="#3c3836" stroke-miterlimit="10" pointer-events="all" style="fill: rgb(60, 56, 54); stroke: rgb(60, 56, 54);"/>
+                    </g>
+                    <g>
+                        <g fill="#3c3836" font-family="&quot;Helvetica&quot;" text-anchor="middle" font-size="11px" style="fill: rgb(60, 56, 54);">
+                            <text x="686.1" y="598">
+                                trap vector
+                            </text>
+                        </g>
+                    </g>
+                </g>
+                <g data-cell-id="e_if_axi">
+                    <g>
+                        <path d="M 337 315 L 337 562.5 C 345.45 562.5 345.45 575.5 337 575.5 L 337 575.5 L 337 595.5 C 345.45 595.5 345.45 608.5 337 608.5 L 337 608.5 L 337 615.7" fill="none" stroke="#427b58" stroke-width="2.5" stroke-miterlimit="10" pointer-events="stroke" style="stroke: rgb(66, 123, 88);"/>
+                        <path d="M 337 624.2 L 332.75 615.7 L 341.25 615.7 Z" fill="#427b58" stroke="#427b58" stroke-width="2.5" stroke-miterlimit="10" pointer-events="all" style="fill: rgb(66, 123, 88); stroke: rgb(66, 123, 88);"/>
+                    </g>
+                    <g>
+                        <g fill="#3c3836" font-family="&quot;Helvetica&quot;" text-anchor="middle" font-size="11px" style="fill: rgb(60, 56, 54);">
+                            <text x="357.5" y="461">
+                                AR / R
+                            </text>
+                        </g>
+                    </g>
+                </g>
+                <g data-cell-id="e_lsu_axi">
+                    <g>
+                        <path d="M 1203.5 469 L 1203.32 526.5 C 1211.77 526.53 1211.73 539.53 1203.28 539.5 L 1203.28 539.5 L 1203.1 595.5 C 1211.55 595.53 1211.51 608.53 1203.06 608.5 L 1203.06 608.5 L 1203.09 617.71" fill="none" stroke="#427b58" stroke-width="2.5" stroke-miterlimit="10" pointer-events="stroke" style="stroke: rgb(66, 123, 88);"/>
+                        <path d="M 1203.02 626.21 L 1198.84 617.67 L 1207.34 617.74 Z" fill="#427b58" stroke="#427b58" stroke-width="2.5" stroke-miterlimit="10" pointer-events="all" style="fill: rgb(66, 123, 88); stroke: rgb(66, 123, 88);"/>
+                    </g>
+                    <g>
+                        <g fill="#3c3836" font-family="&quot;Helvetica&quot;" text-anchor="middle" font-size="11px" style="fill: rgb(60, 56, 54);">
+                            <text x="1250.02" y="492.94">
+                                AW·W·B / AR·R
+                            </text>
+                        </g>
+                    </g>
+                </g>
+                <g data-cell-id="e_axi_mem">
+                    <g>
+                        <path d="M 773 694 L 773 742.7" fill="none" stroke="#427b58" stroke-width="2.5" stroke-miterlimit="10" pointer-events="stroke" style="stroke: rgb(66, 123, 88);"/>
+                        <path d="M 773 751.2 L 768.75 742.7 L 777.25 742.7 Z" fill="#427b58" stroke="#427b58" stroke-width="2.5" stroke-miterlimit="10" pointer-events="all" style="fill: rgb(66, 123, 88); stroke: rgb(66, 123, 88);"/>
+                    </g>
+                </g>
+                <g data-cell-id="e_clk">
+                    <g>
+                        <path d="M 103 74 L 249.65 73.04" fill="none" stroke="#076678" stroke-width="1.5" stroke-miterlimit="10" stroke-dasharray="9 6" pointer-events="stroke" style="stroke: rgb(7, 102, 120);"/>
+                        <path d="M 243.87 76.87 L 251.32 73.02 L 243.77 69.37" fill="none" stroke="#076678" stroke-width="1.5" stroke-miterlimit="10" pointer-events="all" style="stroke: rgb(7, 102, 120);"/>
+                    </g>
+                </g>
+                <g data-cell-id="e_rst">
+                    <g>
+                        <path d="M 103 114 L 249.65 114.96" fill="none" stroke="#076678" stroke-width="1.5" stroke-miterlimit="10" stroke-dasharray="9 6" pointer-events="stroke" style="stroke: rgb(7, 102, 120);"/>
+                        <path d="M 243.77 118.63 L 251.32 114.98 L 243.87 111.13" fill="none" stroke="#076678" stroke-width="1.5" stroke-miterlimit="10" pointer-events="all" style="stroke: rgb(7, 102, 120);"/>
+                    </g>
+                </g>
+                <g data-cell-id="e_fsm_dec">
+                    <g>
+                        <path d="M 549 137 L 549 255.65" fill="none" stroke="#076678" stroke-width="1.5" stroke-miterlimit="10" stroke-dasharray="9 6" pointer-events="stroke" style="stroke: rgb(7, 102, 120);"/>
+                        <path d="M 545.25 249.82 L 549 257.32 L 552.75 249.82" fill="none" stroke="#076678" stroke-width="1.5" stroke-miterlimit="10" pointer-events="all" style="stroke: rgb(7, 102, 120);"/>
+                    </g>
+                    <g>
+                        <g fill="#076678" font-family="&quot;Helvetica&quot;" text-anchor="middle" font-size="11px" style="fill: rgb(7, 102, 120);">
+                            <text x="568.5" y="197">
+                                control
+                            </text>
+                        </g>
+                    </g>
+                </g>
+                <g data-cell-id="e_fsm_isu">
+                    <g>
+                        <path d="M 1079 94 L 1137.86 94.7" fill="none" stroke="#076678" stroke-width="1.5" stroke-miterlimit="10" stroke-dasharray="9 6" pointer-events="stroke" style="stroke: rgb(7, 102, 120);"/>
+                        <path d="M 1131.94 98.3 L 1139.53 94.74 L 1132.13 90.8" fill="none" stroke="#076678" stroke-width="1.5" stroke-miterlimit="10" pointer-events="all" style="stroke: rgb(7, 102, 120);"/>
+                    </g>
+                </g>
+                <g data-cell-id="e_csr_isu">
+                    <g>
+                        <path d="M 1081 224 L 1137.65 224.47" fill="none" stroke="#076678" stroke-width="1.5" stroke-miterlimit="10" stroke-dasharray="9 6" pointer-events="stroke" style="stroke: rgb(7, 102, 120);"/>
+                        <path d="M 1131.79 228.17 L 1139.32 224.49 L 1131.85 220.67" fill="none" stroke="#076678" stroke-width="1.5" stroke-miterlimit="10" pointer-events="all" style="stroke: rgb(7, 102, 120);"/>
+                    </g>
+                </g>
+                <g data-cell-id="e_irqs">
+                    <g>
+                        <path d="M 1407 64 L 1355.78 64.17" fill="none" stroke="#076678" stroke-width="1.5" stroke-miterlimit="10" stroke-dasharray="9 6" pointer-events="stroke" style="stroke: rgb(7, 102, 120);"/>
+                        <path d="M 1361.57 60.38 L 1354.1 64.18 L 1361.62 67.88" fill="none" stroke="#076678" stroke-width="1.5" stroke-miterlimit="10" pointer-events="all" style="stroke: rgb(7, 102, 120);"/>
+                    </g>
+                </g>
+                <g data-cell-id="e_irqt">
+                    <g>
+                        <path d="M 1407 99 L 1355.56 98.93" fill="none" stroke="#076678" stroke-width="1.5" stroke-miterlimit="10" stroke-dasharray="9 6" pointer-events="stroke" style="stroke: rgb(7, 102, 120);"/>
+                        <path d="M 1361.4 95.2 L 1353.89 98.92 L 1361.38 102.7" fill="none" stroke="#076678" stroke-width="1.5" stroke-miterlimit="10" pointer-events="all" style="stroke: rgb(7, 102, 120);"/>
+                    </g>
+                </g>
+                <g data-cell-id="e_irqe">
+                    <g>
+                        <path d="M 1407 133 L 1355.99 133.37" fill="none" stroke="#076678" stroke-width="1.5" stroke-miterlimit="10" stroke-dasharray="9 6" pointer-events="stroke" style="stroke: rgb(7, 102, 120);"/>
+                        <path d="M 1361.75 129.53 L 1354.31 133.39 L 1361.87 137.03" fill="none" stroke="#076678" stroke-width="1.5" stroke-miterlimit="10" pointer-events="all" style="stroke: rgb(7, 102, 120);"/>
+                    </g>
+                </g>
+                <g data-cell-id="e_irqp">
+                    <g>
+                        <path d="M 1352.63 168.38 L 1403.65 168.05" fill="none" stroke="#076678" stroke-width="1.5" stroke-miterlimit="10" stroke-dasharray="9 6" pointer-events="stroke" style="stroke: rgb(7, 102, 120);"/>
+                        <path d="M 1397.88 171.88 L 1405.32 168.02 L 1397.77 164.38" fill="none" stroke="#076678" stroke-width="1.5" stroke-miterlimit="10" pointer-events="all" style="stroke: rgb(7, 102, 120);"/>
+                    </g>
+                </g>
+                <g data-cell-id="e_sttr">
+                    <g>
+                        <path d="M 1352.42 203.11 L 1403.65 203.02" fill="none" stroke="#076678" stroke-width="1.5" stroke-miterlimit="10" stroke-dasharray="9 6" pointer-events="stroke" style="stroke: rgb(7, 102, 120);"/>
+                        <path d="M 1397.85 206.82 L 1405.32 203.01 L 1397.8 199.32" fill="none" stroke="#076678" stroke-width="1.5" stroke-miterlimit="10" pointer-events="all" style="stroke: rgb(7, 102, 120);"/>
+                    </g>
+                </g>
+                <g data-cell-id="e_stbu">
+                    <g>
+                        <path d="M 1351.79 236.92 L 1403.65 237" fill="none" stroke="#076678" stroke-width="1.5" stroke-miterlimit="10" stroke-dasharray="9 6" pointer-events="stroke" style="stroke: rgb(7, 102, 120);"/>
+                        <path d="M 1397.82 240.75 L 1405.32 237 L 1397.82 233.25" fill="none" stroke="#076678" stroke-width="1.5" stroke-miterlimit="10" pointer-events="all" style="stroke: rgb(7, 102, 120);"/>
+                    </g>
+                </g>
+                <g data-cell-id="e_stsl">
+                    <g>
+                        <path d="M 1352.21 271.88 L 1403.65 272" fill="none" stroke="#076678" stroke-width="1.5" stroke-miterlimit="10" stroke-dasharray="9 6" pointer-events="stroke" style="stroke: rgb(7, 102, 120);"/>
+                        <path d="M 1397.82 275.75 L 1405.32 272 L 1397.82 268.25" fill="none" stroke="#076678" stroke-width="1.5" stroke-miterlimit="10" pointer-events="all" style="stroke: rgb(7, 102, 120);"/>
+                    </g>
+                </g>
+                <g data-cell-id="lg">
+                    <g>
+                        <rect x="17" y="741" width="78" height="72" fill="none" stroke="none" pointer-events="all"/>
+                    </g>
+                    <g>
+                        <g fill="#504945" font-family="&quot;Helvetica&quot;" font-size="11px" style="fill: rgb(80, 73, 69);">
+                            <text x="18.5" y="768">
+                                • data
+                            </text>
+                            <text x="18.5" y="781">
+                                • control (FSM)
+                            </text>
+                            <text x="18.5" y="794">
+                                • memory bus
+                            </text>
+                        </g>
+                    </g>
+                </g>
+                <g data-cell-id="2">
+                    <g>
+                        <rect x="101" y="741" width="37" height="72" fill="none" stroke="none" pointer-events="all"/>
+                    </g>
+                    <g>
+                        <g fill="#504945" font-family="&quot;Helvetica&quot;" font-size="11px" style="fill: rgb(80, 73, 69);">
+                            <text x="102.5" y="768">
+                                ——
+                            </text>
+                            <text x="102.5" y="781">
+                                - - - -
+                            </text>
+                            <text x="102.5" y="794">
+                                ━━
+                            </text>
+                        </g>
+                    </g>
+                </g>
+            </g>
+        </g>
+    </g>
+</svg>
