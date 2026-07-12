@@ -52,6 +52,21 @@ endmodule
 """
 
 
+JTAG_HEADER = """
+module DitDah32(
+  input clock,
+  input jtag_tck,
+  input jtag_tms,
+  input jtag_tdi,
+  output jtag_tdo,
+  input jtag_trstN
+);
+  DitDah32JtagDtm dtm();
+  DitDah32DebugModule dm();
+endmodule
+"""
+
+
 def test_main_module_rejects_trace_ports_in_verification_build():
     # The trace surface lives in the DV bind collateral, so the main module
     # must be trace-free even when verification collateral is expected.
@@ -104,3 +119,35 @@ endmodule
 
     assert result["status"] == "fail"
     assert result["missing"] == ["Core top-level exposes direct RVFI ports: rvfi_valid"]
+
+
+def test_jtag_build_requires_complete_interface_and_modules():
+    result = trace_config_audit.check_module_text(
+        JTAG_HEADER, expect_trace=False, expect_jtag=True
+    )
+
+    assert result["status"] == "pass"
+    assert all(result["jtag_ports"].values())
+    assert result["debug_modules"] == ["DitDah32DebugModule", "DitDah32JtagDtm"]
+
+
+def test_non_jtag_build_rejects_debug_surface():
+    result = trace_config_audit.check_module_text(
+        JTAG_HEADER, expect_trace=False, expect_jtag=False
+    )
+
+    assert result["status"] == "fail"
+    assert any("Non-JTAG build exposes ports" in item for item in result["missing"])
+    assert any("Non-JTAG build contains debug modules" in item for item in result["missing"])
+
+
+def test_jtag_collateral_tracks_filelist(tmp_path):
+    for module in trace_config_audit.JTAG_MODULES:
+        (tmp_path / f"{module}.sv").write_text("module x; endmodule\n", encoding="utf-8")
+    (tmp_path / "filelist.f").write_text(
+        "\n".join(f"{module}.sv" for module in trace_config_audit.JTAG_MODULES) + "\n",
+        encoding="utf-8",
+    )
+
+    assert trace_config_audit.check_jtag_collateral(tmp_path, True)["status"] == "pass"
+    assert trace_config_audit.check_jtag_collateral(tmp_path, False)["status"] == "fail"

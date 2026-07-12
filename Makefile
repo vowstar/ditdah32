@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Huang Rui <vowstar@gmail.com>
 # SPDX-License-Identifier: MIT
 
-.PHONY: audit-ci-action-refs audit-ci-github-auth audit-ci-publish-readiness audit-ci-remote audit-ci-remote-preflight audit-completion audit-gaps audit-tools audit-trace-config build build-trace bench bench-score ci-remote-closure ci-remote-dispatch ci-remote-publish coverage formal signoff-coverage test test-model test-isa test-scripts test-isa-rtl verify verify-ci-smoke verify-compliance verify-iss verify-riscv-dv verify-rvfi verify-rvfi-lite verify-sail-highmem verify-sail-matrix verify-sail-smoke verify-smoke verify-rtl verify-signoff verify-spike-highmem verify-spike-rv32e-strict verify-spike-smoke verify-spike-matrix clean
+.PHONY: audit-ci-action-refs audit-ci-github-auth audit-ci-publish-readiness audit-ci-remote audit-ci-remote-preflight audit-completion audit-gaps audit-jtag-ppa audit-tools audit-trace-config build build-jtag build-trace bench bench-score ci-remote-closure ci-remote-dispatch ci-remote-publish coverage formal formal-jtag signoff-coverage test test-jtag test-model test-isa test-scripts test-isa-rtl verify verify-ci-smoke verify-compliance verify-iss verify-riscv-dv verify-rvfi verify-rvfi-lite verify-sail-highmem verify-sail-matrix verify-sail-smoke verify-smoke verify-rtl verify-signoff verify-spike-highmem verify-spike-rv32e-strict verify-spike-smoke verify-spike-matrix clean
 
 BENCH_FREQ_MHZ ?= 100
 BENCH_COREMARK_ITERATIONS ?= 200
@@ -48,6 +48,9 @@ audit-gaps: audit-tools
 audit-trace-config:
 	python3 scripts/trace_config_audit.py --out-dir result/verification
 
+audit-jtag-ppa: audit-trace-config
+	python3 scripts/jtag_ppa_audit.py --out-dir result/verification
+
 audit-completion:
 	python3 scripts/completion_audit.py --out-dir result/verification
 
@@ -56,6 +59,9 @@ build:
 
 build-trace:
 	build-ditdah32 --trace
+
+build-jtag:
+	OUTPUT_DIR=result/jtag build-ditdah32 --no-trace --jtag
 
 bench:
 	python3 scripts/build_benchmarks.py --out-dir result/bench
@@ -71,6 +77,9 @@ coverage:
 
 formal: build-trace
 	python3 scripts/run_formal.py --depth 24
+
+formal-jtag: build-jtag
+	python3 scripts/run_jtag_formal.py --depth 32
 
 verify-rvfi-lite: build-trace
 	python3 scripts/run_rvfi_lite.py --depth 24
@@ -95,6 +104,9 @@ test-isa:
 
 test-scripts:
 	python3 -m pytest test/test_scripts
+
+test-jtag: build-jtag
+	$(MAKE) -C test/test_jtag
 
 test-isa-rtl: test-isa build-trace
 	python3 scripts/rv32ec_isa_regress.py --out-dir result/isa
@@ -159,3 +171,4 @@ verify-rtl:
 clean:
 	rm -rf result
 	$(MAKE) -C test/test_ditdah32 clean || true
+	$(MAKE) -C test/test_jtag clean || true

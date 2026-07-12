@@ -4,7 +4,8 @@ DitDah32 verification uses the standard RV32 methodology: directed cocotb
 RTL tests, RTL/ISS trace comparison against Spike and Sail, riscv-formal
 RVFI proofs, RISCV-DV constrained-random programs, a local compliance
 signature gate against Sail, and Verilator HDL coverage. Gaps that are not
-closed by the local campaign are tracked in `doc/open_gaps.md`.
+closed by the local campaign are tracked in `doc/open_gaps.md`. Optional JTAG
+debug adds direct protocol tests, OpenOCD/GDB interoperability, and bounded proofs.
 
 ## Commands
 
@@ -19,14 +20,17 @@ make verify-rvfi           # riscv-formal RV32EC implemented profile
 make verify-iss            # composite Spike + Sail external ISS closure
 make verify-riscv-dv       # constrained-random programs vs reference trace
 make verify-compliance     # Sail-driven compliance signature gate
-make verify-signoff        # everything above + Verilator coverage + gap audit
+make test-jtag             # direct JTAG and OpenOCD/GDB flows
+make formal-jtag           # JTAG DTM and DM protocol proofs
+make verify-signoff        # local CPU/JTAG campaign + coverage + gap audit
 make audit-gaps            # write result/verification/open_gaps.{json,md}
-make audit-trace-config    # verify production omits trace pins
+make audit-trace-config    # audit all trace and JTAG combinations
+make audit-jtag-ppa        # generic synthesis baseline and optional cost
 ```
 
 `build-ditdah32` is the default production build and omits architectural
 `trace_*` and direct `rvfi_*` top-level ports. Targets that need trace pins
-depend on `build-trace`.
+depend on `build-trace`. JTAG ports and logic exist only with `enableJtag=true`.
 
 ## Pass Criteria
 
@@ -52,9 +56,13 @@ depend on `build-trace`.
 - Compliance signature gate: every test under `test/compliance/tests/`
   compiles for RV32E, runs on Sail to produce a reference signature, and
   matches the DUT's AXI-RAM signature word for word.
-- `make audit-gaps` reports closed for every gap recorded in
-  `doc/open_gaps.md`.
-- Working tree must not be dirty after `make verify-signoff`.
+- JTAG debug passes IDCODE/DTMCS/DMI, halt/resume/reset, GPR/CSR access,
+  8/16/32-bit memory access, abstract errors, EBREAK, interrupt-masked step,
+  OpenOCD/GDB, TAP/DTM formal, and DM formal checks.
+- The four trace/JTAG configurations build independently; no-JTAG synthesis
+  remains at the recorded production cell-count and logic-depth baseline.
+- `make audit-gaps` reproduces the statuses in `doc/open_gaps.md`.
+- `make verify-signoff` introduces no tracked working-tree changes.
 
 ## Reports
 
@@ -65,11 +73,13 @@ depend on `build-trace`.
 | `result/coverage/` | instruction + illegal-class coverage |
 | `result/axi/` | AXI backpressure stress |
 | `result/formal/rvfi/rvfi.json` | riscv-formal RV32EC implemented profile |
+| `result/formal/jtag/jtag.json` | JTAG DTM and DM bounded proofs |
 | `result/iss/` | Spike + Sail differential |
 | `result/riscv_dv/riscv_dv.json` | RISCV-DV regression |
 | `result/compliance/compliance.json` | compliance signature gate |
 | `result/bench/benchmark_scores.{json,md}` | local RTL timing-marker estimate |
 | `result/verification/open_gaps.{json,md}` | gap audit |
+| `result/verification/{trace_config,jtag_ppa}.{json,md}` | configuration and PPA proxy audits |
 | `result/verification/completion_audit.{json,md}` | aggregated checklist |
 
 ## Benchmarks

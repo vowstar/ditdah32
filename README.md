@@ -4,9 +4,11 @@ DitDah32 is a signed-off RV32EC control core for always-on power domains and PHY
 
 ## Scope
 
-In-scope: RV32E with Zca compressed, `Zicsr`, direct M-mode traps, `MRET`, WFI, machine software/timer/external interrupts, single-beat AXI4-Lite memory boundary.
+In-scope: RV32E with Zca compressed, `Zicsr`, direct M-mode traps, `MRET`, WFI, machine software/timer/external interrupts, single-beat AXI4-Lite memory boundary, and optional single-hart RISC-V Debug v1.0 over JTAG.
 
-Out-of-scope: RV32I 32-register mode, M/A/F/D/B/V extensions, caches, MMU, PMP, debug, vectored traps, delegation, user and supervisor modes.
+Out-of-scope: RV32I 32-register mode, M/A/F/D/B/V extensions, caches, MMU, PMP, debug authentication, triggers, Program Buffer, system bus access, multi-hart debug, vectored traps, delegation, user and supervisor modes.
+
+JTAG is disabled by default; enabling it exposes machine state and memory without authentication, so production integration must secure or disable the port.
 
 ## Architecture
 
@@ -16,7 +18,7 @@ See `doc/microarchitecture.md` for the pipeline and unit contracts.
 
 ## Results
 
-Process: TSMC 16FFCLL, 9-track (BWP16P90CPD), Calibre-clean LVS and DRC signoff.
+Process: TSMC 16FFCLL, 9-track (BWP16P90CPD), Calibre-clean LVS and DRC signoff for the default no-JTAG configuration.
 
 Area: 14.3 kGE, 2219 um^2 standard cell (5534 combinational and 861 flops).
 
@@ -40,10 +42,14 @@ RV32EC has no hardware multiply or divide. Benchmark numbers are RTL cycle-accur
 ## Build
 
 ```bash
+nix build .#default --no-link  # production package beside local reports
 nix develop
 build-ditdah32             # production, no trace ports
-build-ditdah32 --trace     # verification build with trace ports
+build-ditdah32 --trace     # verification trace collateral
+build-ditdah32 --jtag      # optional JTAG debug configuration
 ```
+
+The default IDCODE is an integration placeholder; set `jtagIdcode` to an assigned value before hardware release.
 
 ## Test
 
@@ -51,6 +57,7 @@ build-ditdah32 --trace     # verification build with trace ports
 make test-model            # Python reference model
 make test-isa              # ISA regression artifacts
 cd test/test_ditdah32 && make   # cocotb RTL suite
+make test-jtag             # direct JTAG plus OpenOCD/GDB
 ```
 
 ## Verify
@@ -59,7 +66,9 @@ cd test/test_ditdah32 && make   # cocotb RTL suite
 make verify-smoke          # fast push/PR gate
 make verify-rvfi           # riscv-formal RV32EC implemented profile
 make verify-compliance     # Sail-driven compliance signature gate
-make verify-signoff        # full local signoff (ISS, RVFI, RISCV-DV, coverage)
+make verify-signoff        # local CPU/JTAG campaign; compliance is separate
+make formal-jtag            # JTAG DTM and DM protocol proofs
+make audit-jtag-ppa         # disabled baseline and optional area proxy
 make audit-gaps            # gap audit, writes result/verification/open_gaps.{json,md}
 ```
 
@@ -69,8 +78,10 @@ Reports land under `result/`. See `doc/verification.md` for methodology and pass
 
 Independent RV32EC implementation. Verification and tooling build on open-source projects whose methodology influenced this work.
 
-- [Ibex](https://github.com/lowRISC/ibex): RTL and ISS trace-comparison verification methodology, bounded WFI and formal-pattern style.
+- [Ibex](https://github.com/lowRISC/ibex) and its demo system: core/debug boundary, OpenOCD integration, and verification methodology.
 - [PicoRV32](https://github.com/YosysHQ/picorv32): practical Verilog testbench, RVFI and riscv-formal integration as a reference pattern.
+- [Rocket Chip](https://github.com/chipsalliance/rocket-chip): configurable JTAG DTM handshake and reset behavior.
+- [RISC-V Debug Specification](https://github.com/riscv/riscv-debug-spec): JTAG DTM, DMI, Debug Module, abstract command, and run-control contracts.
 - [riscv-formal](https://github.com/YosysHQ/riscv-formal): RVFI specification, property-group framework, and the NERV reference implementation.
 - [T1](https://github.com/chipsalliance/t1): Nix-driven artifact, build, run, and check separation.
 - [riscv-arch-test](https://github.com/riscv-non-isa/riscv-arch-test): compile, run, dump, compare signature convention.

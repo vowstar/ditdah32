@@ -257,9 +257,29 @@ SIGNOFF_STEPS = [
         "Run the external riscv-formal RV32EC instruction, CSR, bus, interrupt, liveness, ordering, and fault property groups.",
     ),
     Step(
+        "jtag_build",
+        ["make", "build-jtag"],
+        "Generate the optional JTAG-enabled RTL configuration.",
+    ),
+    Step(
+        "jtag_formal",
+        ["python3", "scripts/run_jtag_formal.py", "--depth", "32"],
+        "Prove JTAG DTM and debug module protocol invariants.",
+    ),
+    Step(
+        "jtag_cocotb",
+        ["make", "-C", "test/test_jtag"],
+        "Run direct JTAG and OpenOCD/GDB debug flows.",
+    ),
+    Step(
         "trace_config_audit",
         ["python3", "scripts/trace_config_audit.py", "--out-dir", "result/verification"],
-        "Build and audit production no-trace and verification trace-enabled RTL configurations.",
+        "Build and audit all trace and JTAG configuration combinations.",
+    ),
+    Step(
+        "jtag_ppa_proxy",
+        ["python3", "scripts/jtag_ppa_audit.py", "--out-dir", "result/verification"],
+        "Check the disabled synthesis baseline and report optional JTAG cost.",
     ),
     Step(
         "signoff_coverage",

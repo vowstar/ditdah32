@@ -15,6 +15,7 @@ object DitDah32Module
     extends Generator[DitDah32Parameter, DitDah32Layers, DitDah32IO, DitDah32Probe]
     with DitDah32Csr
     with DitDah32Gpr
+    with DitDah32DebugHart
     with DitDah32Rvc:
 
   override def moduleName(parameter: DitDah32Parameter): String = "DitDah32"
@@ -32,6 +33,31 @@ object DitDah32Module
 
     given Ref[Clock] = io.clock
     given Ref[Reset] = io.reset
+
+    val debugDtm = Option.when(parameter.enableJtag)(DitDah32JtagDtm.instantiate(parameter))
+    val debugModule = Option.when(parameter.enableJtag)(DitDah32DebugModule.instantiate(parameter))
+
+    io.jtag.foreach { jtag =>
+      val dtm = debugDtm.get
+      val dm  = debugModule.get
+      dtm.io.tck := jtag.tck
+      dtm.io.reset := io.reset
+      dtm.io.tms := jtag.tms
+      dtm.io.tdi := jtag.tdi
+      dtm.io.trstN := jtag.trstN
+      jtag.tdo := dtm.io.tdo
+
+      dm.io.clock := io.clock
+      dm.io.reset := io.reset
+      dm.io.requestToggle := dtm.io.requestToggle
+      dm.io.requestAddr := dtm.io.requestAddr
+      dm.io.requestData := dtm.io.requestData
+      dm.io.requestOp := dtm.io.requestOp
+      dtm.io.responseToggle := dm.io.responseToggle
+      dtm.io.responseAddr := dm.io.responseAddr
+      dtm.io.responseData := dm.io.responseData
+      dtm.io.responseOp := dm.io.responseOp
+    }
 
     val pc       = RegInit(parameter.resetVector.U(parameter.xlen))
     val instrReg = RegInit(0.B(parameter.xlen))
@@ -76,9 +102,28 @@ object DitDah32Module
     val x14 = RegInit(0.U(parameter.xlen))
     val x15 = RegInit(0.U(parameter.xlen))
 
+    val debugDcsr = Option.when(parameter.enableJtag)(RegInit(0x40000003.U(parameter.xlen)))
+    val debugDpc = Option.when(parameter.enableJtag)(RegInit(parameter.resetVector.U(parameter.xlen)))
+    val debugStepActive = Option.when(parameter.enableJtag)(RegInit(false.B))
+    val debugResumeAck = Option.when(parameter.enableJtag)(RegInit(false.B))
+    val debugResetAck = Option.when(parameter.enableJtag)(RegInit(false.B))
+    val debugResetActive = Option.when(parameter.enableJtag)(RegInit(false.B))
+    val debugAbstractDone = Option.when(parameter.enableJtag)(RegInit(false.B))
+    val debugAbstractError = Option.when(parameter.enableJtag)(RegInit(AbstractCommandError.NONE.U(3)))
+    val debugAbstractRdata = Option.when(parameter.enableJtag)(RegInit(0.U(parameter.xlen)))
+    val debugMemBusy = Option.when(parameter.enableJtag)(RegInit(false.B))
+    val debugMemWrite = Option.when(parameter.enableJtag)(RegInit(false.B))
+    val debugMemAddr = Option.when(parameter.enableJtag)(RegInit(0.U(parameter.xlen)))
+    val debugMemSize = Option.when(parameter.enableJtag)(RegInit(0.U(3)))
+    val debugMemData = Option.when(parameter.enableJtag)(RegInit(0.U(parameter.xlen)))
+    val debugMemOutstanding = Option.when(parameter.enableJtag)(RegInit(false.B))
+    val debugMemAwDone = Option.when(parameter.enableJtag)(RegInit(false.B))
+    val debugMemWDone = Option.when(parameter.enableJtag)(RegInit(false.B))
+
     val stateReset        = Wire(Bool())
     val stateRun          = Wire(Bool())
     val stateTrap         = Wire(Bool())
+    val stateDebug        = Wire(Bool())
     val stateStraddle     = Wire(Bool())
     val stateLoad         = Wire(Bool())
     val stateStore        = Wire(Bool())
@@ -235,19 +280,51 @@ object DitDah32Module
     val loadMisaligned    = Wire(Bool())
     val storeMisaligned   = Wire(Bool())
     val execWaitsForMem   = Wire(Bool())
+    val debugHaltReq      = Wire(Bool())
+    val debugResumeReq    = Wire(Bool())
+    val debugResetReq     = Wire(Bool())
+    val debugHaltOnResetReq = Wire(Bool())
+    val debugEbreak       = Wire(Bool())
 
     stateReset := state === CoreState.RESET.U(3)
     stateRun   := state === CoreState.RUN.U(3)
     stateTrap  := state === CoreState.TRAP.U(3)
+    stateDebug := false.B
     stateStraddle := state === CoreState.STRADDLE.U(3)
     stateLoad  := state === CoreState.LOAD.U(3)
     stateStore := state === CoreState.STORE.U(3)
     stateSleep := state === CoreState.SLEEP.U(3)
     stateIrq   := state === CoreState.IRQ.U(3)
+    debugHaltReq := false.B
+    debugResumeReq := false.B
+    debugResetReq := false.B
+    debugHaltOnResetReq := false.B
+    debugEbreak := false.B
+    if parameter.enableJtag then
+      val dm = debugModule.get
+      stateTrap := false.B
+      stateDebug := state === CoreState.DEBUG.U(3)
+      debugHaltReq := dm.io.haltReq
+      debugResumeReq := dm.io.resumeReq
+      debugResetReq := dm.io.resetReq
+      debugHaltOnResetReq := dm.io.haltOnResetReq
+      debugResumeAck.get := false.B
+      debugResetAck.get := false.B
+      debugAbstractDone.get := false.B
+      debugAbstractError.get := AbstractCommandError.NONE.U(3)
+      dm.io.hartHalted := stateDebug
+      dm.io.hartRunning := !stateDebug & !debugResetReq
+      dm.io.hartResumeAck := debugResumeAck.get
+      dm.io.hartResetAck := debugResetAck.get
+      dm.io.abstractDone := debugAbstractDone.get
+      dm.io.abstractError := debugAbstractError.get
+      dm.io.abstractRdata := debugAbstractRdata.get
     pcHalfwordHigh := pc.asBits.bit(1)
     pcFetchAddr := (pc.asBits.bits(parameter.xlen - 1, 2) ## 0.B(2)).asUInt
 
     fetchRequest := stateRun | stateStraddle
+    if parameter.enableJtag then
+      fetchRequest := (stateRun | stateStraddle) & !debugHaltReq
     fetchArValid := fetchRequest & !fetchOutstanding
     fetchArFire := fetchArValid & axiAr.ready
     fetchAcceptsResponse := fetchOutstanding | fetchArFire
@@ -288,6 +365,8 @@ object DitDah32Module
     straddledInstr := instrRdata.bits(15, 0) ## straddleLowHalfword
 
     commitNow := (stateStraddle & instrReady) | (stateRun & instrReady & !straddled32)
+    if parameter.enableJtag then
+      commitNow := ((stateStraddle & instrReady) | (stateRun & instrReady & !straddled32)) & !debugHaltReq
     commitInstr := stateStraddle.?(straddledInstr, selectedInstr)
     commitLen := stateStraddle.?(4.U(3), instrCompressed.?(2.U(3), 4.U(3)))
     commitCompressed := commitLen === 2.U(3)
@@ -358,6 +437,8 @@ object DitDah32Module
     irqExternalEnabled := irqEnabledMask.bit(CsrBits.IRQ_EXTERNAL)
     irqIndividuallyPending := irqEnabledMask =/= 0.B(parameter.xlen)
     irqTrapPending := irqIndividuallyPending & csrMstatus.bit(CsrBits.MSTATUS_MIE)
+    if parameter.enableJtag then
+      irqTrapPending := irqIndividuallyPending & csrMstatus.bit(CsrBits.MSTATUS_MIE) & !debugStepActive.get
     irqCause := BigInt("80000007", 16).B(parameter.xlen)
     when(irqSoftwareEnabled) {
       irqCause := BigInt("80000003", 16).B(parameter.xlen)
@@ -402,6 +483,11 @@ object DitDah32Module
     postCommitIrqTimerEnabled := postCommitIrqEnabledMask.bit(CsrBits.IRQ_TIMER)
     postCommitIrqExternalEnabled := postCommitIrqEnabledMask.bit(CsrBits.IRQ_EXTERNAL)
     postCommitIrqTrapPending := (postCommitIrqEnabledMask =/= 0.B(parameter.xlen)) & postCommitMstatus.bit(CsrBits.MSTATUS_MIE)
+    if parameter.enableJtag then
+      postCommitIrqTrapPending :=
+        (postCommitIrqEnabledMask =/= 0.B(parameter.xlen)) &
+        postCommitMstatus.bit(CsrBits.MSTATUS_MIE) &
+        !debugStepActive.get
     postCommitIrqCause := BigInt("80000007", 16).B(parameter.xlen)
     when(postCommitIrqSoftwareEnabled) {
       postCommitIrqCause := BigInt("80000003", 16).B(parameter.xlen)
@@ -572,6 +658,8 @@ object DitDah32Module
     isWfi    := decodedInstr === 0x10500073.B(parameter.xlen)
     isMret   := decodedInstr === 0x30200073.B(parameter.xlen)
     isCNop   := commitCompressed & (commitInstr === 1.B(parameter.xlen))
+    if parameter.enableJtag then
+      debugEbreak := isEbreak & debugDcsr.get.asBits.bit(15)
 
     rdIllegal  := rdIndex.bit(4)
     rs1Illegal := rs1Index.bit(4)
@@ -591,6 +679,15 @@ object DitDah32Module
 
     val regAccessIllegal = (execUsesRd & rdIllegal) | (execUsesRs1 & rs1Illegal) | (execUsesRs2 & rs2Illegal)
     execTrap := (!execKnown) | csrIllegal | regAccessIllegal | loadMisaligned | storeMisaligned | isEcall | isEbreak
+    if parameter.enableJtag then
+      execTrap :=
+        (!execKnown) |
+        csrIllegal |
+        regAccessIllegal |
+        loadMisaligned |
+        storeMisaligned |
+        isEcall |
+        (isEbreak & !debugDcsr.get.asBits.bit(15))
     execTrapCause := TrapCause.NONE.U(4)
     when(!execKnown | csrIllegal) {
       execTrapCause := TrapCause.ILLEGAL.U(4)
@@ -712,7 +809,9 @@ object DitDah32Module
     // Commit-cycle outcomes: a committing instruction either enters the
     // memory phase (load/store) or retires immediately (everything else).
     val commitEntersMem = commitNow & execWaitsForMem
-    val commitNonMem    = commitNow & !execWaitsForMem
+    val commitNonMem =
+      if parameter.enableJtag then commitNow & !execWaitsForMem & !debugEbreak
+      else commitNow & !execWaitsForMem
 
     branchTaken := false.B
     when(isBranch) {
@@ -984,6 +1083,91 @@ object DitDah32Module
         }
       }
     }
+
+    if parameter.enableJtag then
+      connectDebugHart(
+        parameter,
+        io,
+        debugModule.get.io,
+        pc,
+        instrReg,
+        fetched,
+        fetchOutstanding,
+        memOutstanding,
+        storeAwDone,
+        storeWDone,
+        state,
+        straddleLowHalfword,
+        memPcReg,
+        memInstrReg,
+        memLenReg,
+        memNextPcReg,
+        memAddrReg,
+        memRdReg,
+        memFunct3Reg,
+        memStoreDataReg,
+        memStoreBeReg,
+        irqCauseReg,
+        csrMstatus,
+        csrMie,
+        csrMtvec,
+        csrMscratch,
+        csrMepc,
+        csrMcause,
+        csrMtval,
+        trapEventReg,
+        x1,
+        x2,
+        x3,
+        x4,
+        x5,
+        x6,
+        x7,
+        x8,
+        x9,
+        x10,
+        x11,
+        x12,
+        x13,
+        x14,
+        x15,
+        debugDcsr.get,
+        debugDpc.get,
+        debugStepActive.get,
+        debugResumeAck.get,
+        debugResetAck.get,
+        debugResetActive.get,
+        debugAbstractDone.get,
+        debugAbstractError.get,
+        debugAbstractRdata.get,
+        debugMemBusy.get,
+        debugMemWrite.get,
+        debugMemAddr.get,
+        debugMemSize.get,
+        debugMemData.get,
+        debugMemOutstanding.get,
+        debugMemAwDone.get,
+        debugMemWDone.get,
+        stateRun,
+        stateStraddle,
+        stateLoad,
+        stateStore,
+        stateSleep,
+        stateIrq,
+        stateDebug,
+        fetchResponseFire,
+        loadResponseOk,
+        loadResponseError,
+        storeResponseOk,
+        storeResponseError,
+        commitNow,
+        commitNonMem,
+        debugEbreak,
+        execTrap,
+        execNextPc,
+        trapVector,
+        irqMip
+      )
 
     // Architectural trace shadow. Mirrors the core retire/trap timing as a
     // pure observer; lowered into the layer("DV") bind collateral so the

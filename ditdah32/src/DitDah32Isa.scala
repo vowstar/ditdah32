@@ -6,6 +6,7 @@ object CoreState:
   val RESET:    Int = 0
   val RUN:      Int = 1
   val TRAP:     Int = 2
+  val DEBUG:    Int = 2
   val STRADDLE: Int = 3
   val LOAD:     Int = 4
   val STORE:    Int = 5

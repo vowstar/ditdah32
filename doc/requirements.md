@@ -166,6 +166,18 @@ produces one architectural trace item:
 The trace is the primary verification equivalence boundary between the RTL and
 the reference model.
 
+## Debug Configuration
+
+Production builds default to `enableJtag=false` and contain no JTAG ports or
+debug logic. `enableJtag=true` adds a five-pin JTAG DTM and one-hart Debug v1.0
+module with halt, resume, hart reset, halt-on-reset, GPR/CSR abstract access,
+8/16/32-bit Abstract Access Memory, machine-mode EBREAK, and single step.
+
+The DTM and core domains exchange one stable request or response per toggle.
+The hart enters Debug only at an instruction or completed memory boundary.
+Debug memory commands use the shared AXI-Lite master while the hart is halted.
+The optional interface has no authentication and must be secured by integration.
+
 ## Current Scaffold Requirement
 
 The current implementation establishes reset, fetch, and an EX/WB execution

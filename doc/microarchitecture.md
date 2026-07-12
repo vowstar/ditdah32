@@ -163,6 +163,14 @@ CSR state:
   CSRs.
 - ID CSRs and `misa` are read-only constants.
 
+## Optional Debug
+
+`enableJtag=true` adds a TCK-domain TAP/DTM, toggle-based DMI crossing, and a
+core-clock Debug Module. Halt waits for fetch or memory completion; abstract
+memory commands reuse the shared AXI-Lite port only while halted. DCSR/DPC,
+machine-mode EBREAK, resume, reset, halt-on-reset, and one-instruction step are
+implemented. `enableJtag=false` elaborates none of this state or interface.
+
 ## Trace Equivalence Boundary
 
 RTL and reference model equivalence is architectural trace equivalence. A trace

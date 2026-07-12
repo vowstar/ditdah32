@@ -66,6 +66,8 @@
         ditdah32Config = {
           resetVector = 0;
           enableTrace = false;
+          enableJtag = false;
+          jtagIdcode = 1;
         };
 
         # yosys-slang frontend, statically linked against vendored slang/fmt.
@@ -201,6 +203,7 @@
           JAVA_LIBRARY_PATH="${javaLibraryPath}"
           OUTPUT_DIR="''${OUTPUT_DIR:-$PWD/result}"
           ENABLE_TRACE="''${DITDAH32_ENABLE_TRACE:-${if ditdah32Config.enableTrace then "true" else "false"}}"
+          ENABLE_JTAG="''${DITDAH32_ENABLE_JTAG:-${if ditdah32Config.enableJtag then "true" else "false"}}"
 
           while [ "$#" -gt 0 ]; do
             case "$1" in
@@ -210,13 +213,21 @@
               --no-trace)
                 ENABLE_TRACE=false
                 ;;
+              --jtag)
+                ENABLE_JTAG=true
+                ;;
+              --no-jtag)
+                ENABLE_JTAG=false
+                ;;
               --help)
                 cat <<'EOF'
-Usage: build-ditdah32 [--trace|--no-trace]
+Usage: build-ditdah32 [--trace|--no-trace] [--jtag|--no-jtag]
 
 Generate DitDah32 Verilog into OUTPUT_DIR, defaulting to ./result.
 The default production build omits architectural trace ports. Use --trace
 or DITDAH32_ENABLE_TRACE=1 for RTL simulation, trace comparison, and RVFI.
+The default build omits JTAG ports and debug logic. Use --jtag or
+DITDAH32_ENABLE_JTAG=1 to generate the optional debug configuration.
 EOF
                 exit 0
                 ;;
@@ -241,32 +252,59 @@ EOF
               ;;
           esac
 
+          case "$ENABLE_JTAG" in
+            1|true|TRUE|yes|YES|on|ON)
+              ENABLE_JTAG=true
+              ;;
+            0|false|FALSE|no|NO|off|OFF)
+              ENABLE_JTAG=false
+              ;;
+            *)
+              echo "invalid DITDAH32_ENABLE_JTAG value: $ENABLE_JTAG" >&2
+              exit 2
+              ;;
+          esac
+
           mkdir -p "$OUTPUT_DIR"
+          OUTPUT_DIR=$(realpath "$OUTPUT_DIR")
 
           echo "=== Building DitDah32 with zaozi ==="
           echo "OUTPUT_DIR: $OUTPUT_DIR"
           echo "ENABLE_TRACE: $ENABLE_TRACE"
+          echo "ENABLE_JTAG: $ENABLE_JTAG"
+
+          rm -f DitDah32*.mlirbc
 
           scala-cli run \
             ${commonScalaArgs} \
+            --main-class com.vowstar.ditdah32.DitDah32Module \
             ditdah32/src \
             -- config "$OUTPUT_DIR/ditdah32_config.json" \
             --resetVector ${toString ditdah32Config.resetVector} \
-            --enableTrace "$ENABLE_TRACE"
+            --enableTrace "$ENABLE_TRACE" \
+            --enableJtag "$ENABLE_JTAG" \
+            --jtagIdcode ${toString ditdah32Config.jtagIdcode}
 
           scala-cli run \
             ${commonScalaArgs} \
+            --main-class com.vowstar.ditdah32.DitDah32Module \
             ditdah32/src \
             -- design "$OUTPUT_DIR/ditdah32_config.json"
 
-          MLIRBC_FILE=$(ls DitDah32*.mlirbc 2>/dev/null | head -1)
+          MLIRBC_FILE=$(ls DitDah32.mlirbc 2>/dev/null | head -1)
 
           if [ -z "$MLIRBC_FILE" ]; then
             echo "Error: no DitDah32 .mlirbc file generated"
             exit 1
           fi
 
-          ${pkgs.circt-install}/bin/firtool "$MLIRBC_FILE" \
+          ${pkgs.circt-install}/bin/firld DitDah32*.mlirbc \
+            --base-circuit DitDah32 \
+            --no-mangle \
+            --emit-bytecode \
+            -o DitDah32-linked.mlirbc
+
+          ${pkgs.circt-install}/bin/firtool DitDah32-linked.mlirbc \
             ${firtoolArgs} \
             --hgldd-output-dir="$OUTPUT_DIR" \
             -o "$OUTPUT_DIR"
@@ -385,6 +423,8 @@ EOF
 
         fullBuildInputs = smokeBuildInputs ++ [
           pkgs.iverilog
+          pkgs.openocd
+          pkgs.pkgsCross.riscv32-embedded.buildPackages.gdb
           pkgs.verilator
           pkgs.yosys
           yosys-slang
@@ -407,6 +447,8 @@ EOF
           pkgs.jextract-21
           pkgs.mill
           pkgs.iverilog
+          pkgs.openocd
+          pkgs.pkgsCross.riscv32-embedded.buildPackages.gdb
           pkgs.verilator
           pkgs.yosys
           yosys-slang
@@ -452,25 +494,37 @@ EOF
           cp -R ${scalaIvyCache}/cache "$COURSIER_CACHE"
           chmod -R u+w "$COURSIER_CACHE"
 
+          rm -f DitDah32*.mlirbc
+
           scala-cli run \
             --power \
             --offline \
             ${commonScalaArgs} \
+            --main-class com.vowstar.ditdah32.DitDah32Module \
             . \
             -- config "$out/ditdah32_config.json" \
             --resetVector ${toString ditdah32Config.resetVector} \
-            --enableTrace ${if ditdah32Config.enableTrace then "true" else "false"}
+            --enableTrace ${if ditdah32Config.enableTrace then "true" else "false"} \
+            --enableJtag ${if ditdah32Config.enableJtag then "true" else "false"} \
+            --jtagIdcode ${toString ditdah32Config.jtagIdcode}
 
           scala-cli run \
             --power \
             --offline \
             ${commonScalaArgs} \
+            --main-class com.vowstar.ditdah32.DitDah32Module \
             . \
             -- design "$out/ditdah32_config.json"
 
-          MLIRBC_FILE=$(ls DitDah32*.mlirbc 2>/dev/null | head -1)
+          MLIRBC_FILE=$(ls DitDah32.mlirbc 2>/dev/null | head -1)
 
-          ${pkgs.circt-install}/bin/firtool "$MLIRBC_FILE" \
+          ${pkgs.circt-install}/bin/firld DitDah32*.mlirbc \
+            --base-circuit DitDah32 \
+            --no-mangle \
+            --emit-bytecode \
+            -o DitDah32-linked.mlirbc
+
+          ${pkgs.circt-install}/bin/firtool DitDah32-linked.mlirbc \
             ${firtoolArgs} \
             --hgldd-output-dir="$out" \
             -o "$out"
