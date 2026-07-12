@@ -120,7 +120,7 @@ LEGAL_ZICSR = [
 
 CONTROL_PROFILE = [
     item("MRET", "control_profile", "system", ev("test/test_ditdah32/test_ditdah32.py", "MRET")),
-    item("WFI", "control_profile", "system", ev("test/test_ditdah32/test_ditdah32.py", "core_sleep")),
+    item("WFI", "control_profile", "system", ev("test/test_ditdah32/test_ditdah32.py", "status_sleep")),
     item("wfi_wake_without_global_mie", "control_profile", "system", ev("test/test_ditdah32/test_ditdah32.py", "wfi_wakes_without_trap_when_global_mie_is_clear")),
     item("machine_software_interrupt", "control_profile", "interrupt", ev("test/test_ditdah32/test_ditdah32.py", "MCAUSE_IRQ_SOFTWARE")),
     item("machine_timer_interrupt", "control_profile", "interrupt", ev("test/test_ditdah32/test_ditdah32.py", "MCAUSE_IRQ_TIMER")),

@@ -19,6 +19,7 @@ from rv32ec_model import RV32ECModel
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_ARTIFACTS = ("rv32e_alu", "rv32ec_compressed", "rv32ec_zicsr_wfi")
 DEFAULT_BASE = 0x8000_0000
+SPIKE_RETRY_TIMEOUT_SECONDS = 10.0
 SPIKE_LOG_RE = re.compile(
     r"^core\s+\d+:\s+\d+\s+"
     r"(?P<pc>0x[0-9a-fA-F]+)\s+"
@@ -197,6 +198,34 @@ def timeout_signal_for_trace(expected):
     return "INT"
 
 
+def run_spike_with_retry(timeout_cmd, timeout_signal, timeout_seconds, spike_args, spike_log_path, spike_stderr_path):
+    attempt_timeouts = (timeout_seconds, max(timeout_seconds, SPIKE_RETRY_TIMEOUT_SECONDS))
+    for attempt, attempt_timeout in enumerate(attempt_timeouts, start=1):
+        spike_log_path.unlink(missing_ok=True)
+        command = [
+            timeout_cmd,
+            f"--signal={timeout_signal}",
+            "--kill-after=2s",
+            f"{attempt_timeout}s",
+            *spike_args,
+        ]
+        with spike_stderr_path.open("w" if attempt == 1 else "a", encoding="utf-8") as stderr_file:
+            completed = subprocess.run(
+                command,
+                cwd=REPO_ROOT,
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL,
+                stderr=stderr_file,
+                check=False,
+            )
+        if spike_log_path.exists() and spike_log_path.stat().st_size > 0:
+            return completed, attempt
+        if completed.returncode != 124:
+            break
+
+    raise RuntimeError(f"Spike did not create a commit log after {attempt} attempt(s)")
+
+
 def compare_prefix(expected, actual, base):
     reason = unsupported_reason(expected, base)
     if reason is not None:
@@ -264,11 +293,7 @@ def run_artifact(name, isa_dir, out_dir, base, timeout_seconds, skip_unsupported
         timeout_cmd = shutil.which("timeout")
         if timeout_cmd is None:
             raise RuntimeError("missing timeout command")
-        command = [
-            timeout_cmd,
-            f"--signal={timeout_signal}",
-            "--kill-after=2s",
-            f"{effective_timeout_seconds}s",
+        spike_args = [
             "spike",
             "--isa=rv32ec_zicsr",
             "--priv=m",
@@ -277,14 +302,14 @@ def run_artifact(name, isa_dir, out_dir, base, timeout_seconds, skip_unsupported
             f"--log={spike_log_path}",
             str(elf_path),
         ]
-        with spike_stderr_path.open("w", encoding="utf-8") as stderr_file:
-            completed = subprocess.run(
-                command,
-                cwd=REPO_ROOT,
-                stdout=subprocess.DEVNULL,
-                stderr=stderr_file,
-                check=False,
-            )
+        completed, spike_attempts = run_spike_with_retry(
+            timeout_cmd,
+            timeout_signal,
+            effective_timeout_seconds,
+            spike_args,
+            spike_log_path,
+            spike_stderr_path,
+        )
         returncode = completed.returncode
         timed_out = returncode == 124
 
@@ -301,6 +326,7 @@ def run_artifact(name, isa_dir, out_dir, base, timeout_seconds, skip_unsupported
         "base": hex32(base),
         "timeout_seconds": effective_timeout_seconds,
         "timeout_signal": timeout_signal,
+        "spike_attempts": spike_attempts,
         "spike_returncode": returncode,
         "spike_timed_out": timed_out,
         "expected_trace": str(expected_path.relative_to(REPO_ROOT)),

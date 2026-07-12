@@ -5,13 +5,12 @@
 import argparse
 import json
 import shutil
-import subprocess
 import tempfile
 import time
 from dataclasses import dataclass
 from pathlib import Path
 
-from run_spike_iss_smoke import DEFAULT_BASE, build_elf, hex32, parse_spike_log, write_jsonl
+from run_spike_iss_smoke import DEFAULT_BASE, build_elf, hex32, parse_spike_log, run_spike_with_retry, write_jsonl
 from rv32ec_encode import ProgramImage, b_type, c_addi, c_cr, c_li, c_lui, c_lwsp, c_slli, c_swsp, csrrs, i_type, j_type, r_type, s_type
 from rv32ec_model import RV32ECModel
 
@@ -149,11 +148,7 @@ def run_case(case, out_dir, base, timeout_seconds):
         timeout_cmd = shutil.which("timeout")
         if timeout_cmd is None:
             raise RuntimeError("missing timeout command")
-        command = [
-            timeout_cmd,
-            "--signal=INT",
-            "--kill-after=2s",
-            f"{timeout_seconds}s",
+        spike_args = [
             "spike",
             "--isa=rv32ec_zicsr",
             "--priv=m",
@@ -162,14 +157,14 @@ def run_case(case, out_dir, base, timeout_seconds):
             f"--log={spike_log_path}",
             str(elf_path),
         ]
-        with spike_stderr_path.open("w", encoding="utf-8") as stderr_file:
-            completed = subprocess.run(
-                command,
-                cwd=REPO_ROOT,
-                stdout=subprocess.DEVNULL,
-                stderr=stderr_file,
-                check=False,
-            )
+        completed, spike_attempts = run_spike_with_retry(
+            timeout_cmd,
+            "INT",
+            timeout_seconds,
+            spike_args,
+            spike_log_path,
+            spike_stderr_path,
+        )
 
     actual = parse_spike_log(spike_log_path, base, len(case.words) * 4)
     write_jsonl(spike_path, actual)
@@ -178,6 +173,7 @@ def run_case(case, out_dir, base, timeout_seconds):
         "status": "pass" if error is None else "fail",
         "error": error,
         "duration_seconds": round(time.monotonic() - start, 3),
+        "spike_attempts": spike_attempts,
         "spike_returncode": completed.returncode,
         "spike_timed_out": completed.returncode == 124,
         "spike_log": str(spike_log_path.relative_to(REPO_ROOT)),
