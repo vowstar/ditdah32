@@ -21,6 +21,7 @@
     flake-utils.lib.eachDefaultSystem (system:
       let
         pkgsBase = zaozi.legacyPackages.${system};
+        scalaIvyCache = pkgsBase.ivy-gather ./nix/zaozi-lock.nix;
         pkgs = pkgsBase.extend (final: prev: {
           zaozi = prev.zaozi // {
             zaozi-assembly = prev.zaozi.zaozi-assembly.overrideAttrs (old: {
@@ -50,7 +51,7 @@
                 builtins.filter
                   (pkg: (pkg.name or "") != "build-ivy-cache-env")
                   (old.buildInputs or [])
-                ++ [ (pkgsBase.ivy-gather ./nix/zaozi-lock.nix) ];
+                ++ [ scalaIvyCache ];
 
               # The assembly target does not use espresso, and keeping it in
               # nativeBuildInputs makes fresh CI runners fetch an unrelated
@@ -248,16 +249,14 @@ EOF
 
           scala-cli run \
             ${commonScalaArgs} \
-            ditdah32/src/DitDah32Parameter.scala \
-            ditdah32/src/DitDah32.scala \
+            ditdah32/src \
             -- config "$OUTPUT_DIR/ditdah32_config.json" \
             --resetVector ${toString ditdah32Config.resetVector} \
             --enableTrace "$ENABLE_TRACE"
 
           scala-cli run \
             ${commonScalaArgs} \
-            ditdah32/src/DitDah32Parameter.scala \
-            ditdah32/src/DitDah32.scala \
+            ditdah32/src \
             -- design "$OUTPUT_DIR/ditdah32_config.json"
 
           MLIRBC_FILE=$(ls DitDah32*.mlirbc 2>/dev/null | head -1)
@@ -444,22 +443,29 @@ EOF
           JAVA_TOOL_OPTIONS = "--enable-preview";
         } ''
           mkdir -p $out
-          cd ${./ditdah32/src}
+          cp -R ${./ditdah32/src} source
+          chmod -R u+w source
+          cd source
 
           JAVA_LIBRARY_PATH="${javaLibraryPath}"
+          export COURSIER_CACHE="$NIX_BUILD_TOP/coursier-cache"
+          cp -R ${scalaIvyCache}/cache "$COURSIER_CACHE"
+          chmod -R u+w "$COURSIER_CACHE"
 
           scala-cli run \
+            --power \
+            --offline \
             ${commonScalaArgs} \
-            DitDah32Parameter.scala \
-            DitDah32.scala \
+            . \
             -- config "$out/ditdah32_config.json" \
             --resetVector ${toString ditdah32Config.resetVector} \
             --enableTrace ${if ditdah32Config.enableTrace then "true" else "false"}
 
           scala-cli run \
+            --power \
+            --offline \
             ${commonScalaArgs} \
-            DitDah32Parameter.scala \
-            DitDah32.scala \
+            . \
             -- design "$out/ditdah32_config.json"
 
           MLIRBC_FILE=$(ls DitDah32*.mlirbc 2>/dev/null | head -1)
@@ -468,6 +474,14 @@ EOF
             ${firtoolArgs} \
             --hgldd-output-dir="$out" \
             -o "$out"
+
+          rm -f "$out"/DitDah32_DV.sv \
+                "$out"/layers-DitDah32-DV.sv \
+                "$out"/ref_DitDah32.sv \
+                "$out"/DitDah32_DV.dd
+          ${pkgs.gnugrep}/bin/grep -v -e DitDah32_DV.sv -e layers-DitDah32-DV.sv \
+            "$out"/filelist.f > "$out"/filelist.f.tmp
+          mv "$out"/filelist.f.tmp "$out"/filelist.f
         '';
 
         apps.default = {
