@@ -10,7 +10,7 @@ test or property, command, and machine-readable evidence all agree.
 |---|---|---|
 | External ISS differential testing (Spike + Sail) | closed | `make verify-iss` |
 | RISCV-DV constrained-random regression | closed | `make verify-riscv-dv` |
-| Standard RVFI / riscv-formal | closed with limitations | `make verify-rvfi` |
+| Standard RVFI / riscv-formal | closed | `make verify-rvfi` |
 | Full AXI4 burst / ID support | closed out-of-scope | n/a |
 | Continuous integration regression | closed | `make audit-ci-remote` |
 | Certified benchmark scoring | closed as non-certified estimate | `make bench-score` |
@@ -34,11 +34,8 @@ rejected before RTL execution.
 
 ## RVFI / riscv-formal
 
-`make verify-rvfi` runs the documented DitDah32 subset of property groups
-(see `doc/verification.md` Pass Criteria). Remaining staged item: the MPIE
-swap on interrupt trap entries — the same `trapMstatus()` helper is proven
-on exception trap entries; the interrupt-entry proof is an exhaustiveness
-gap requiring a pipeline-aligned post-CSR-commit mstatus snapshot port.
+`make verify-rvfi` enables every property group in the implemented RV32EC,
+Zicsr, and M-mode direct-trap profile; no report group is disabled.
 
 ## Full AXI4
 

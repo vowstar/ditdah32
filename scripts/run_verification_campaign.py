@@ -254,7 +254,7 @@ SIGNOFF_STEPS = [
     Step(
         "rvfi_standard",
         ["python3", "scripts/run_rvfi.py", "--depth", "24"],
-        "Run the external riscv-formal consistency, selected CSR, CSR state, non-faulting RVFI_BUS, interrupt entry shape, bounded liveness, causal, hang, and illegal-instruction subsets and record disabled property groups.",
+        "Run the external riscv-formal RV32EC instruction, CSR, bus, interrupt, liveness, ordering, and fault property groups.",
     ),
     Step(
         "trace_config_audit",

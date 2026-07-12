@@ -15,7 +15,7 @@ make test-scripts          # helper-script unit tests
 make verify-smoke          # fast push/PR gate
 make verify-rtl            # full cocotb suite
 make verify-rvfi-lite      # local RVFI-lite adapter check
-make verify-rvfi           # riscv-formal RVFI subset (Spike-compatible)
+make verify-rvfi           # riscv-formal RV32EC implemented profile
 make verify-iss            # composite Spike + Sail external ISS closure
 make verify-riscv-dv       # constrained-random programs vs reference trace
 make verify-compliance     # Sail-driven compliance signature gate
@@ -45,18 +45,10 @@ depend on `build-trace`.
 - External ISS differential: Spike and Sail diff cleanly against RTL for
   all matrix entries; non-RV32E artifacts are reported skipped, not
   silently passed.
-- riscv-formal RVFI subset passes: `pc_fwd`, `pc_bwd`, `reg`, `unique`,
-  `causal`, `causal_io`, `causal_mem`, `bus_imem`, `bus_dmem`,
-  `bus_dmem_io_{read,write,order}`, `fault`, `bus_{i,d}mem_fault`,
-  `liveness_bounded`, `wfi_wake`, `interrupt_entry_shape`,
-  `trap_entry_mstatus`, `mret_exit_mstatus`, `mip_mirror`,
-  `mcause_interrupt_encoding`, `mpie_swap_exception`,
-  `csr_readonly_illegal_write`, `csr_warl_legalization`, `csrw_check` for
-  every writable M-mode CSR (`mstatus`, `mie`, `mtvec`, `mscratch`,
-  `mepc`, `mcause`, `mtval`), reserved-zero / read-only `csr_state_subset`
-  checks, plus `hang`, `ill`, and `cover`. All 62 instructions in the
-  `rv32ic` set pass instruction-semantic checks under a per-RVC-format
-  register-restrict assume.
+- riscv-formal passes all implemented-profile groups: all 62 RV32EC
+  instruction models; PC, register, order, memory, bus, and fault checks;
+  implemented CSR instruction, persistence, access, and WARL checks; complete
+  trap, MRET, and interrupt CSR transitions; bounded liveness and WFI wake.
 - Compliance signature gate: every test under `test/compliance/tests/`
   compiles for RV32E, runs on Sail to produce a reference signature, and
   matches the DUT's AXI-RAM signature word for word.
@@ -72,7 +64,7 @@ depend on `build-trace`.
 | `result/rtl_trace/isa_artifacts/` | RTL ISA matrix |
 | `result/coverage/` | instruction + illegal-class coverage |
 | `result/axi/` | AXI backpressure stress |
-| `result/formal/rvfi/rvfi.json` | riscv-formal RVFI subset |
+| `result/formal/rvfi/rvfi.json` | riscv-formal RV32EC implemented profile |
 | `result/iss/` | Spike + Sail differential |
 | `result/riscv_dv/riscv_dv.json` | RISCV-DV regression |
 | `result/compliance/compliance.json` | compliance signature gate |
@@ -91,8 +83,5 @@ post-synthesis clock timing, or long-duration benchmark stability.
 
 ## RVFI Wrapper
 
-`formal/riscv_formal/ditdah32/wrapper.sv` adapts DitDah32's `trace_*` and
-`rvfi_*` outputs to riscv-formal. The wrapper also carries inline SVA for
-the bounded WFI wake, trap-CSR invariants, read-only CSR illegal-write,
-and WARL legalization proofs, gated by per-property `DITDAH32_RVFI_*`
-defines so each runs as an independent SBY proof.
+`formal/riscv_formal/ditdah32/wrapper.sv` adapts the DV trace to RVFI and
+carries independently gated WFI, trap, interrupt, CSR access, and WARL proofs.

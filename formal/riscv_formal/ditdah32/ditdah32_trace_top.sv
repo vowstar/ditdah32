@@ -65,9 +65,15 @@ module ditdah32_trace_top (
     output        trace_trap,
     output [3:0]  trace_trap_cause,
     output [31:0] trace_mstatus,
+    output [31:0] trace_mstatus_post_commit,
     output [31:0] trace_mstatus_pre_trap,
+    output [31:0] trace_mie,
+    output [31:0] trace_mtvec,
+    output [31:0] trace_mepc,
+    output [31:0] trace_mtval,
     output [31:0] trace_mip,
-    output [31:0] trace_mcause
+    output [31:0] trace_mcause,
+    output [31:0] trace_irq_pending_mask
 );
     DitDah32 dut (
         .clock        (clock),
@@ -128,7 +134,13 @@ module ditdah32_trace_top (
     assign trace_trap            = dut.`ref_DitDah32_trace_trap;
     assign trace_trap_cause      = dut.`ref_DitDah32_trace_trap_cause;
     assign trace_mstatus         = dut.`ref_DitDah32_trace_mstatus;
+    assign trace_mstatus_post_commit = dut.`ref_DitDah32_trace_mstatus_post_commit;
     assign trace_mstatus_pre_trap = dut.`ref_DitDah32_trace_mstatus_pre_trap;
+    assign trace_mie             = dut.`ref_DitDah32_trace_mie;
+    assign trace_mtvec           = dut.`ref_DitDah32_trace_mtvec;
+    assign trace_mepc            = dut.`ref_DitDah32_trace_mepc;
+    assign trace_mtval           = dut.`ref_DitDah32_trace_mtval;
     assign trace_mip             = dut.`ref_DitDah32_trace_mip;
     assign trace_mcause          = dut.`ref_DitDah32_trace_mcause;
+    assign trace_irq_pending_mask = dut.`ref_DitDah32_trace_irq_pending_mask;
 endmodule

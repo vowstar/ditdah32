@@ -61,9 +61,15 @@ module test_ditdah32;
     wire        trace_trap;
     wire [3:0]  trace_trap_cause;
     wire [31:0] trace_mstatus;
+    wire [31:0] trace_mstatus_post_commit;
     wire [31:0] trace_mstatus_pre_trap;
+    wire [31:0] trace_mie;
+    wire [31:0] trace_mtvec;
+    wire [31:0] trace_mepc;
+    wire [31:0] trace_mtval;
     wire [31:0] trace_mip;
     wire [31:0] trace_mcause;
+    wire [31:0] trace_irq_pending_mask;
 
     initial begin
         clk = 1'b0;
@@ -143,7 +149,13 @@ module test_ditdah32;
     assign trace_trap            = u_ditdah32.dV.traceTrapReg;
     assign trace_trap_cause      = u_ditdah32.dV.traceTrapCauseReg;
     assign trace_mstatus         = u_ditdah32.dV.traceMstatusWire;
+    assign trace_mstatus_post_commit = u_ditdah32.dV.tracePostCommitMstatusReg;
     assign trace_mstatus_pre_trap = u_ditdah32.dV.tracePreTrapMstatusReg;
+    assign trace_mie             = u_ditdah32.dV.traceMieWire;
+    assign trace_mtvec           = u_ditdah32.dV.traceMtvecWire;
+    assign trace_mepc            = u_ditdah32.dV.traceMepcWire;
+    assign trace_mtval           = u_ditdah32.dV.traceMtvalWire;
     assign trace_mip             = u_ditdah32.dV.traceMipWire;
     assign trace_mcause          = u_ditdah32.dV.traceMcauseWire;
+    assign trace_irq_pending_mask = u_ditdah32.dV.traceIrqPendingMaskReg;
 endmodule

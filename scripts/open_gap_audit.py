@@ -403,10 +403,14 @@ def audit_rvfi():
         missing.append("No passing external riscv-formal report exists.")
     if rvfi_report_pass and not external_property_groups:
         missing.append("Passing RVFI report does not list enabled external property groups.")
-    if rvfi_report_pass and "csr_selected" not in external_property_groups:
-        missing.append("Passing RVFI report does not list the selected CSR property group.")
-    if rvfi_report_pass and "csr_state_subset" not in external_property_groups:
-        missing.append("Passing RVFI report does not list the CSR state subset property group.")
+    if rvfi_report_pass and "csr_instruction_semantics" not in external_property_groups:
+        missing.append("Passing RVFI report does not list CSR instruction semantics.")
+    if rvfi_report_pass and "csr_state_persistence" not in external_property_groups:
+        missing.append("Passing RVFI report does not list CSR state persistence.")
+    if rvfi_report_pass and "csr_state_invariants" not in external_property_groups:
+        missing.append("Passing RVFI report does not list CSR state invariants.")
+    if rvfi_report_pass and "csr_full" not in external_property_groups:
+        missing.append("Passing RVFI report does not list full implemented CSR closure.")
     if rvfi_report_pass and "liveness_bounded" not in external_property_groups:
         missing.append("Passing RVFI report does not list the bounded liveness property group.")
     if rvfi_report_pass and "wfi_wake" not in external_property_groups:
@@ -417,16 +421,20 @@ def audit_rvfi():
         missing.append("Passing RVFI report does not list the mret exit mstatus invariant property group.")
     if rvfi_report_pass and "mip_mirror" not in external_property_groups:
         missing.append("Passing RVFI report does not list the mip pin-mirror invariant property group.")
-    if rvfi_report_pass and "mcause_interrupt_encoding" not in external_property_groups:
-        missing.append("Passing RVFI report does not list the mcause interrupt-encoding invariant property group.")
-    if rvfi_report_pass and "mpie_swap_exception" not in external_property_groups:
-        missing.append("Passing RVFI report does not list the MPIE swap on exception trap entries property group.")
-    if rvfi_report_pass and "csr_readonly_illegal_write" not in external_property_groups:
-        missing.append("Passing RVFI report does not list the read-only CSR illegal-write trap invariant property group.")
+    if rvfi_report_pass and "interrupt_cause_priority" not in external_property_groups:
+        missing.append("Passing RVFI report does not list interrupt cause priority.")
+    if rvfi_report_pass and "mpie_swap_all_traps" not in external_property_groups:
+        missing.append("Passing RVFI report does not list the MPIE swap on all trap entries.")
+    if rvfi_report_pass and "trap_csr_side_effects" not in external_property_groups:
+        missing.append("Passing RVFI report does not list trap CSR side effects.")
+    if rvfi_report_pass and "interrupt_full_csr_side_effects" not in external_property_groups:
+        missing.append("Passing RVFI report does not list full interrupt CSR side effects.")
+    if rvfi_report_pass and "csr_access_legality" not in external_property_groups:
+        missing.append("Passing RVFI report does not list CSR access legality.")
     if rvfi_report_pass and "csr_warl_legalization" not in external_property_groups:
         missing.append("Passing RVFI report does not list the WARL per-field CSR legalization invariant property group.")
-    if rvfi_report_pass and "instruction_semantics_rv32ec_subset" not in external_property_groups:
-        missing.append("Passing RVFI report does not list the RV32EC instruction-semantic subset property group.")
+    if rvfi_report_pass and "instruction_semantics_rv32ec" not in external_property_groups:
+        missing.append("Passing RVFI report does not list RV32EC instruction semantics.")
     if rvfi_report_pass and "interrupt_entry_shape" not in external_property_groups:
         missing.append("Passing RVFI report does not list the interrupt entry shape property group.")
     for group in [
@@ -440,19 +448,15 @@ def audit_rvfi():
         "fault",
         "bus_dmem_fault",
         "bus_imem_fault",
+        "bus_dmem_io_read_fault",
+        "bus_dmem_io_write_fault",
         "hang",
         "ill",
     ]:
         if rvfi_report_pass and group not in external_property_groups:
             missing.append(f"Passing RVFI report does not list the {group} property group.")
-    if rvfi_report_pass and not disabled_property_groups:
-        missing.append("Passing RVFI report does not document disabled property groups.")
-    for group in [
-        "csr_full",
-        "interrupt_full_csr_side_effects",
-    ]:
-        if rvfi_report_pass and group not in disabled_property_groups:
-            missing.append(f"Passing RVFI report does not document the disabled {group} property group.")
+    if rvfi_report_pass and disabled_property_groups:
+        missing.append("Passing RVFI report still lists disabled property groups.")
     closed = (
         local_formal_pass
         and rvfi_lite_pass
@@ -471,18 +475,22 @@ def audit_rvfi():
         and symbiyosys_available
         and rvfi_report_pass
         and bool(external_property_groups)
-        and "csr_selected" in external_property_groups
-        and "csr_state_subset" in external_property_groups
+        and "csr_instruction_semantics" in external_property_groups
+        and "csr_state_persistence" in external_property_groups
+        and "csr_state_invariants" in external_property_groups
+        and "csr_full" in external_property_groups
         and "liveness_bounded" in external_property_groups
         and "wfi_wake" in external_property_groups
         and "trap_entry_mstatus" in external_property_groups
         and "mret_exit_mstatus" in external_property_groups
         and "mip_mirror" in external_property_groups
-        and "mcause_interrupt_encoding" in external_property_groups
-        and "mpie_swap_exception" in external_property_groups
-        and "csr_readonly_illegal_write" in external_property_groups
+        and "interrupt_cause_priority" in external_property_groups
+        and "mpie_swap_all_traps" in external_property_groups
+        and "trap_csr_side_effects" in external_property_groups
+        and "interrupt_full_csr_side_effects" in external_property_groups
+        and "csr_access_legality" in external_property_groups
         and "csr_warl_legalization" in external_property_groups
-        and "instruction_semantics_rv32ec_subset" in external_property_groups
+        and "instruction_semantics_rv32ec" in external_property_groups
         and "interrupt_entry_shape" in external_property_groups
         and all(
             group in external_property_groups
@@ -497,29 +505,25 @@ def audit_rvfi():
                 "fault",
                 "bus_dmem_fault",
                 "bus_imem_fault",
+                "bus_dmem_io_read_fault",
+                "bus_dmem_io_write_fault",
                 "hang",
                 "ill",
             ]
         )
-        and all(
-            group in disabled_property_groups
-            for group in [
-                "csr_full",
-                "interrupt_full_csr_side_effects",
-            ]
-        )
+        and not disabled_property_groups
     )
     return make_gap(
         "rvfi_riscv_formal",
         "Standard RVFI and riscv-formal integration",
-        "closed_with_limitations" if closed else "partial" if local_formal_pass and rvfi_lite_pass else "open",
+        "closed" if closed else "partial" if local_formal_pass and rvfi_lite_pass else "open",
         evidence,
         missing,
         "make verify-rvfi",
         [
             "RVFI wrapper elaborates against generated RTL.",
             "riscv-formal checks pass at documented depths.",
-            "Unsupported checks are explicitly disabled with written reasons.",
+            "All property groups for the implemented RV32EC profile are enabled.",
         ],
     )
 

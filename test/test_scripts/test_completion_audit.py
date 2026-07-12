@@ -86,7 +86,7 @@ def populate_completion_repo(tmp_path, ci_status="pass", not_closed=0, head="abc
             "gaps": [
                 closed_gap("external_iss", "closed_composite"),
                 closed_gap("riscv_dv"),
-                closed_gap("rvfi_riscv_formal", "closed_with_limitations"),
+                closed_gap("rvfi_riscv_formal"),
                 closed_gap("full_axi4", "closed_out_of_scope"),
                 ci_gap,
                 closed_gap("certified_benchmarks", "closed_non_certified"),

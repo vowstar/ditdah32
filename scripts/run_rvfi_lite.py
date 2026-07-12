@@ -41,7 +41,7 @@ LIMITATIONS = [
     "rvfi_pc_wdata is driven by trace_next_pc and the external riscv-formal subset checks PC consistency separately.",
     "rvfi_rs1/rs2 fields are driven by retired source-operand trace pins and are checked by the external riscv-formal reg group.",
     "rvfi_mem_* fields are driven by retired memory trace pins; non-faulting RVFI_BUS checks run in make verify-rvfi.",
-    "trace_csr_* fields are connected for elaboration, but RVFI-lite does not prove CSR semantics; selected CSR and CSR state subset checks run in make verify-rvfi.",
+    "trace_csr_* fields are connected for elaboration; complete implemented CSR checks run in make verify-rvfi.",
     "This check proves adapter consistency only; it does not run the external riscv-formal property suite.",
 ]
 

@@ -576,6 +576,16 @@ async def collect_trace(dut, count, max_cycles=400):
                     "csr_wdata": int(dut.trace_csr_wdata.value),
                     "trap": int(dut.trace_trap.value),
                     "cause": int(dut.trace_trap_cause.value),
+                    "mstatus": int(dut.trace_mstatus.value),
+                    "mstatus_post_commit": int(dut.trace_mstatus_post_commit.value),
+                    "mstatus_pre_trap": int(dut.trace_mstatus_pre_trap.value),
+                    "mie": int(dut.trace_mie.value),
+                    "mtvec": int(dut.trace_mtvec.value),
+                    "mepc": int(dut.trace_mepc.value),
+                    "mtval": int(dut.trace_mtval.value),
+                    "mip": int(dut.trace_mip.value),
+                    "mcause": int(dut.trace_mcause.value),
+                    "irq_pending_mask": int(dut.trace_irq_pending_mask.value),
                 }
             )
             if len(traces) == count:
@@ -1985,6 +1995,46 @@ async def zicsr_warl_mepc_low_bit_forced_zero(dut):
 
 
 @cocotb.test()
+async def interrupt_after_mstatus_csrrw_reports_aligned_csr_state(dut):
+    program_by_pc = {
+        0x00: i_type(0x40, 0, 0x0, 1),
+        0x04: csrrw(CSR_MTVEC, 1, 0),
+        0x08: i_type(MSTATUS_MIE, 0, 0x0, 2),
+        0x0C: csrrw(CSR_MIE, 2, 0),
+        0x10: csrrw(CSR_MSTATUS, 2, 0),
+        0x14: NOP,
+        0x40: csrrs(CSR_MCAUSE, 0, 3),
+    }
+    image = sparse_image((pc, pack_words([instr])) for pc, instr in program_by_pc.items())
+    await start_core(dut, image)
+    dut.irq_software.value = 1
+
+    traces = await with_timeout(collect_trace(dut, 7, max_cycles=200), 20, "us")
+    dut.irq_software.value = 0
+
+    assert_trace(traces[4], 0x10, program_by_pc[0x10])
+    assert traces[4]["mstatus_post_commit"] == MSTATUS_MPP | MSTATUS_MIE
+    assert_trace(
+        traces[5],
+        0x14,
+        0,
+        length=0,
+        trap=True,
+        cause=INTERRUPT_CAUSE,
+        next_pc=0x40,
+    )
+    assert traces[5]["mstatus_pre_trap"] == MSTATUS_MPP | MSTATUS_MIE
+    assert traces[5]["mstatus"] == MSTATUS_MPP | MSTATUS_MPIE
+    assert traces[5]["mie"] == IRQ_SOFTWARE
+    assert traces[5]["mtvec"] == 0x40
+    assert traces[5]["mepc"] == 0x14
+    assert traces[5]["mtval"] == 0
+    assert traces[5]["mcause"] == MCAUSE_IRQ_SOFTWARE
+    assert traces[5]["irq_pending_mask"] == IRQ_SOFTWARE
+    assert_trace(traces[6], 0x40, program_by_pc[0x40], rd=3, rd_wdata=MCAUSE_IRQ_SOFTWARE)
+
+
+@cocotb.test()
 async def wfi_sleeps_until_enabled_software_interrupt_and_mret_returns(dut):
     program_by_pc = {
         0x00: i_type(0x40, 0, 0x0, 1),
@@ -2380,9 +2430,12 @@ async def axi_fetch_non_okay_response_takes_recoverable_access_fault(dut):
         csr_rmask=CSR_FULL_MASK,
         csr_wmask=CSR_FULL_MASK,
         csr_wdata=1,
+        next_pc=0,
     )
     await ClockCycles(dut.clk, 1)
+    await Timer(1, unit="ns")
     assert int(dut.status_trap.value) == 1
+    assert int(dut.trace_valid.value) == 0
 
 
 @cocotb.test()
@@ -2411,9 +2464,12 @@ async def axi_load_non_okay_response_takes_recoverable_access_fault(dut):
         csr_rmask=CSR_FULL_MASK,
         csr_wmask=CSR_FULL_MASK,
         csr_wdata=5,
+        next_pc=0,
     )
     await ClockCycles(dut.clk, 1)
+    await Timer(1, unit="ns")
     assert int(dut.status_trap.value) == 1
+    assert int(dut.trace_valid.value) == 0
 
 
 @cocotb.test()
@@ -2447,9 +2503,12 @@ async def axi_store_non_okay_response_takes_recoverable_access_fault(dut):
         csr_rmask=CSR_FULL_MASK,
         csr_wmask=CSR_FULL_MASK,
         csr_wdata=7,
+        next_pc=0,
     )
     await ClockCycles(dut.clk, 1)
+    await Timer(1, unit="ns")
     assert int(dut.status_trap.value) == 1
+    assert int(dut.trace_valid.value) == 0
 
 
 @cocotb.test()

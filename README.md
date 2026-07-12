@@ -57,7 +57,7 @@ cd test/test_ditdah32 && make   # cocotb RTL suite
 
 ```bash
 make verify-smoke          # fast push/PR gate
-make verify-rvfi           # riscv-formal RVFI subset
+make verify-rvfi           # riscv-formal RV32EC implemented profile
 make verify-compliance     # Sail-driven compliance signature gate
 make verify-signoff        # full local signoff (ISS, RVFI, RISCV-DV, coverage)
 make audit-gaps            # gap audit, writes result/verification/open_gaps.{json,md}

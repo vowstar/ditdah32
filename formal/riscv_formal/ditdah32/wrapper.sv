@@ -70,9 +70,15 @@ module rvfi_wrapper (
     wire        trace_trap;
     wire [3:0]  trace_trap_cause;
     wire [31:0] trace_mstatus;
+    wire [31:0] trace_mstatus_post_commit;
     wire [31:0] trace_mstatus_pre_trap;
+    wire [31:0] trace_mie;
+    wire [31:0] trace_mtvec;
+    wire [31:0] trace_mepc;
+    wire [31:0] trace_mtval;
     wire [31:0] trace_mip;
     wire [31:0] trace_mcause;
+    wire [31:0] trace_irq_pending_mask;
 
     ditdah32_trace_top dut (
         .clock(clock),
@@ -136,9 +142,15 @@ module rvfi_wrapper (
         .trace_trap(trace_trap),
         .trace_trap_cause(trace_trap_cause),
         .trace_mstatus(trace_mstatus),
+        .trace_mstatus_post_commit(trace_mstatus_post_commit),
         .trace_mstatus_pre_trap(trace_mstatus_pre_trap),
+        .trace_mie(trace_mie),
+        .trace_mtvec(trace_mtvec),
+        .trace_mepc(trace_mepc),
+        .trace_mtval(trace_mtval),
         .trace_mip(trace_mip),
-        .trace_mcause(trace_mcause)
+        .trace_mcause(trace_mcause),
+        .trace_irq_pending_mask(trace_irq_pending_mask)
     );
 
     wire ar_fire = axi_ar_valid && axi_ar_ready;
@@ -166,6 +178,7 @@ module rvfi_wrapper (
         trace_valid &&
         trace_trap &&
         trace_trap_cause == 4'h8 &&
+        trace_mcause[31] &&
         trace_len == 3'd0 &&
         trace_instr == 32'd0;
     reg        rvfi_intr_pending = 1'b0;
@@ -189,7 +202,7 @@ module rvfi_wrapper (
     assign rvfi_order = rvfi_order_q;
     assign rvfi_insn = trace_instr;
     assign rvfi_trap = trace_trap;
-    assign rvfi_halt = status_trap;
+    assign rvfi_halt = 1'b0;
     assign rvfi_intr = rvfi_intr_now;
     assign rvfi_mode = 2'b11;
     assign rvfi_ixl = 2'b01;
@@ -403,37 +416,43 @@ module rvfi_wrapper (
     end
 
 `ifdef DITDAH32_RVFI_TRAP_CSR_CHECK
-    // Trap-entry / mret-exit / mip / mcause / MPIE-swap invariants.
-    // Priv Spec v1.12: mstatus.MIE=3 / MPIE=7 / MPP=12:11; mip MSI/MTI/MEI=3/7/11.
-    wire is_mret_retire = trace_valid && (trace_instr == 32'h30200073);
-    wire is_trap_entry  = trace_valid && (trace_trap || rvfi_intr);
+    // M-mode trap entry and return CSR transitions.
+    wire is_mret_retire = trace_valid && !trace_trap && (trace_instr == 32'h30200073);
+    wire is_trap_entry  = trace_valid && trace_trap;
     wire is_interrupt_entry = is_trap_entry && trace_mcause[31];
-    wire is_exception_entry = is_trap_entry && !trace_mcause[31];
 
     always @(posedge clock) begin
         if (!reset) begin
             if (is_trap_entry) begin
                 assert (trace_mstatus[3] == 1'b0);
-                assert (trace_mstatus[12:11] == 2'b11);
-            end
-            // MPIE swap proven on exception entries only; interrupt-entry
-            // proof is staged because the IRQ path is 2 cycles delayed and
-            // can absorb a same-cycle CSRRW to mstatus.
-            if (is_exception_entry) begin
                 assert (trace_mstatus[7] == trace_mstatus_pre_trap[3]);
+                assert (trace_mstatus[12:11] == 2'b11);
+                assert (trace_mepc == trace_pc);
+                assert (trace_next_pc == trace_mtvec);
             end
             if (is_mret_retire) begin
-                assert (trace_mstatus[7] == 1'b1);
-                assert (trace_mstatus[12:11] == 2'b11);
+                assert (trace_mstatus_post_commit[3] == trace_mstatus_pre_trap[7]);
+                assert (trace_mstatus_post_commit[7] == 1'b1);
+                assert (trace_mstatus_post_commit[12:11] == 2'b11);
+                assert (trace_next_pc == trace_mepc);
             end
             assert (trace_mip[3]  == irq_software);
             assert (trace_mip[7]  == irq_timer);
             assert (trace_mip[11] == irq_external);
             assert ((trace_mip & ~32'h0000_0888) == 32'd0);
             if (is_interrupt_entry) begin
-                assert (trace_mcause[30:0] == 31'd3
-                     || trace_mcause[30:0] == 31'd7
-                     || trace_mcause[30:0] == 31'd11);
+                assert (trace_mtval == 32'd0);
+                assert ((trace_irq_pending_mask & ~32'h0000_0888) == 32'd0);
+                assert ((trace_irq_pending_mask & 32'h0000_0888) != 32'd0);
+                assert ((trace_irq_pending_mask & ~trace_mie) == 32'd0);
+                if (trace_irq_pending_mask[11])
+                    assert (trace_mcause == 32'h8000_000b);
+                else if (trace_irq_pending_mask[3])
+                    assert (trace_mcause == 32'h8000_0003);
+                else begin
+                    assert (trace_irq_pending_mask[7]);
+                    assert (trace_mcause == 32'h8000_0007);
+                end
             end
         end
     end
@@ -461,8 +480,7 @@ module rvfi_wrapper (
 `endif
 
 `ifdef DITDAH32_RVFI_CSR_READONLY_CHECK
-    // Architectural write to a CSR with addr[11:10]==11 must status_trap (Priv Spec §2.1).
-    // Write attempt: CSRRW/CSRRWI always, others when insn[19:15] != 0.
+    // Implemented-address and read-only CSR access rules.
     wire [6:0] ro_opcode  = rvfi_insn[6:0];
     wire [2:0] ro_funct3  = rvfi_insn[14:12];
     wire [11:0] ro_csr    = rvfi_insn[31:20];
@@ -470,10 +488,39 @@ module rvfi_wrapper (
     wire ro_is_csr_insn   = (ro_opcode == 7'h73) && (ro_funct3 != 3'd0) && (ro_funct3 != 3'd4);
     wire ro_is_write_attempt = ro_is_csr_insn &&
                                ((ro_funct3 == 3'd1) || (ro_funct3 == 3'd5) || (ro_field != 5'd0));
-    wire ro_is_readonly_addr = (ro_csr[11:10] == 2'b11);
+    wire ro_is_readonly_csr =
+        ro_csr == 12'h301 || ro_csr == 12'h344 || ro_csr[11:10] == 2'b11;
+    wire ro_registers_legal = rvfi_insn[11:7] < 5'd16 &&
+                              (ro_funct3[2] || ro_field < 5'd16);
+    wire ro_is_implemented_addr =
+        ro_csr == 12'h300 || ro_csr == 12'h301 || ro_csr == 12'h304 ||
+        ro_csr == 12'h305 || ro_csr == 12'h340 || ro_csr == 12'h341 ||
+        ro_csr == 12'h342 || ro_csr == 12'h343 || ro_csr == 12'h344 ||
+        ro_csr == 12'hf11 || ro_csr == 12'hf12 || ro_csr == 12'hf13 ||
+        ro_csr == 12'hf14;
     always @(posedge clock) begin
-        if (!reset && trace_valid && ro_is_csr_insn && ro_is_write_attempt && ro_is_readonly_addr) begin
-            assert (rvfi_trap[0]);
+        if (!reset && trace_valid && ro_is_csr_insn) begin
+            if (!ro_is_implemented_addr)
+                assert (rvfi_trap[0]);
+            if (ro_is_write_attempt && ro_is_readonly_csr)
+                assert (rvfi_trap[0]);
+            if (ro_is_implemented_addr && ro_is_readonly_csr &&
+                    !ro_is_write_attempt && ro_registers_legal) begin
+                assert (!rvfi_trap[0]);
+                assert (trace_csr_addr == ro_csr);
+                assert (trace_csr_rmask == 32'hffff_ffff);
+                if (rvfi_insn[11:7] != 5'd0) begin
+                    assert (rvfi_rd_addr == rvfi_insn[11:7]);
+                    assert (rvfi_rd_wdata == trace_csr_rdata);
+                end
+                if (ro_csr == 12'h301)
+                    assert (trace_csr_rdata == 32'h4000_0014);
+                if (ro_csr == 12'h344)
+                    assert ((trace_csr_rdata & ~32'h0000_0888) == 32'd0);
+                if (ro_csr == 12'hf11 || ro_csr == 12'hf12 ||
+                        ro_csr == 12'hf13 || ro_csr == 12'hf14)
+                    assert (trace_csr_rdata == 32'd0);
+            end
         end
     end
 `endif

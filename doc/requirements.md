@@ -211,7 +211,3 @@ slice for RV32E plus RV32EC compressed integer instructions:
 ## Open Requirements
 
 - Full AXI4 burst or ID support, if a later integration requires it.
-- Remaining full RVFI compatibility with riscv-formal, beyond the current
-  verification-only consistency, selected CSR, CSR state subset, non-faulting
-  RVFI_BUS, bounded liveness, interrupt-entry shape, causal, hang, and
-  illegal-instruction subsets.

@@ -1018,17 +1018,30 @@ object DitDah32Module
       val traceTrapReg       = RegInit(false.B)
       val traceTrapCauseReg  = RegInit(0.U(4))
       val tracePreTrapMstatusReg = RegInit(0.U(parameter.xlen))
+      val tracePostCommitMstatusReg = RegInit(0.U(parameter.xlen))
+      val traceIrqPreTrapMstatusReg = RegInit(0.U(parameter.xlen))
+      val traceIrqPendingMaskReg = RegInit(0.U(parameter.xlen))
       val memTraceRs1AddrReg  = RegInit(0.U(5))
       val memTraceRs1RdataReg = RegInit(0.U(parameter.xlen))
       val memTraceRs2AddrReg  = RegInit(0.U(5))
       val memTraceRs2RdataReg = RegInit(0.U(parameter.xlen))
 
-      // trace_mstatus_pre_trap exposes RegNext(csrMstatus). For 1-cycle-delay
-      // exception trap paths (fetch/load/store fault and execTrap) this aligns
-      // with the trace_trap retire cycle and lets the wrapper prove MPIE=MIE.
-      // Interrupt entry paths use a 2-cycle delay and a CSR-write-aware input,
-      // so the wrapper restricts the MPIE swap assertion to !rvfi_intr retires.
       tracePreTrapMstatusReg := csrMstatus.asUInt
+      tracePostCommitMstatusReg := csrMstatus.asUInt
+
+      // Preserve the exact trapMstatus input across the IRQ redirect cycle.
+      when(
+        (stateSleep & irqTrapPending) |
+          (loadResponseOk & irqTrapPending) |
+          (storeResponseOk & irqTrapPending)
+      ) {
+        traceIrqPreTrapMstatusReg := csrMstatus.asUInt
+        traceIrqPendingMaskReg := irqEnabledMask.asUInt
+      }
+      when(commitNonMem & !execTrap & postCommitIrqTrapPending) {
+        traceIrqPreTrapMstatusReg := postCommitMstatus.asUInt
+        traceIrqPendingMaskReg := postCommitIrqEnabledMask.asUInt
+      }
 
       when(!stateReset) {
         traceValidReg := false.B
@@ -1055,7 +1068,7 @@ object DitDah32Module
         traceTrapReg := false.B
         traceTrapCauseReg := 0.U(4)
 
-        when(stateIrq) {
+        when(stateIrq & csrMcause.bit(parameter.xlen - 1)) {
           traceValidReg := true.B
           tracePcReg := csrMepc
           traceNextPcReg := trapVector
@@ -1070,12 +1083,13 @@ object DitDah32Module
           traceRs2RdataReg := 0.U(parameter.xlen)
           traceTrapReg := true.B
           traceTrapCauseReg := TrapCause.INTERRUPT.U(4)
+          tracePreTrapMstatusReg := traceIrqPreTrapMstatusReg
         }
 
         when(fetchResponseError) {
           traceValidReg := true.B
           tracePcReg := pc
-          traceNextPcReg := pc
+          traceNextPcReg := trapVector
           traceInstrReg := 0.U(parameter.xlen)
           traceLenReg := 4.U(3)
           traceRdWeReg := false.B
@@ -1101,7 +1115,7 @@ object DitDah32Module
         when(loadResponseError) {
           traceValidReg := true.B
           tracePcReg := memPcReg
-          traceNextPcReg := memPcReg
+          traceNextPcReg := trapVector
           traceInstrReg := memInstrReg.asUInt
           traceLenReg := memLenReg
           traceRdWeReg := false.B
@@ -1127,7 +1141,7 @@ object DitDah32Module
         when(storeResponseError) {
           traceValidReg := true.B
           tracePcReg := memPcReg
-          traceNextPcReg := memPcReg
+          traceNextPcReg := trapVector
           traceInstrReg := memInstrReg.asUInt
           traceLenReg := memLenReg
           traceRdWeReg := false.B
@@ -1226,6 +1240,7 @@ object DitDah32Module
         }
 
         when(commitNonMem) {
+          tracePostCommitMstatusReg := postCommitMstatus.asUInt
           traceTrapReg := execTrap
           traceTrapCauseReg := execTrapCause
           traceRdWeReg := execWriteRd
@@ -1275,14 +1290,28 @@ object DitDah32Module
       probe.trace_csr_wdata       <== traceCsrWdataReg
       probe.trace_trap            <== traceTrapReg
       probe.trace_trap_cause      <== traceTrapCauseReg
+      probe.trace_mstatus_post_commit <== tracePostCommitMstatusReg
       probe.trace_mstatus_pre_trap <== tracePreTrapMstatusReg
+      probe.trace_irq_pending_mask <== traceIrqPendingMaskReg
 
       val traceMstatusWire = Wire(UInt(parameter.xlen))
+      val traceMieWire      = Wire(UInt(parameter.xlen))
+      val traceMtvecWire    = Wire(UInt(parameter.xlen))
+      val traceMepcWire     = Wire(UInt(parameter.xlen))
+      val traceMtvalWire    = Wire(UInt(parameter.xlen))
       val traceMipWire      = Wire(UInt(parameter.xlen))
       val traceMcauseWire   = Wire(UInt(parameter.xlen))
       traceMstatusWire := csrMstatus.asUInt
+      traceMieWire := csrMie.asUInt
+      traceMtvecWire := csrMtvec
+      traceMepcWire := csrMepc
+      traceMtvalWire := csrMtval
       traceMipWire := irqMip.asUInt
       traceMcauseWire := csrMcause.asUInt
       probe.trace_mstatus <== traceMstatusWire
+      probe.trace_mie     <== traceMieWire
+      probe.trace_mtvec   <== traceMtvecWire
+      probe.trace_mepc    <== traceMepcWire
+      probe.trace_mtval   <== traceMtvalWire
       probe.trace_mip     <== traceMipWire
       probe.trace_mcause  <== traceMcauseWire

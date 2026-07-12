@@ -181,7 +181,7 @@ def build_report():
         ),
         checklist_item(
             "rvfi_riscv_formal",
-            "External riscv-formal consistency, selected CSR, CSR state, non-faulting RVFI_BUS, bounded liveness, interrupt entry shape, causal, hang, and illegal-instruction subsets pass and disabled property groups are documented.",
+            "External riscv-formal RV32EC instruction, CSR, bus, interrupt, liveness, ordering, and fault groups pass with none disabled.",
             [
                 artifact("result/formal/rvfi/rvfi.json", status_from_report("result/formal/rvfi/rvfi.json") == "pass"),
                 {"gap_status": gap_statuses.get("rvfi_riscv_formal")},

@@ -140,7 +140,7 @@ module DitDah32RvfiLite;
     wire [63:0] rvfi_order_out = rvfi_order;
     wire [31:0] rvfi_insn = trace_instr;
     wire       rvfi_trap = trace_trap;
-    wire       rvfi_halt = status_trap;
+    wire       rvfi_halt = 1'b0;
     wire       rvfi_intr = trace_valid && trace_trap && trace_trap_cause == 4'h8;
     wire [1:0] rvfi_mode = 2'b11;
     wire [1:0] rvfi_ixl = 2'b01;
