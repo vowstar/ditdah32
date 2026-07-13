@@ -53,6 +53,7 @@ def test_release_workflow_packages_and_publishes_two_rtl_variants():
     publish = workflow["jobs"]["publish"]
     assert publish["needs"] == "build"
     assert publish["permissions"]["contents"] == "write"
+    assert publish["env"]["GH_REPO"] == "${{ github.repository }}"
 
     build_run = "\n".join(str(step.get("run", "")) for step in build["steps"])
     publish_run = "\n".join(str(step.get("run", "")) for step in publish["steps"])
