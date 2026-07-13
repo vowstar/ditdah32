@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Huang Rui <vowstar@gmail.com>
 # SPDX-License-Identifier: MIT
 
-.PHONY: audit-ci-action-refs audit-ci-github-auth audit-ci-publish-readiness audit-ci-remote audit-ci-remote-preflight audit-completion audit-gaps audit-jtag-ppa audit-tools audit-trace-config build build-jtag build-trace bench bench-score ci-remote-closure ci-remote-dispatch ci-remote-publish coverage formal formal-jtag signoff-coverage test test-jtag test-model test-isa test-scripts test-isa-rtl verify verify-ci-smoke verify-compliance verify-iss verify-riscv-dv verify-rvfi verify-rvfi-lite verify-sail-highmem verify-sail-matrix verify-sail-smoke verify-smoke verify-rtl verify-signoff verify-spike-highmem verify-spike-rv32e-strict verify-spike-smoke verify-spike-matrix clean
+.PHONY: audit-ci-action-refs audit-ci-github-auth audit-ci-publish-readiness audit-ci-remote audit-ci-remote-preflight audit-completion audit-gaps audit-jtag-ppa audit-tools audit-trace-config build build-jtag build-trace bench bench-score ci-remote-closure ci-remote-dispatch ci-remote-publish coverage formal formal-jtag package-release signoff-coverage test test-jtag test-model test-isa test-scripts test-isa-rtl verify verify-ci-smoke verify-compliance verify-iss verify-riscv-dv verify-rvfi verify-rvfi-lite verify-sail-highmem verify-sail-matrix verify-sail-smoke verify-smoke verify-rtl verify-signoff verify-spike-highmem verify-spike-rv32e-strict verify-spike-smoke verify-spike-matrix clean
 
 BENCH_FREQ_MHZ ?= 100
 BENCH_COREMARK_ITERATIONS ?= 200
@@ -14,6 +14,7 @@ CI_REMOTE_ARGS ?=
 CI_REMOTE_DISPATCH_ARGS ?= --profiles smoke ci-evidence --wait
 CI_REMOTE_CLOSURE_ARGS ?=
 CI_REMOTE_PUBLISH_ARGS ?=
+RELEASE_TAG ?= $(shell git describe --tags --exact-match 2>/dev/null)
 
 audit-tools:
 	python3 scripts/tool_availability_audit.py --out-dir result/verification
@@ -62,6 +63,15 @@ build-trace:
 
 build-jtag:
 	OUTPUT_DIR=result/jtag build-ditdah32 --no-trace --jtag
+
+package-release:
+	@test -n "$(RELEASE_TAG)" || (echo "RELEASE_TAG is required" >&2; exit 2)
+	nix build .#release-inputs --out-link result/release-inputs
+	nix develop .#release --command python3 scripts/package_release.py \
+		--tag "$(RELEASE_TAG)" \
+		--input-dir result/release-inputs \
+		--out-dir result/release \
+		--verify
 
 bench:
 	python3 scripts/build_benchmarks.py --out-dir result/bench

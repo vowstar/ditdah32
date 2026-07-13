@@ -8,44 +8,130 @@ on:
       - "v*"
 
 permissions:
-  contents: write
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
-  release:
+  build:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Install Nix
-        uses: cachix/install-nix-action@v27
+        uses: cachix/install-nix-action@v31
         with:
           extra_nix_config: |
             experimental-features = nix-command flakes
             accept-flake-config = true
 
-      # zaozi pins a from-source CIRCT/LLVM/MLIR (no public binary cache), so a
-      # cold runner spends hours compiling the toolchain. Persist /nix/store
-      # across runs: the first release builds and caches it, later runs restore.
-      - name: Cache Nix store
+      - name: Restore Nix Store
         uses: nix-community/cache-nix-action@v6
         with:
-          primary-key: nix-${{ runner.os }}-${{ hashFiles('flake.lock', 'flake.nix') }}
-          restore-prefixes-first-match: nix-${{ runner.os }}-
-          gc-max-store-size-linux: 8G
-          purge: true
-          purge-prefixes: nix-${{ runner.os }}-
-          purge-created: 0
-          purge-primary-key: never
+          primary-key: nix-release-${{ runner.os }}-${{ hashFiles('flake.lock', 'flake.nix', 'nix/**') }}
+          restore-prefixes-first-match: nix-release-${{ runner.os }}-
+          save: false
 
-      - name: Build clean no-trace RTL
-        run: nix develop .#smoke --command build-ditdah32 --no-trace
+      - name: Verify Tag Commit
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_COMMIT: ${{ github.sha }}
+        run: |
+          test -z "$(git status --porcelain --untracked-files=no)"
+          test "$(git rev-list -n 1 "$RELEASE_TAG")" = "$RELEASE_COMMIT"
 
-      - name: Publish GitHub release
+      - name: Build RTL Packages
+        run: nix build .#release-inputs --out-link result/release-inputs
+
+      - name: Package RTL Release
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_COMMIT: ${{ github.sha }}
+        run: |
+          nix develop .#release --command python3 scripts/package_release.py \
+            --tag "$RELEASE_TAG" \
+            --commit "$RELEASE_COMMIT" \
+            --input-dir result/release-inputs \
+            --out-dir result/release \
+            --verify
+
+      - name: Upload Release Assets
+        uses: actions/upload-artifact@v4
+        with:
+          name: ditdah32-release-${{ github.ref_name }}
+          if-no-files-found: error
+          retention-days: 7
+          path: |
+            result/release/ditdah32-*.tar.gz
+            result/release/SHA256SUMS
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download Release Assets
+        uses: actions/download-artifact@v4
+        with:
+          name: ditdah32-release-${{ github.ref_name }}
+          path: result/release
+
+      - name: Verify Release Assets
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          cd result/release
+          test "$(find . -maxdepth 1 -name '*.tar.gz' -type f | wc -l)" -eq 2
+          test -f "ditdah32-${RELEASE_TAG}.tar.gz"
+          test -f "ditdah32-${RELEASE_TAG}-jtag.tar.gz"
+          sha256sum --check SHA256SUMS
+
+      - name: Create Draft Release
         env:
           GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
         run: |
-          gh release create "${{ github.ref_name }}" \
-            result/DitDah32.sv \
-            --title "DitDah32 ${{ github.ref_name }}" \
-            --notes "Signed-off RV32EC control core for always-on and PHY control. Synthesizable no-trace RTL, built in CI by nix. See README for area, frequency, power, and benchmark numbers."
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            echo "release already exists: $RELEASE_TAG" >&2
+            exit 1
+          fi
+          printf '%s\n' \
+            "RTL packages:" \
+            "- DitDah32 Standard: ditdah32-${RELEASE_TAG}.tar.gz" \
+            "- DitDah32 with JTAG Debug: ditdah32-${RELEASE_TAG}-jtag.tar.gz" \
+            "" \
+            "Both packages disable trace. The default JTAG IDCODE is an integration placeholder." \
+            > release-notes.md
+          gh release create "$RELEASE_TAG" \
+            "result/release/ditdah32-${RELEASE_TAG}.tar.gz" \
+            "result/release/ditdah32-${RELEASE_TAG}-jtag.tar.gz" \
+            result/release/SHA256SUMS \
+            --draft \
+            --generate-notes \
+            --verify-tag \
+            --title "DitDah32 ${RELEASE_TAG}" \
+            --notes-file release-notes.md
+
+      - name: Verify And Publish Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          asset_count=$(gh release view "$RELEASE_TAG" --json assets --jq '.assets | length')
+          test "$asset_count" -eq 3
+          while read -r digest filename; do
+            remote=$(gh release view "$RELEASE_TAG" --json assets \
+              --jq ".assets[] | select(.name == \"$filename\") | .digest")
+            test "$remote" = "sha256:$digest"
+          done < result/release/SHA256SUMS
+          checksum_digest=$(sha256sum result/release/SHA256SUMS | cut -d' ' -f1)
+          remote_checksum=$(gh release view "$RELEASE_TAG" --json assets \
+            --jq '.assets[] | select(.name == "SHA256SUMS") | .digest')
+          test "$remote_checksum" = "sha256:$checksum_digest"
+          gh release edit "$RELEASE_TAG" --draft=false

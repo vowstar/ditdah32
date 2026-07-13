@@ -38,3 +38,63 @@ def test_verification_workflow_contains_required_ci_contract():
     assert "result/riscv_dv/**" in signoff_artifact_paths
     assert "result/iss/**" in signoff_artifact_paths
     assert "result/verification/**" in ci_evidence_artifact_paths
+
+
+def test_release_workflow_packages_and_publishes_two_rtl_variants():
+    workflow = yaml.safe_load(
+        (ROOT / ".github" / "workflows" / "release.yml").read_text(encoding="utf-8")
+    )
+
+    assert workflow[True]["push"]["tags"] == ["v*"]
+    assert workflow["permissions"]["contents"] == "read"
+    assert set(workflow["jobs"]) == {"build", "publish"}
+
+    build = workflow["jobs"]["build"]
+    publish = workflow["jobs"]["publish"]
+    assert publish["needs"] == "build"
+    assert publish["permissions"]["contents"] == "write"
+
+    build_run = "\n".join(str(step.get("run", "")) for step in build["steps"])
+    publish_run = "\n".join(str(step.get("run", "")) for step in publish["steps"])
+    assert "nix build .#release-inputs" in build_run
+    assert "scripts/package_release.py" in build_run
+    assert "--verify" in build_run
+    assert "ditdah32-${RELEASE_TAG}.tar.gz" in publish_run
+    assert "ditdah32-${RELEASE_TAG}-jtag.tar.gz" in publish_run
+    assert "gh release create" in publish_run
+    assert "--draft" in publish_run
+    assert "--generate-notes" in publish_run
+    assert "--verify-tag" in publish_run
+    assert "gh release edit" in publish_run
+
+    cache_step = next(
+        step for step in build["steps"] if "cache-nix-action" in step.get("uses", "")
+    )
+    assert cache_step["with"]["save"] is False
+    upload_paths = next(
+        step for step in build["steps"] if "upload-artifact" in step.get("uses", "")
+    )["with"]["path"]
+    assert "result/release/ditdah32-*.tar.gz" in upload_paths
+    assert "result/release/SHA256SUMS" in upload_paths
+
+
+def test_release_cache_is_scoped_to_trusted_default_branch_updates():
+    workflow = yaml.safe_load(
+        (ROOT / ".github" / "workflows" / "release-cache.yml").read_text(
+            encoding="utf-8"
+        )
+    )
+
+    trigger = workflow[True]
+    assert trigger["push"]["branches"] == ["main"]
+    assert {"flake.nix", "flake.lock", "nix/**"}.issubset(trigger["push"]["paths"])
+    assert workflow["permissions"]["contents"] == "read"
+
+    warm = workflow["jobs"]["warm"]
+    cache_step = next(
+        step for step in warm["steps"] if "cache-nix-action" in step.get("uses", "")
+    )
+    assert cache_step["with"]["gc-max-store-size-linux"] == "14G"
+    assert cache_step["with"]["purge"] is True
+    warm_run = "\n".join(str(step.get("run", "")) for step in warm["steps"])
+    assert "nix build .#release-inputs" in warm_run

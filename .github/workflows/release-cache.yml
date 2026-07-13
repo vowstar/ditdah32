@@ -1,0 +1,48 @@
+# SPDX-FileCopyrightText: 2026 Huang Rui <vowstar@gmail.com>
+# SPDX-License-Identifier: MIT
+name: release cache
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - flake.nix
+      - flake.lock
+      - "nix/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-cache
+  cancel-in-progress: true
+
+jobs:
+  warm:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v31
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+            accept-flake-config = true
+
+      - name: Restore And Save Nix Store
+        uses: nix-community/cache-nix-action@v6
+        with:
+          primary-key: nix-release-${{ runner.os }}-${{ hashFiles('flake.lock', 'flake.nix', 'nix/**') }}
+          restore-prefixes-first-match: nix-release-${{ runner.os }}-
+          gc-max-store-size-linux: 14G
+          purge: true
+          purge-prefixes: nix-release-${{ runner.os }}-
+          purge-created: 0
+          purge-primary-key: never
+
+      - name: Build Release Inputs
+        run: nix build .#release-inputs --out-link result/release-inputs

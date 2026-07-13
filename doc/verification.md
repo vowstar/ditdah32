@@ -26,6 +26,7 @@ make verify-signoff        # local CPU/JTAG campaign + coverage + gap audit
 make audit-gaps            # write result/verification/open_gaps.{json,md}
 make audit-trace-config    # audit all trace and JTAG combinations
 make audit-jtag-ppa        # generic synthesis baseline and optional cost
+make package-release RELEASE_TAG=vX.Y.Z  # package trace-free RTL assets
 ```
 
 `build-ditdah32` is the default production build and omits architectural
@@ -61,6 +62,7 @@ depend on `build-trace`. JTAG ports and logic exist only with `enableJtag=true`.
   OpenOCD/GDB, TAP/DTM formal, and DM formal checks.
 - The four trace/JTAG configurations build independently; no-JTAG synthesis
   remains at the recorded production cell-count and logic-depth baseline.
+- Release archives disable trace and compile from their packaged filelists.
 - `make audit-gaps` reproduces the statuses in `doc/open_gaps.md`.
 - `make verify-signoff` introduces no tracked working-tree changes.
 
@@ -81,6 +83,7 @@ depend on `build-trace`. JTAG ports and logic exist only with `enableJtag=true`.
 | `result/verification/open_gaps.{json,md}` | gap audit |
 | `result/verification/{trace_config,jtag_ppa}.{json,md}` | configuration and PPA proxy audits |
 | `result/verification/completion_audit.{json,md}` | aggregated checklist |
+| `result/release/` | standard and JTAG release archives |
 
 ## Benchmarks
 

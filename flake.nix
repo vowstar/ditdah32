@@ -118,13 +118,15 @@
           "--java-opt" "-Djava.library.path=${javaLibraryPath}"
         ];
 
-        firtoolArgs = pkgs.lib.escapeShellArgs [
+        mkFirtoolArgs = locationInfoStyle: pkgs.lib.escapeShellArgs [
           "--split-verilog"
           "-disable-all-randomization"
           "-g"
           "--emit-hgldd"
-          "--lowering-options=noAlwaysComb,disallowLocalVariables,disallowPackedArrays,emittedLineLength=160,verifLabels,explicitBitcast,locationInfoStyle=wrapInAtSquareBracket,maximumNumberOfTermsPerExpression=24,disallowExpressionInliningInPorts,caseInsensitiveKeywords"
+          "--lowering-options=noAlwaysComb,disallowLocalVariables,disallowPackedArrays,emittedLineLength=160,verifLabels,explicitBitcast,locationInfoStyle=${locationInfoStyle},maximumNumberOfTermsPerExpression=24,disallowExpressionInliningInPorts,caseInsensitiveKeywords"
         ];
+        firtoolArgs = mkFirtoolArgs "wrapInAtSquareBracket";
+        releaseFirtoolArgs = mkFirtoolArgs "none";
 
         pythonEnv = pkgs.python3.withPackages (ps:
           let
@@ -436,6 +438,12 @@ EOF
           pythonEnv
         ];
 
+        releaseBuildInputs = [
+          pkgs.iverilog
+          pkgs.verilator
+          pythonEnv
+        ];
+
         defaultBuildInputs = [
           buildScript
           riscvDvScript
@@ -478,65 +486,92 @@ EOF
             python3 scripts/run_bench_sim.py "$@"
           '';
         };
+
+        mkRtlPackage = { name, enableJtag }:
+          let
+            releaseConfig = ditdah32Config // {
+              enableTrace = false;
+              inherit enableJtag;
+            };
+          in
+          pkgs.runCommand "ditdah32-verilog-${name}" {
+            nativeBuildInputs = [ pkgs.scala-cli pkgs.circt-install pkgs.mlir-install ];
+            JAVA_TOOL_OPTIONS = "--enable-preview";
+          } ''
+            mkdir -p $out
+            cp -R ${./ditdah32/src} source
+            chmod -R u+w source
+            cd source
+
+            JAVA_LIBRARY_PATH="${javaLibraryPath}"
+            export COURSIER_CACHE="$NIX_BUILD_TOP/coursier-cache"
+            cp -R ${scalaIvyCache}/cache "$COURSIER_CACHE"
+            chmod -R u+w "$COURSIER_CACHE"
+
+            rm -f DitDah32*.mlirbc
+
+            scala-cli run \
+              --power \
+              --offline \
+              ${commonScalaArgs} \
+              --main-class com.vowstar.ditdah32.DitDah32Module \
+              . \
+              -- config "$out/ditdah32_config.json" \
+              --resetVector ${toString releaseConfig.resetVector} \
+              --enableTrace false \
+              --enableJtag ${if enableJtag then "true" else "false"} \
+              --jtagIdcode ${toString releaseConfig.jtagIdcode}
+
+            scala-cli run \
+              --power \
+              --offline \
+              ${commonScalaArgs} \
+              --main-class com.vowstar.ditdah32.DitDah32Module \
+              . \
+              -- design "$out/ditdah32_config.json"
+
+            ${pkgs.circt-install}/bin/firld DitDah32*.mlirbc \
+              --base-circuit DitDah32 \
+              --no-mangle \
+              --emit-bytecode \
+              -o DitDah32-linked.mlirbc
+
+            ${pkgs.circt-install}/bin/firtool DitDah32-linked.mlirbc \
+              ${releaseFirtoolArgs} \
+              --hgldd-output-dir="$out" \
+              -o "$out"
+
+            rm -f "$out"/DitDah32_DV.sv \
+                  "$out"/layers-*-DV.sv \
+                  "$out"/ref_DitDah32.sv \
+                  "$out"/DitDah32_DV.dd
+            ${pkgs.gnugrep}/bin/grep -v -e DitDah32_DV.sv -e layers-DitDah32-DV.sv \
+              "$out"/filelist.f > "$out"/filelist.f.tmp
+            mv "$out"/filelist.f.tmp "$out"/filelist.f
+            printf '%s\n' ${pkgs.lib.escapeShellArg (builtins.toJSON releaseConfig)} \
+              > "$out/ditdah32_config.json"
+          '';
+
+        rtlStandard = mkRtlPackage {
+          name = "standard";
+          enableJtag = false;
+        };
+        rtlJtag = mkRtlPackage {
+          name = "jtag";
+          enableJtag = true;
+        };
+        releaseInputs = pkgs.linkFarm "ditdah32-release-inputs" [
+          { name = "standard"; path = rtlStandard; }
+          { name = "jtag"; path = rtlJtag; }
+        ];
       in
       {
-        packages.default = pkgs.runCommand "ditdah32-verilog" {
-          nativeBuildInputs = [ pkgs.scala-cli pkgs.circt-install pkgs.mlir-install ];
-          JAVA_TOOL_OPTIONS = "--enable-preview";
-        } ''
-          mkdir -p $out
-          cp -R ${./ditdah32/src} source
-          chmod -R u+w source
-          cd source
-
-          JAVA_LIBRARY_PATH="${javaLibraryPath}"
-          export COURSIER_CACHE="$NIX_BUILD_TOP/coursier-cache"
-          cp -R ${scalaIvyCache}/cache "$COURSIER_CACHE"
-          chmod -R u+w "$COURSIER_CACHE"
-
-          rm -f DitDah32*.mlirbc
-
-          scala-cli run \
-            --power \
-            --offline \
-            ${commonScalaArgs} \
-            --main-class com.vowstar.ditdah32.DitDah32Module \
-            . \
-            -- config "$out/ditdah32_config.json" \
-            --resetVector ${toString ditdah32Config.resetVector} \
-            --enableTrace ${if ditdah32Config.enableTrace then "true" else "false"} \
-            --enableJtag ${if ditdah32Config.enableJtag then "true" else "false"} \
-            --jtagIdcode ${toString ditdah32Config.jtagIdcode}
-
-          scala-cli run \
-            --power \
-            --offline \
-            ${commonScalaArgs} \
-            --main-class com.vowstar.ditdah32.DitDah32Module \
-            . \
-            -- design "$out/ditdah32_config.json"
-
-          MLIRBC_FILE=$(ls DitDah32.mlirbc 2>/dev/null | head -1)
-
-          ${pkgs.circt-install}/bin/firld DitDah32*.mlirbc \
-            --base-circuit DitDah32 \
-            --no-mangle \
-            --emit-bytecode \
-            -o DitDah32-linked.mlirbc
-
-          ${pkgs.circt-install}/bin/firtool DitDah32-linked.mlirbc \
-            ${firtoolArgs} \
-            --hgldd-output-dir="$out" \
-            -o "$out"
-
-          rm -f "$out"/DitDah32_DV.sv \
-                "$out"/layers-DitDah32-DV.sv \
-                "$out"/ref_DitDah32.sv \
-                "$out"/DitDah32_DV.dd
-          ${pkgs.gnugrep}/bin/grep -v -e DitDah32_DV.sv -e layers-DitDah32-DV.sv \
-            "$out"/filelist.f > "$out"/filelist.f.tmp
-          mv "$out"/filelist.f.tmp "$out"/filelist.f
-        '';
+        packages = {
+          default = rtlStandard;
+          rtl = rtlStandard;
+          rtl-jtag = rtlJtag;
+          release-inputs = releaseInputs;
+        };
 
         apps.default = {
           type = "app";
@@ -556,6 +591,9 @@ EOF
         devShells = {
           smoke = mkRtlShell smokeBuildInputs { };
           full = mkRtlShell fullBuildInputs { SLANG_SO = slangSo; };
+          release = pkgs.mkShell {
+            buildInputs = releaseBuildInputs;
+          };
           ci-evidence = pkgs.mkShell {
             buildInputs = ciEvidenceBuildInputs;
           };

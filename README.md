@@ -51,6 +51,13 @@ build-ditdah32 --jtag      # optional JTAG debug configuration
 
 The default IDCODE is an integration placeholder; set `jtagIdcode` to an assigned value before hardware release.
 
+## Release
+
+Tag releases provide `ditdah32-vX.Y.Z.tar.gz` and the optional
+`ditdah32-vX.Y.Z-jtag.tar.gz`; both disable trace and include a manifest,
+filelist, and license. `make package-release RELEASE_TAG=vX.Y.Z` reproduces
+the assets locally.
+
 ## Test
 
 ```bash
