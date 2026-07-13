@@ -34,7 +34,7 @@ jobs:
             accept-flake-config = true
 
       - name: Restore And Save Nix Store
-        uses: nix-community/cache-nix-action@v6
+        uses: nix-community/cache-nix-action@v7
         with:
           primary-key: nix-release-${{ runner.os }}-${{ hashFiles('flake.lock', 'flake.nix', 'nix/**') }}
           restore-prefixes-first-match: nix-release-${{ runner.os }}-

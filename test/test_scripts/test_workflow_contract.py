@@ -71,6 +71,7 @@ def test_release_workflow_packages_and_publishes_two_rtl_variants():
     cache_step = next(
         step for step in build["steps"] if "cache-nix-action" in step.get("uses", "")
     )
+    assert cache_step["uses"] == "nix-community/cache-nix-action@v7"
     assert cache_step["with"]["save"] is False
     upload_paths = next(
         step for step in build["steps"] if "upload-artifact" in step.get("uses", "")
@@ -95,6 +96,7 @@ def test_release_cache_is_scoped_to_trusted_default_branch_updates():
     cache_step = next(
         step for step in warm["steps"] if "cache-nix-action" in step.get("uses", "")
     )
+    assert cache_step["uses"] == "nix-community/cache-nix-action@v7"
     assert cache_step["with"]["gc-max-store-size-linux"] == "14G"
     assert cache_step["with"]["purge"] is True
     warm_run = "\n".join(str(step.get("run", "")) for step in warm["steps"])
