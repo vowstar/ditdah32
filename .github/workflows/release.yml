@@ -98,27 +98,28 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_NOTES: |
+            Production SystemVerilog, one tarball per integration profile.
+
+            | Download | Profile | JTAG debug | Trace |
+            |---|---|---|---|
+            | `ditdah32-${{ github.ref_name }}.tar.gz` | Standard | Disabled | Disabled |
+            | `ditdah32-${{ github.ref_name }}-jtag.tar.gz` | JTAG Debug | Enabled | Disabled |
+
+            Use `SHA256SUMS` to verify all downloads. The default JTAG IDCODE is an integration placeholder.
         run: |
           if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
             echo "release already exists: $RELEASE_TAG" >&2
             exit 1
           fi
-          printf '%s\n' \
-            "RTL packages:" \
-            "- DitDah32 Standard: ditdah32-${RELEASE_TAG}.tar.gz" \
-            "- DitDah32 with JTAG Debug: ditdah32-${RELEASE_TAG}-jtag.tar.gz" \
-            "" \
-            "Both packages disable trace. The default JTAG IDCODE is an integration placeholder." \
-            > release-notes.md
           gh release create "$RELEASE_TAG" \
             "result/release/ditdah32-${RELEASE_TAG}.tar.gz" \
             "result/release/ditdah32-${RELEASE_TAG}-jtag.tar.gz" \
             result/release/SHA256SUMS \
             --draft \
-            --generate-notes \
             --verify-tag \
             --title "DitDah32 ${RELEASE_TAG}" \
-            --notes-file release-notes.md
+            --notes "$RELEASE_NOTES"
 
       - name: Verify And Publish Release
         env:

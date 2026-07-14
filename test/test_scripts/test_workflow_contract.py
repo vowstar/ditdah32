@@ -64,9 +64,22 @@ def test_release_workflow_packages_and_publishes_two_rtl_variants():
     assert "ditdah32-${RELEASE_TAG}-jtag.tar.gz" in publish_run
     assert "gh release create" in publish_run
     assert "--draft" in publish_run
-    assert "--generate-notes" in publish_run
     assert "--verify-tag" in publish_run
     assert "gh release edit" in publish_run
+
+    create_step = next(
+        step
+        for step in publish["steps"]
+        if step.get("name") == "Create Draft Release"
+    )
+    release_notes = create_step["env"]["RELEASE_NOTES"]
+    assert "\n" in release_notes
+    assert "\\n" not in release_notes
+    assert "| Download | Profile | JTAG debug | Trace |" in release_notes
+    assert "ditdah32-${{ github.ref_name }}.tar.gz" in release_notes
+    assert "ditdah32-${{ github.ref_name }}-jtag.tar.gz" in release_notes
+    assert '--notes "$RELEASE_NOTES"' in create_step["run"]
+    assert "--generate-notes" not in create_step["run"]
 
     cache_step = next(
         step for step in build["steps"] if "cache-nix-action" in step.get("uses", "")
