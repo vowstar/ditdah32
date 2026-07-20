@@ -13,10 +13,10 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 PRODUCTION_BASELINE = {
-    "num_cells": 10654,
+    "num_cells": 10172,
     "num_ports": 28,
     "num_port_bits": 161,
-    "logic_depth": 92,
+    "logic_depth": 93,
 }
 
 
@@ -127,13 +127,14 @@ def main():
 
     production = synthesize(
         "production",
-        [rel(build_root / "production" / "DitDah32.sv")],
+        [rel(build_root / "production" / "DitDah32.sv"), rel(build_root / "production" / "DitDah32Gpr.sv")],
         out_dir,
     )
     jtag = synthesize(
         "jtag",
         [
             rel(build_root / "jtag_only" / "DitDah32.sv"),
+            rel(build_root / "jtag_only" / "DitDah32Gpr.sv"),
             rel(build_root / "jtag_only" / "DitDah32DebugModule.sv"),
             rel(build_root / "jtag_only" / "DitDah32JtagDtm.sv"),
         ],

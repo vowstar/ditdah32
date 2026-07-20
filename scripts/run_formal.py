@@ -33,7 +33,7 @@ def read_slang_dut_cmd():
     slang_so = resolve_slang_so()
     return (
         f"plugin -i {slang_so}; "
-        f"read_slang -Iresult {TRACE_TOP} result/DitDah32.sv result/DitDah32_DV.sv "
+        f"read_slang -Iresult {TRACE_TOP} result/DitDah32.sv result/DitDah32Gpr.sv result/DitDah32_DV.sv "
         f"result/layers-DitDah32-DV.sv --top ditdah32_trace_top; "
     )
 

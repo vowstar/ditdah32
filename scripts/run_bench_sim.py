@@ -68,7 +68,7 @@ def build_sim(netlist, tb, sim_dir):
         "-Wno-SELRANGE", "-Wno-WIDTH", "-Wno-BLKANDNBLK", "-Wno-MINTYPMAXDLY",
         "-Wno-CASEINCOMPLETE", "-Wno-UNOPTFLAT", "--bbox-unsup", "-Wno-fatal",
         "--top-module", "ditdah32_bench_tb", "-o", "ditdah32_bench_sim",
-        str(netlist), str(tb),
+        str(netlist.parent / "DitDah32Gpr.sv"), str(netlist), str(tb),
     ], cwd=sim_dir)
     if not binary.exists():
         raise SystemExit(f"verilator did not produce {binary}")

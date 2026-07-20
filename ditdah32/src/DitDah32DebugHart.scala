@@ -11,7 +11,7 @@ import org.llvm.mlir.scalalib.capi.ir.{Block, Context}
 import java.lang.foreign.Arena
 
 trait DitDah32DebugHart:
-  this: DitDah32Csr & DitDah32Gpr =>
+  this: DitDah32Csr =>
 
   protected def connectDebugHart(
       parameter: DitDah32Parameter,
@@ -44,21 +44,7 @@ trait DitDah32DebugHart:
       csrMcause: Reg[Bits],
       csrMtval: Reg[UInt],
       trapEventReg: Reg[Bool],
-      x1: Reg[UInt],
-      x2: Reg[UInt],
-      x3: Reg[UInt],
-      x4: Reg[UInt],
-      x5: Reg[UInt],
-      x6: Reg[UInt],
-      x7: Reg[UInt],
-      x8: Reg[UInt],
-      x9: Reg[UInt],
-      x10: Reg[UInt],
-      x11: Reg[UInt],
-      x12: Reg[UInt],
-      x13: Reg[UInt],
-      x14: Reg[UInt],
-      x15: Reg[UInt],
+      gprIo: Wire[DitDah32GprIO],
       debugDcsr: Reg[UInt],
       debugDpc: Reg[UInt],
       debugStepActive: Reg[Bool],
@@ -124,25 +110,8 @@ trait DitDah32DebugHart:
         irqMip,
         parameter
       )
-    val debugGprData = readGpr(
-      dm.abstractRegno.asBits.bits(4, 0),
-      x1,
-      x2,
-      x3,
-      x4,
-      x5,
-      x6,
-      x7,
-      x8,
-      x9,
-      x10,
-      x11,
-      x12,
-      x13,
-      x14,
-      x15,
-      parameter
-    )
+    gprIo.raddr3 := dm.abstractRegno.asBits.bits(4, 0).asUInt
+    val debugGprData = gprIo.rdata3
     val debugIsGpr =
       (dm.abstractRegno.asBits.bits(15, 5) === 0x80.B(11)) &
       !dm.abstractRegno.asBits.bit(4)
@@ -297,26 +266,9 @@ trait DitDah32DebugHart:
         }.otherwise {
           when(dm.abstractWrite) {
             when(debugIsGpr) {
-              writeGpr(
-                true.B,
-                dm.abstractRegno.asBits.bits(4, 0),
-                dm.abstractData,
-                x1,
-                x2,
-                x3,
-                x4,
-                x5,
-                x6,
-                x7,
-                x8,
-                x9,
-                x10,
-                x11,
-                x12,
-                x13,
-                x14,
-                x15
-              )
+              gprIo.we := true.B
+              gprIo.waddr := dm.abstractRegno.asBits.bits(4, 0).asUInt
+              gprIo.wdata := dm.abstractData
             }
             when(debugIsDcsr) {
               debugDcsr := (
@@ -525,21 +477,7 @@ trait DitDah32DebugHart:
       csrMcause := 0.B(parameter.xlen)
       csrMtval := 0.U(parameter.xlen)
       trapEventReg := false.B
-      x1 := 0.U(parameter.xlen)
-      x2 := 0.U(parameter.xlen)
-      x3 := 0.U(parameter.xlen)
-      x4 := 0.U(parameter.xlen)
-      x5 := 0.U(parameter.xlen)
-      x6 := 0.U(parameter.xlen)
-      x7 := 0.U(parameter.xlen)
-      x8 := 0.U(parameter.xlen)
-      x9 := 0.U(parameter.xlen)
-      x10 := 0.U(parameter.xlen)
-      x11 := 0.U(parameter.xlen)
-      x12 := 0.U(parameter.xlen)
-      x13 := 0.U(parameter.xlen)
-      x14 := 0.U(parameter.xlen)
-      x15 := 0.U(parameter.xlen)
+      gprIo.clearAll := true.B
       debugDcsr := 0x40000003.U(parameter.xlen)
       debugDpc := parameter.resetVector.U(parameter.xlen)
       debugStepActive := false.B

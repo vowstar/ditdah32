@@ -14,7 +14,6 @@ import java.lang.foreign.Arena
 object DitDah32Module
     extends Generator[DitDah32Parameter, DitDah32Layers, DitDah32IO, DitDah32Probe]
     with DitDah32Csr
-    with DitDah32Gpr
     with DitDah32DebugHart
     with DitDah32Rvc:
 
@@ -86,21 +85,16 @@ object DitDah32Module
     val csrMcause        = RegInit(0.B(parameter.xlen))
     val csrMtval         = RegInit(0.U(parameter.xlen))
     val trapEventReg       = RegInit(false.B)
-    val x1  = RegInit(0.U(parameter.xlen))
-    val x2  = RegInit(0.U(parameter.xlen))
-    val x3  = RegInit(0.U(parameter.xlen))
-    val x4  = RegInit(0.U(parameter.xlen))
-    val x5  = RegInit(0.U(parameter.xlen))
-    val x6  = RegInit(0.U(parameter.xlen))
-    val x7  = RegInit(0.U(parameter.xlen))
-    val x8  = RegInit(0.U(parameter.xlen))
-    val x9  = RegInit(0.U(parameter.xlen))
-    val x10 = RegInit(0.U(parameter.xlen))
-    val x11 = RegInit(0.U(parameter.xlen))
-    val x12 = RegInit(0.U(parameter.xlen))
-    val x13 = RegInit(0.U(parameter.xlen))
-    val x14 = RegInit(0.U(parameter.xlen))
-    val x15 = RegInit(0.U(parameter.xlen))
+    val gpr = DitDah32Gpr.instantiate(parameter)
+    gpr.io.clock := io.clock
+    gpr.io.reset := io.reset
+    gpr.io.raddr1 := 0.U(5)
+    gpr.io.raddr2 := 0.U(5)
+    gpr.io.raddr3 := 0.U(5)
+    gpr.io.we := false.B
+    gpr.io.waddr := 0.U(5)
+    gpr.io.wdata := 0.U(parameter.xlen)
+    gpr.io.clearAll := false.B
 
     val debugDcsr = Option.when(parameter.enableJtag)(RegInit(0x40000003.U(parameter.xlen)))
     val debugDpc = Option.when(parameter.enableJtag)(RegInit(parameter.resetVector.U(parameter.xlen)))
@@ -405,8 +399,10 @@ object DitDah32Module
     shamt    := decodedInstr.bits(24, 20).asUInt
     funct7   := decodedInstr.bits(31, 25)
 
-    rs1Data := readGpr(rs1Index, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15, parameter)
-    rs2Data := readGpr(rs2Index, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15, parameter)
+    gpr.io.raddr1 := rs1Index.asUInt
+    gpr.io.raddr2 := rs2Index.asUInt
+    rs1Data := gpr.io.rdata1
+    rs2Data := gpr.io.rdata2
 
     csrAddr := decodedInstr.bits(31, 20)
     isCsr := (opcode === 0x73.B(7)) & (funct3 =/= 0.B(3))
@@ -952,7 +948,9 @@ object DitDah32Module
         pc       := memNextPcReg
         state    := CoreState.RUN.U(3)
 
-        writeGpr(memRdReg =/= 0.B(5), memRdReg, loadWdata.asUInt, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15)
+        gpr.io.we := memRdReg =/= 0.B(5)
+        gpr.io.waddr := memRdReg.asUInt
+        gpr.io.wdata := loadWdata.asUInt
 
         when(irqTrapPending) {
           state := CoreState.IRQ.U(3)
@@ -1030,7 +1028,9 @@ object DitDah32Module
       when(commitNonMem) {
         trapEventReg := execTrap
 
-        writeGpr(execWriteRd, rdIndex, execWdata, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15)
+        gpr.io.we := execWriteRd
+        gpr.io.waddr := rdIndex.asUInt
+        gpr.io.wdata := execWdata
 
         when(csrWriteEnable & !execTrap) {
           when(csrAddr === CsrAddr.MSTATUS.B(12)) {
@@ -1116,21 +1116,7 @@ object DitDah32Module
         csrMcause,
         csrMtval,
         trapEventReg,
-        x1,
-        x2,
-        x3,
-        x4,
-        x5,
-        x6,
-        x7,
-        x8,
-        x9,
-        x10,
-        x11,
-        x12,
-        x13,
-        x14,
-        x15,
+        gpr.io,
         debugDcsr.get,
         debugDpc.get,
         debugStepActive.get,

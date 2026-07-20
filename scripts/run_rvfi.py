@@ -131,7 +131,7 @@ smtbmc z3
 
 [script]
 plugin -i {slang_so}
-read_slang -I{core_dir} {trace_top_sv} {dut_sv} {dv_sv} {layers_sv} --top ditdah32_trace_top
+read_slang -I{core_dir} {trace_top_sv} {dut_sv} {core_dir}/DitDah32Gpr.sv {dv_sv} {layers_sv} --top ditdah32_trace_top
 read -sv {check_basename}.sv {wrapper_sv}
 prep -flatten -nordff -top rvfi_testbench
 chformal -early
@@ -526,7 +526,7 @@ def run_external_riscv_formal(out_dir, logs_dir):
     shutil.copy2(config_dir / "ditdah32_trace_top.sv", core_dir / "ditdah32_trace_top.sv")
     # The DV layer collateral is read alongside the core so read_slang can
     # resolve the trace probe XMRs.
-    for collateral in ("DitDah32.sv", "DitDah32_DV.sv", "layers-DitDah32-DV.sv", "ref_DitDah32.sv"):
+    for collateral in ("DitDah32.sv", "DitDah32Gpr.sv", "DitDah32_DV.sv", "layers-DitDah32-DV.sv", "layers-DitDah32Gpr-DV.sv", "ref_DitDah32.sv"):
         shutil.copy2(REPO_ROOT / "result" / collateral, core_dir / collateral)
 
     step["source_path"] = str(source)

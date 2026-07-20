@@ -52,7 +52,7 @@ def parse_lcov(path):
 
     merged = {"line_total": 0, "line_hit": 0, "branch_total": 0, "branch_hit": 0}
     for record in records:
-        if not record["source"].endswith("result/DitDah32.sv"):
+        if not record["source"].endswith(("result/DitDah32.sv", "result/DitDah32Gpr.sv")):
             continue
         merged["line_total"] += len(record["lines"])
         merged["line_hit"] += sum(1 for count in record["lines"].values() if count > 0)
