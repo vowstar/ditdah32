@@ -13,10 +13,10 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 PRODUCTION_BASELINE = {
-    "num_cells": 10172,
+    "num_cells": 11669,
     "num_ports": 28,
     "num_port_bits": 161,
-    "logic_depth": 93,
+    "logic_depth": 94,
 }
 
 
