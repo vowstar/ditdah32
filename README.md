@@ -18,17 +18,17 @@ See `doc/microarchitecture.md` for the pipeline and unit contracts.
 
 ## Results
 
-Process: TSMC 16FFCLL, 9-track (BWP16P90CPD), Calibre-clean LVS and DRC signoff for the default no-JTAG configuration. Silicon numbers below are from the v1.2.0 signoff netlist; re-signoff of the current fetch-overlap core is pending.
+Process: TSMC 16FFCLL, 9-track (BWP16P90CPD), Calibre-clean LVS and DRC signoff for the default no-JTAG configuration.
 
-Area: 14.3 kGE, 2219 um^2 standard cell (5534 combinational and 861 flops).
+Area: 16.4 kGE, 2555 um^2 standard cell (6284 combinational and 996 sequential).
 
 | Corner | Fmax | Dynamic (CoreMark) | Leakage |
 | --- | ---: | ---: | ---: |
-| SS 0.72 V 125 C, signoff | 314 MHz | 0.63 uW/MHz | 6.2 uW |
-| TT 0.80 V 25 C, typical | 455 MHz | 0.76 uW/MHz | 0.4 uW |
-| TT 0.55 V 25 C, near-threshold | 146 MHz | 0.33 uW/MHz | 0.2 uW |
+| SS 0.72 V 125 C, signoff | 330 MHz | 1.03 uW/MHz | 13.3 uW |
+| TT 0.80 V 25 C, typical | 496 MHz | 1.24 uW/MHz | 0.9 uW |
+| TT 0.55 V 25 C, near-threshold | 155 MHz | 0.55 uW/MHz | 0.5 uW |
 
-Post-layout STA at typical RC; the worst path is AXI-input to register (an integration-time budget). Power from CoreMark activity, about 0.76 pJ/cycle at 0.80 V.
+Post-layout STA at typical RC, median of three place-and-route draws; the worst path is the fetch-overlap next-address flag. Power from CoreMark activity, 1.24 pJ/cycle at 0.80 V. Versus v1.2.0 the fetch overlap buys 24% fewer CoreMark cycles and +5% Fmax for +15% area, +63% per-cycle power, and roughly doubled leakage.
 
 RV32EC has no hardware multiply or divide. Benchmark numbers are RTL cycle-accurate and frequency-normalised, not EEMBC-certified.
 
