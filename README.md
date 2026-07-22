@@ -18,7 +18,7 @@ See `doc/microarchitecture.md` for the pipeline and unit contracts.
 
 ## Results
 
-Process: TSMC 16FFCLL, 9-track (BWP16P90CPD), Calibre-clean LVS and DRC signoff for the default no-JTAG configuration.
+Process: TSMC 16FFCLL, 9-track (BWP16P90CPD), Calibre-clean LVS and DRC signoff for the default no-JTAG configuration. Silicon numbers below are from the v1.2.0 signoff netlist; re-signoff of the current fetch-overlap core is pending.
 
 Area: 14.3 kGE, 2219 um^2 standard cell (5534 combinational and 861 flops).
 
@@ -34,8 +34,8 @@ RV32EC has no hardware multiply or divide. Benchmark numbers are RTL cycle-accur
 
 | Memory model | CoreMark/MHz | DMIPS/MHz |
 | --- | ---: | ---: |
-| 0-wait TCM (intrinsic) | 0.289 | 0.163 |
-| AXI-Lite, 2 wait-states | 0.144 | 0.081 |
+| 0-wait TCM (intrinsic) | 0.382 | 0.192 |
+| AXI-Lite, 2 wait-states | 0.193 | 0.097 |
 
 `make bench-score` or `nix run .#score` reproduce the performance numbers.
 
