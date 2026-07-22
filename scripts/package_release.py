@@ -34,19 +34,30 @@ class ReleaseError(RuntimeError):
 
 @dataclass(frozen=True)
 class Variant:
+    name: str
     directory: str
     suffix: str
     enable_jtag: bool
     required_rtl: tuple[str, ...]
+    extra_files: tuple[str, ...] = ()
 
 
 VARIANTS = (
-    Variant("standard", "", False, ("DitDah32.sv",)),
+    Variant("standard", "standard", "", False, ("DitDah32.sv",)),
     Variant(
+        "jtag",
         "jtag",
         "-jtag",
         True,
         ("DitDah32.sv", "DitDah32DebugModule.sv", "DitDah32JtagDtm.sv"),
+    ),
+    Variant(
+        "fpga",
+        "standard",
+        "-fpga",
+        False,
+        ("DitDah32.sv",),
+        ("fpga/DitDah32Gpr.v", "fpga/ditdah32.sdc"),
     ),
 )
 
@@ -240,6 +251,16 @@ def stage_variant(input_dir, output_dir, license_path, tag, commit, epoch, varia
         license_destination.write_bytes(license_path.read_bytes())
         copied.append(license_destination)
 
+        for extra in variant.extra_files:
+            source = REPO_ROOT / extra
+            if not source.is_file():
+                raise ReleaseError(f"missing release file: {extra}")
+            audit_text(source, source.read_text(encoding="utf-8"))
+            destination = root / extra
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            destination.write_bytes(source.read_bytes())
+            copied.append(destination)
+
         manifest = {
             "commit": commit,
             "configuration": config,
@@ -248,7 +269,7 @@ def stage_variant(input_dir, output_dir, license_path, tag, commit, epoch, varia
             "release": tag,
             "rtl_filelist": [entry.as_posix() for entry in rtl_entries],
             "schema_version": 1,
-            "variant": variant.directory,
+            "variant": variant.name,
         }
         manifest_path = root / "MANIFEST.json"
         manifest_path.write_text(
@@ -376,7 +397,7 @@ def git_output(*args):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Package standard and JTAG RTL release archives"
+        description="Package standard, JTAG, and FPGA RTL release archives"
     )
     parser.add_argument("--tag", required=True)
     parser.add_argument("--commit")

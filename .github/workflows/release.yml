@@ -89,9 +89,10 @@ jobs:
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
           cd result/release
-          test "$(find . -maxdepth 1 -name '*.tar.gz' -type f | wc -l)" -eq 2
+          test "$(find . -maxdepth 1 -name '*.tar.gz' -type f | wc -l)" -eq 3
           test -f "ditdah32-${RELEASE_TAG}.tar.gz"
           test -f "ditdah32-${RELEASE_TAG}-jtag.tar.gz"
+          test -f "ditdah32-${RELEASE_TAG}-fpga.tar.gz"
           sha256sum --check SHA256SUMS
 
       - name: Create Draft Release
@@ -105,6 +106,7 @@ jobs:
             |---|---|---|---|
             | `ditdah32-${{ github.ref_name }}.tar.gz` | Standard | Disabled | Disabled |
             | `ditdah32-${{ github.ref_name }}-jtag.tar.gz` | JTAG Debug | Enabled | Disabled |
+            | `ditdah32-${{ github.ref_name }}-fpga.tar.gz` | Standard plus Anlogic EG4 distributed-RAM register file | Disabled | Disabled |
 
             Use `SHA256SUMS` to verify all downloads. The default JTAG IDCODE is an integration placeholder.
         run: |
@@ -115,6 +117,7 @@ jobs:
           gh release create "$RELEASE_TAG" \
             "result/release/ditdah32-${RELEASE_TAG}.tar.gz" \
             "result/release/ditdah32-${RELEASE_TAG}-jtag.tar.gz" \
+            "result/release/ditdah32-${RELEASE_TAG}-fpga.tar.gz" \
             result/release/SHA256SUMS \
             --draft \
             --verify-tag \
@@ -127,7 +130,7 @@ jobs:
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
           asset_count=$(gh release view "$RELEASE_TAG" --json assets --jq '.assets | length')
-          test "$asset_count" -eq 3
+          test "$asset_count" -eq 4
           while read -r digest filename; do
             remote=$(gh release view "$RELEASE_TAG" --json assets \
               --jq ".assets[] | select(.name == \"$filename\") | .digest")

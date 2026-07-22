@@ -53,10 +53,12 @@ The default IDCODE is an integration placeholder; set `jtagIdcode` to an assigne
 
 ## Release
 
-Tag releases provide `ditdah32-vX.Y.Z.tar.gz` and the optional
-`ditdah32-vX.Y.Z-jtag.tar.gz`; both disable trace and include a manifest,
-filelist, and license. `make package-release RELEASE_TAG=vX.Y.Z` reproduces
-the assets locally.
+Tag releases provide `ditdah32-vX.Y.Z.tar.gz`, the optional
+`ditdah32-vX.Y.Z-jtag.tar.gz`, and `ditdah32-vX.Y.Z-fpga.tar.gz`, which adds
+an Anlogic EG4 distributed-RAM register file (`fpga/DitDah32Gpr.v` replaces
+the generated `DitDah32Gpr.sv`) and an SDC template. All disable trace and
+include a manifest, filelist, and license.
+`make package-release RELEASE_TAG=vX.Y.Z` reproduces the assets locally.
 
 ## Test
 

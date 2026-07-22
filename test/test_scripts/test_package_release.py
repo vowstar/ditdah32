@@ -65,12 +65,13 @@ def package(tmp_path, output_name="release"):
     )
 
 
-def test_package_release_builds_two_named_archives(tmp_path):
+def test_package_release_builds_three_named_archives(tmp_path):
     archives, checksum_path = package(tmp_path)
 
     assert [path.name for path in archives] == [
         "ditdah32-v1.2.3.tar.gz",
         "ditdah32-v1.2.3-jtag.tar.gz",
+        "ditdah32-v1.2.3-fpga.tar.gz",
     ]
     checksum_names = [
         line.split()[1]
@@ -79,6 +80,7 @@ def test_package_release_builds_two_named_archives(tmp_path):
     assert checksum_names == [
         "ditdah32-v1.2.3.tar.gz",
         "ditdah32-v1.2.3-jtag.tar.gz",
+        "ditdah32-v1.2.3-fpga.tar.gz",
     ]
 
     with tarfile.open(archives[0], "r:gz") as archive:
@@ -101,6 +103,19 @@ def test_package_release_builds_two_named_archives(tmp_path):
         manifest = json.load(archive.extractfile(f"{root}/MANIFEST.json"))
         assert manifest["variant"] == "jtag"
         assert manifest["configuration"]["enableJtag"] is True
+
+    with tarfile.open(archives[2], "r:gz") as archive:
+        names = set(archive.getnames())
+        root = "ditdah32-v1.2.3-fpga"
+        assert f"{root}/DitDah32.sv" in names
+        assert f"{root}/fpga/DitDah32Gpr.v" in names
+        assert f"{root}/fpga/ditdah32.sdc" in names
+        manifest = json.load(archive.extractfile(f"{root}/MANIFEST.json"))
+        assert manifest["variant"] == "fpga"
+        assert manifest["configuration"]["enableJtag"] is False
+        manifest_paths = {entry["path"] for entry in manifest["files"]}
+        assert "fpga/DitDah32Gpr.v" in manifest_paths
+        assert "fpga/ditdah32.sdc" in manifest_paths
 
 
 def test_package_release_is_deterministic(tmp_path):
