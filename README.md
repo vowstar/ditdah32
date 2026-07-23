@@ -18,24 +18,24 @@ See `doc/microarchitecture.md` for the pipeline and unit contracts.
 
 ## Results
 
-Process: TSMC 16FFCLL, 9-track (BWP16P90CPD), Calibre-clean LVS and DRC signoff for the default no-JTAG configuration.
+Process: TSMC 16FFCLL, 9-track (BWP16P90CPD), Calibre-clean LVS and DRC signoff for the default no-JTAG configuration. The gpr submodule is logic-equivalent to the v1.2.0 signoff netlist, so its silicon numbers are carried forward.
 
-Area: 16.4 kGE, 2555 um^2 standard cell (6284 combinational and 996 sequential).
+Area: 14.3 kGE, 2219 um^2 standard cell (5534 combinational and 861 flops).
 
 | Corner | Fmax | Dynamic (CoreMark) | Leakage |
 | --- | ---: | ---: | ---: |
-| SS 0.72 V 125 C, signoff | 330 MHz | 1.03 uW/MHz | 13.3 uW |
-| TT 0.80 V 25 C, typical | 496 MHz | 1.24 uW/MHz | 0.9 uW |
-| TT 0.55 V 25 C, near-threshold | 155 MHz | 0.55 uW/MHz | 0.5 uW |
+| SS 0.72 V 125 C, signoff | 314 MHz | 0.63 uW/MHz | 6.2 uW |
+| TT 0.80 V 25 C, typical | 455 MHz | 0.76 uW/MHz | 0.4 uW |
+| TT 0.55 V 25 C, near-threshold | 146 MHz | 0.33 uW/MHz | 0.2 uW |
 
-Post-layout STA at typical RC, median of three place-and-route draws; the worst path is the fetch-overlap next-address flag. Power from CoreMark activity, 1.24 pJ/cycle at 0.80 V. Versus v1.2.0 the fetch overlap buys 24% fewer CoreMark cycles and +5% Fmax for +15% area, +63% per-cycle power, and roughly doubled leakage.
+Post-layout STA at typical RC; the worst path is AXI-input to register (an integration-time budget). Power from CoreMark activity, about 0.76 pJ/cycle at 0.80 V.
 
 RV32EC has no hardware multiply or divide. Benchmark numbers are RTL cycle-accurate and frequency-normalised, not EEMBC-certified.
 
 | Memory model | CoreMark/MHz | DMIPS/MHz |
 | --- | ---: | ---: |
-| 0-wait TCM (intrinsic) | 0.382 | 0.192 |
-| AXI-Lite, 2 wait-states | 0.193 | 0.097 |
+| 0-wait TCM (intrinsic) | 0.289 | 0.163 |
+| AXI-Lite, 2 wait-states | 0.144 | 0.081 |
 
 `make bench-score` or `nix run .#score` reproduce the performance numbers.
 
