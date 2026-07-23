@@ -62,17 +62,6 @@ object DitDah32Module
     val instrReg = RegInit(0.B(parameter.xlen))
     val fetched  = RegInit(false.B)
     val fetchOutstanding = RegInit(false.B)
-    val fetchAddrReg = RegInit(0.U(parameter.xlen))
-    val fetchArPending = RegInit(false.B)
-    val fetchArPendingAddr = RegInit(0.U(parameter.xlen))
-    val fetchDiscard = RegInit(false.B)
-    val fbufHitReg = RegInit(false.B)
-    val inflightDemandReg = RegInit(false.B)
-    val inflightNextReg = RegInit(false.B)
-    val fbufValid = RegInit(false.B)
-    val fbufAddr  = RegInit(0.U(parameter.xlen))
-    val fbufData  = RegInit(0.B(parameter.xlen))
-    val fbufFault = RegInit(false.B)
     val memOutstanding = RegInit(false.B)
     val storeAwDone = RegInit(false.B)
     val storeWDone  = RegInit(false.B)
@@ -136,10 +125,7 @@ object DitDah32Module
     val stateIrq          = Wire(Bool())
     val pcHalfwordHigh    = Wire(Bool())
     val pcFetchAddr       = Wire(UInt(parameter.xlen))
-    val demandAddr        = Wire(UInt(parameter.xlen))
-    val demandPlus4       = Wire(UInt(parameter.xlen))
-    val demandWordNext    = Wire(UInt(parameter.xlen))
-    val fetchTargetAddr   = Wire(UInt(parameter.xlen))
+    val instrAddr         = Wire(UInt(parameter.xlen))
     val lowerHalfwordBits = Wire(Bits(2))
     val upperHalfwordBits = Wire(Bits(2))
     val instrLowBits      = Wire(Bits(2))
@@ -177,11 +163,6 @@ object DitDah32Module
     val commitLen         = Wire(UInt(3))
     val commitCompressed  = Wire(Bool())
     val fetchRequest      = Wire(Bool())
-    val fetchBufHit       = Wire(Bool())
-    val fetchSlotFree     = Wire(Bool())
-    val fetchRespDemand   = Wire(Bool())
-    val fetchRespAddr     = Wire(UInt(parameter.xlen))
-    val fetchIssueAddr    = Wire(UInt(parameter.xlen))
     val fetchArValid      = Wire(Bool())
     val fetchArFire       = Wire(Bool())
     val fetchAcceptsResponse = Wire(Bool())
@@ -335,82 +316,19 @@ object DitDah32Module
     pcHalfwordHigh := pc.asBits.bit(1)
     pcFetchAddr := (pc.asBits.bits(parameter.xlen - 1, 2) ## 0.B(2)).asUInt
 
-    // Single-entry fetch buffer with sequential prefetch. demandAddr is the
-    // word the core consumes in RUN/STRADDLE, or the resume word during STORE.
-    // Local def keeps the architecture method under the JVM bytecode limit.
-    def fetchEngine(): Unit = {
-      demandAddr := stateStraddle.?(pcPlus2, pcFetchAddr)
-      when(stateStore) {
-        demandAddr := (memNextPcReg.asBits.bits(parameter.xlen - 1, 2) ## 0.B(2)).asUInt
-      }
-      demandPlus4 := (demandAddr + 4.U(parameter.xlen)).asBits.bits(parameter.xlen - 1, 0).asUInt
-      // Tag compares are made on register D-inputs one cycle early (the
-      // fbufHitReg / inflightDemandReg / inflightNextReg updates below); the
-      // consume path sees only flopped flags, keeping the tags off the
-      // decode-execute chain.
-      fetchBufHit := fbufHitReg
+    fetchRequest := stateRun | stateStraddle
+    if parameter.enableJtag then
+      fetchRequest := (stateRun | stateStraddle) & !debugHaltReq
+    fetchArValid := fetchRequest & !fetchOutstanding
+    fetchArFire := fetchArValid & axiAr.ready
+    fetchAcceptsResponse := fetchOutstanding | fetchArFire
+    fetchResponseFire := fetchAcceptsResponse & axiR.valid
+    fetchResponseError := fetchResponseFire & (axiR.bits.resp =/= 0.U(2))
+    fetchResponseOk := fetchResponseFire & !fetchResponseError
+    instrReady := fetchResponseOk
+    instrRdata := axiR.bits.data.asBits
 
-      fetchRequest := stateRun | stateStraddle | stateStore
-      if parameter.enableJtag then
-        fetchRequest := (stateRun | stateStraddle | stateStore) & !debugHaltReq
-
-      fetchTargetAddr := fetchBufHit.?(demandPlus4, demandAddr)
-      when(stateStore) {
-        fetchTargetAddr := demandAddr
-      }
-      val fetchTargetCovered = fetchBufHit.?(inflightNextReg, inflightDemandReg)
-      val storeWordClash = stateStore &
-        (fetchTargetAddr === (memAddrReg.asBits.bits(parameter.xlen - 1, 2) ## 0.B(2)).asUInt)
-      // Bus contract: one outstanding read, new AR strictly after the response;
-      // once VALID waits for READY the latched address holds until the fire.
-      fetchIssueAddr := fetchArPending.?(fetchArPendingAddr, fetchTargetAddr)
-      fetchSlotFree := !fetchOutstanding & !fetchArPending
-      fetchArValid := fetchArPending |
-        (fetchRequest & fetchSlotFree & !fetchTargetCovered & !storeWordClash)
-      fetchArFire := fetchArValid & axiAr.ready
-      fetchAcceptsResponse := fetchOutstanding | fetchArFire
-      fetchResponseFire := fetchAcceptsResponse & axiR.valid
-      fetchRespAddr := fetchOutstanding.?(fetchAddrReg, fetchIssueAddr)
-      // A fresh same-cycle issue is the demand fetch exactly when the buffer
-      // missed; an engaged AR carries its registered demand flag.
-      val fetchEngaged = fetchOutstanding | fetchArPending
-      val respIsDemand = fetchEngaged.?(inflightDemandReg, !fetchBufHit)
-      fetchRespDemand := fetchResponseFire & !fetchDiscard & respIsDemand &
-        (stateRun | stateStraddle)
-      fetchResponseOk := fetchRespDemand & (axiR.bits.resp === 0.U(2))
-      // Demand-fault observed now: an arriving demand response with an error, or
-      // the pc reaching a buffered word whose speculative fetch had faulted.
-      fetchResponseError := (fetchRespDemand & (axiR.bits.resp =/= 0.U(2))) |
-        ((stateRun | stateStraddle) & fetchBufHit & fbufFault)
-      instrReady := (fetchBufHit & !fbufFault) | fetchResponseOk
-      instrRdata := fetchBufHit.?(fbufData, axiR.bits.data.asBits)
-    }
-    fetchEngine()
-
-    // Next-cycle tag flags. demandWordNext defaults to the current demand and
-    // is overridden beside every pc/state writer; all operands are registers
-    // or mid-cycle wires, never the arriving read data. Called after the
-    // commit wires exist.
-    def fetchTagUpdate(commitStore: Referable[Bool]): Unit = {
-      demandWordNext := demandAddr
-      val fbufFill = fetchResponseFire & !fetchDiscard
-      val fbufNextValid = (fbufValid | fbufFill) &
-        !(stateReset | stateDebug | fetchResponseError | commitStore)
-      val fbufNextAddr = fbufFill.?(fetchRespAddr, fbufAddr)
-      val engagedNextValid = ((fetchArValid & !axiAr.ready) |
-        (fetchArFire & !axiR.valid) |
-        (fetchOutstanding & !fetchResponseFire)) & !stateReset
-      val engagedNextAddr = fetchArValid.?(fetchIssueAddr, fetchAddrReg)
-      // The -4 rides the early register side so the late demandWordNext tail
-      // carries only one compare.
-      val engagedNextAddrMinus4 = (engagedNextAddr +
-        BigInt("FFFFFFFC", 16).U(parameter.xlen)).asBits.bits(parameter.xlen - 1, 0).asUInt
-      fbufHitReg := fbufNextValid & (fbufNextAddr === demandWordNext)
-      inflightDemandReg := engagedNextValid & (engagedNextAddr === demandWordNext)
-      inflightNextReg := engagedNextValid & (engagedNextAddrMinus4 === demandWordNext)
-    }
-
-    loadArValid := stateLoad & !memOutstanding & !fetchOutstanding & !fetchArPending
+    loadArValid := stateLoad & !memOutstanding
     loadArFire := loadArValid & axiAr.ready
     loadAcceptsResponse := stateLoad & (memOutstanding | loadArFire)
     loadResponseFire := loadAcceptsResponse & axiR.valid
@@ -421,9 +339,7 @@ object DitDah32Module
     storeAwFire := storeAwValid & axiAw.ready
     storeWFire := storeWValid & axiW.ready
     storeBothDone := (storeAwDone | storeAwFire) & (storeWDone | storeWFire)
-    // Defer B acceptance while a fetch response lands: the RVFI bus channel
-    // reports one event per cycle, so R and B must not complete together.
-    val storeComplete = stateStore & storeBothDone & !fetchResponseFire
+    val storeComplete = stateStore & storeBothDone
     storeResponseFire := storeComplete & axiB.valid
     storeResponseError := storeResponseFire & (axiB.bits.resp =/= 0.U(2))
     storeResponseOk := storeResponseFire & !storeResponseError
@@ -438,6 +354,7 @@ object DitDah32Module
     pcPlus2 := (pc + 2.U(parameter.xlen)).asBits.bits(parameter.xlen - 1, 0).asUInt
     pcPlus4 := (pc + 4.U(parameter.xlen)).asBits.bits(parameter.xlen - 1, 0).asUInt
     sequentialPc := commitCompressed.?(pcPlus2, pcPlus4)
+    instrAddr := stateStraddle.?(pcPlus2, pcFetchAddr)
     selectedInstr := instrCompressed.?(0.B(16) ## selectedHalfword, instrRdata)
     straddledInstr := instrRdata.bits(15, 0) ## straddleLowHalfword
 
@@ -888,7 +805,6 @@ object DitDah32Module
     // Commit-cycle outcomes: a committing instruction either enters the
     // memory phase (load/store) or retires immediately (everything else).
     val commitEntersMem = commitNow & execWaitsForMem
-    fetchTagUpdate(commitEntersMem & isStore)
     val commitNonMem =
       if parameter.enableJtag then commitNow & !execWaitsForMem & !debugEbreak
       else commitNow & !execWaitsForMem
@@ -937,11 +853,8 @@ object DitDah32Module
     axiW.bits.strb   := memStoreBeReg
     axiB.ready  := storeComplete
     axiAr.valid := loadArValid | fetchArValid
-    // A fetch AR latched before a load takes the channel completes first with
-    // its held address and instruction prot.
-    axiAr.bits.addr  := (stateLoad & !fetchArPending)
-      .?((memAddrReg.asBits.bits(parameter.xlen - 1, 2) ## 0.B(2)).asUInt, fetchIssueAddr)
-    axiAr.bits.prot  := (stateLoad & !fetchArPending).?(2.U(3), 6.U(3))
+    axiAr.bits.addr  := stateLoad.?((memAddrReg.asBits.bits(parameter.xlen - 1, 2) ## 0.B(2)).asUInt, instrAddr)
+    axiAr.bits.prot  := stateLoad.?(2.U(3), 6.U(3))
     axiR.ready  := loadAcceptsResponse | fetchAcceptsResponse
 
     io.irq.pending := irqIndividuallyPending
@@ -952,38 +865,17 @@ object DitDah32Module
     when(stateReset) {
       state := CoreState.RUN.U(3)
       fetchOutstanding := false.B
-      fetchArPending := false.B
-      fetchDiscard := false.B
-      fbufValid := false.B
       memOutstanding := false.B
       storeAwDone := false.B
       storeWDone := false.B
     }.otherwise {
       trapEventReg := false.B
 
+      when(fetchArFire) {
+        fetchOutstanding := true.B
+      }
       when(fetchResponseFire) {
         fetchOutstanding := false.B
-        fetchDiscard := false.B
-        when(!fetchDiscard) {
-          fbufValid := true.B
-          fbufAddr  := fetchRespAddr
-          fbufData  := axiR.bits.data.asBits
-          fbufFault := axiR.bits.resp =/= 0.U(2)
-        }
-      }
-      // The issue cycle keeps the slot free only if its own response arrived
-      // in the same cycle (zero-wait memory).
-      when(fetchArValid & !axiAr.ready & !fetchArPending) {
-        fetchArPending := true.B
-        fetchArPendingAddr := fetchTargetAddr
-      }
-      when(fetchArFire) {
-        fetchArPending := false.B
-        fetchOutstanding := !axiR.valid
-        fetchAddrReg := fetchIssueAddr
-      }
-      when(stateDebug) {
-        fbufValid := false.B
       }
       when(loadArFire) {
         memOutstanding := true.B
@@ -1001,7 +893,6 @@ object DitDah32Module
       when(stateIrq) {
         state := CoreState.RUN.U(3)
         pc := trapVector
-        demandWordNext := (trapVector.asBits.bits(parameter.xlen - 1, 2) ## 0.B(2)).asUInt
         trapEventReg := true.B
       }
 
@@ -1021,9 +912,7 @@ object DitDah32Module
 
       when(fetchResponseError) {
         // Recoverable instruction access fault per doc/memory_fault_contract.md.
-        // Drop the buffer so a post-mret retry re-accesses the bus.
         state := CoreState.IRQ.U(3)
-        fbufValid := false.B
         csrMcause := 1.B(parameter.xlen)
         csrMtval := pc
         csrMepc := pc
@@ -1057,7 +946,6 @@ object DitDah32Module
         instrReg := memInstrReg
         fetched  := true.B
         pc       := memNextPcReg
-        demandWordNext := (memNextPcReg.asBits.bits(parameter.xlen - 1, 2) ## 0.B(2)).asUInt
         state    := CoreState.RUN.U(3)
 
         gpr.io.we := memRdReg =/= 0.B(5)
@@ -1080,7 +968,6 @@ object DitDah32Module
         instrReg := memInstrReg
         fetched  := true.B
         pc       := memNextPcReg
-        demandWordNext := (memNextPcReg.asBits.bits(parameter.xlen - 1, 2) ## 0.B(2)).asUInt
         state    := CoreState.RUN.U(3)
 
         when(irqTrapPending) {
@@ -1099,7 +986,6 @@ object DitDah32Module
           fetched  := true.B
           when(!execWaitsForMem) {
             pc       := execNextPc
-            demandWordNext := (execNextPc.asBits.bits(parameter.xlen - 1, 2) ## 0.B(2)).asUInt
             state    := CoreState.RUN.U(3)
           }
         }
@@ -1108,13 +994,11 @@ object DitDah32Module
           when(straddled32) {
             straddleLowHalfword := instrRdata.bits(31, 16)
             state := CoreState.STRADDLE.U(3)
-            demandWordNext := (pcPlus2.asBits.bits(parameter.xlen - 1, 2) ## 0.B(2)).asUInt
           }.otherwise {
             instrReg := instrRdata
             fetched  := true.B
             when(!execWaitsForMem) {
               pc       := execNextPc
-            demandWordNext := (execNextPc.asBits.bits(parameter.xlen - 1, 2) ## 0.B(2)).asUInt
             }
           }
         }
@@ -1125,7 +1009,6 @@ object DitDah32Module
         memInstrReg     := commitInstr
         memLenReg       := commitLen
         memNextPcReg    := sequentialPc
-        demandWordNext  := (sequentialPc.asBits.bits(parameter.xlen - 1, 2) ## 0.B(2)).asUInt
         memAddrReg      := memAddr
         memRdReg        := rdIndex
         memFunct3Reg    := funct3.asUInt
@@ -1138,13 +1021,7 @@ object DitDah32Module
           state := CoreState.LOAD.U(3)
         }
         when(isStore) {
-          // Stores may target the instruction stream; drop the buffer and any
-          // fetch already on the bus.
           state := CoreState.STORE.U(3)
-          fbufValid := false.B
-          when(fetchArPending | fetchOutstanding) {
-            fetchDiscard := true.B
-          }
         }
       }
 
@@ -1186,7 +1063,6 @@ object DitDah32Module
 
         when(execTrap) {
           pc := trapVector
-          demandWordNext := (trapVector.asBits.bits(parameter.xlen - 1, 2) ## 0.B(2)).asUInt
           state := CoreState.RUN.U(3)
           csrMepc := pc
           csrMcause := standardTrapCause
@@ -1217,7 +1093,6 @@ object DitDah32Module
         instrReg,
         fetched,
         fetchOutstanding,
-        fetchArPending,
         memOutstanding,
         storeAwDone,
         storeWDone,

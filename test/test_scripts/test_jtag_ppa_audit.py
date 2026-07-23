@@ -20,13 +20,13 @@ def test_parse_logic_depth():
 def test_metrics_and_baseline():
     stats = {
         "design": {
-            "num_cells": 11669,
+            "num_cells": 10172,
             "num_ports": 28,
             "num_port_bits": 161,
             "num_cells_by_type": {"$_MUX_": 10, "$_SDFF_PP0_": 7},
         }
     }
-    metrics = jtag_ppa_audit.metrics_from_stats(stats, 94)
+    metrics = jtag_ppa_audit.metrics_from_stats(stats, 93)
 
     assert metrics["register_cells"] == 7
     assert jtag_ppa_audit.check_baseline(metrics)["status"] == "pass"

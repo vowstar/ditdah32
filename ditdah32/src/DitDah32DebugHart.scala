@@ -21,7 +21,6 @@ trait DitDah32DebugHart:
       instrReg: Reg[Bits],
       fetched: Reg[Bool],
       fetchOutstanding: Reg[Bool],
-      fetchArPending: Reg[Bool],
       memOutstanding: Reg[Bool],
       storeAwDone: Reg[Bool],
       storeWDone: Reg[Bool],
@@ -390,7 +389,7 @@ trait DitDah32DebugHart:
       ).asUInt
     }
 
-    val debugFetchDrained = (!fetchOutstanding | fetchResponseFire) & !fetchArPending
+    val debugFetchDrained = !fetchOutstanding | fetchResponseFire
     when(dm.haltReq & (stateRun | stateStraddle) & debugFetchDrained) {
       state := CoreState.DEBUG.U(3)
       debugDpc := pc
@@ -446,7 +445,6 @@ trait DitDah32DebugHart:
       state := CoreState.RUN.U(3)
       pc := debugDpc
       fetchOutstanding := false.B
-      fetchArPending := false.B
       debugStepActive := debugDcsr.asBits.bit(2)
       debugResumeAck := true.B
     }
@@ -457,7 +455,6 @@ trait DitDah32DebugHart:
       instrReg := 0.B(parameter.xlen)
       fetched := false.B
       fetchOutstanding := false.B
-      fetchArPending := false.B
       memOutstanding := false.B
       storeAwDone := false.B
       storeWDone := false.B
