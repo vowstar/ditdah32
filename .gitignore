@@ -30,3 +30,17 @@ __pycache__/
 .bsp/
 .scala-build/
 
+# Commercial FPV session artefacts. Every driver anchors these under result/,
+# but a hand-run tool leaves them wherever it was launched.
+jgproj/
+jgproject/
+vcst_rtdb/
+novas.*
+*.vcf
+jg.log
+vcf.log
+*.jg.log
+verdiLog/
+DVEfiles/
+ucli.key
+witness.vcd
