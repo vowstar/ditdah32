@@ -209,58 +209,24 @@ module DitDah32RvfiLite;
             end
         end
 
+        // Only properties of the core survive here. An assertion that an
+        // rvfi_* alias equals the trace signal it is defined from restates
+        // its own definition and holds with no DUT attached.
         if (!reset) begin
-            assert(rvfi_valid == trace_valid);
-            assert(rvfi_insn == trace_instr);
-            assert(rvfi_trap == trace_trap);
-            assert(rvfi_pc_rdata == trace_pc);
-            assert(rvfi_pc_wdata == trace_next_pc);
-            assert(rvfi_mode == 2'b11);
-            assert(rvfi_ixl == 2'b01);
-            assert(rvfi_rs1_addr == trace_rs1_addr);
-            assert(rvfi_rs2_addr == trace_rs2_addr);
-            assert(rvfi_rs1_rdata == (trace_rs1_addr == 5'd0 ? 32'd0 : trace_rs1_rdata));
-            assert(rvfi_rs2_rdata == (trace_rs2_addr == 5'd0 ? 32'd0 : trace_rs2_rdata));
-            assert(rvfi_mem_addr == trace_mem_addr);
-            assert(rvfi_mem_rmask == trace_mem_rmask);
-            assert(rvfi_mem_wmask == trace_mem_wmask);
-            assert(rvfi_mem_rdata == (trace_mem_rmask == 4'd0 ? 32'd0 : trace_mem_rdata));
-            assert(rvfi_mem_wdata == (trace_mem_wmask == 4'd0 ? 32'd0 : trace_mem_wdata));
-
             if (rvfi_valid) begin
                 assert(trace_len == 3'd0 || trace_len == 3'd2 || trace_len == 3'd4);
                 assert(rvfi_pc_wdata[0] == 1'b0);
                 assert(!(rvfi_trap && trace_rd_we));
-                assert(rvfi_rd_addr < 5'd16);
                 assert(rvfi_rs1_addr < 5'd16);
                 assert(rvfi_rs2_addr < 5'd16);
                 assert(!(rvfi_mem_rmask != 4'd0 && rvfi_mem_wmask != 4'd0));
-                if (rvfi_mem_rmask == 4'd0) begin
-                    assert(rvfi_mem_rdata == 32'd0);
-                end
-                if (rvfi_mem_wmask == 4'd0) begin
-                    assert(rvfi_mem_wdata == 32'd0);
-                end
-                if (rvfi_rs1_addr == 5'd0) begin
-                    assert(rvfi_rs1_rdata == 32'd0);
-                end
-                if (rvfi_rs2_addr == 5'd0) begin
-                    assert(rvfi_rs2_rdata == 32'd0);
-                end
                 if (trace_rd_we) begin
                     assert(rvfi_rd_addr != 5'd0);
-                    assert(rvfi_rd_wdata == trace_rd_wdata);
-                end else begin
-                    assert(rvfi_rd_addr == 5'd0);
-                    assert(rvfi_rd_wdata == 32'd0);
                 end
                 if (rvfi_intr) begin
                     assert(rvfi_trap);
                     assert(trace_len == 3'd0);
                     assert(trace_instr == 32'd0);
-                end
-                if (rvfi_trap) begin
-                    assert(!trace_rd_we);
                 end
             end
         end

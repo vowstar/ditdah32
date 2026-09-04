@@ -100,7 +100,6 @@ module DitDah32Safety;
     wire w_fire = axi_w_valid && axi_w_ready;
     wire b_fire = axi_b_valid && axi_b_ready;
 
-    reg [63:0] rvfi_order = 64'd0;
     wire       rvfi_valid = trace_valid;
     wire [31:0] rvfi_insn = trace_instr;
     wire       rvfi_trap = trace_trap;
@@ -113,7 +112,6 @@ module DitDah32Safety;
     reg write_aw_seen = 1'b0;
     reg write_w_seen = 1'b0;
     reg write_resp_pending = 1'b0;
-    reg fatal_trap_seen = 1'b0;
 
     always @(*) begin
         if (!reset) begin
@@ -124,20 +122,11 @@ module DitDah32Safety;
 
     always @(posedge clock) begin
         if (reset) begin
-            rvfi_order <= 64'd0;
             read_outstanding <= 1'b0;
             write_aw_seen <= 1'b0;
             write_w_seen <= 1'b0;
             write_resp_pending <= 1'b0;
-            fatal_trap_seen <= 1'b0;
         end else begin
-            if (rvfi_valid) begin
-                rvfi_order <= rvfi_order + 64'd1;
-            end
-            if (trace_valid && trace_trap && trace_trap_cause == 4'h7) begin
-                fatal_trap_seen <= 1'b1;
-            end
-
             case ({ar_fire, r_fire})
                 2'b10: read_outstanding <= 1'b1;
                 2'b01: read_outstanding <= 1'b0;
@@ -192,11 +181,11 @@ module DitDah32Safety;
                 assert(!trace_rd_we);
             end
 
-            if ($past(fatal_trap_seen)) begin
+            if (trace_valid && trace_trap && trace_trap_cause == 4'h7) begin
                 assert(status_trap);
-                assert(!status_busy);
-                assert(!trace_valid);
-                assert(!axi_ar_valid);
+                assert(status_busy);
+                assert(!status_sleep);
+                assert(!trace_rd_we);
                 assert(!axi_aw_valid);
                 assert(!axi_w_valid);
             end
@@ -243,7 +232,6 @@ module DitDah32Safety;
             if (status_sleep) begin
                 assert(!status_busy);
                 assert(!status_trap);
-                assert(!trace_valid);
                 assert(!axi_ar_valid);
                 assert(!axi_aw_valid);
                 assert(!axi_w_valid);

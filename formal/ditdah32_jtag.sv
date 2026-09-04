@@ -259,6 +259,9 @@ module DitDah32DebugModuleFormal;
 
         assume(!(hartHalted && hartRunning));
         assume(!abstractDone || probeAbstractBusy);
+        // cmderr 6 is reserved by the debug spec; the abstract-command
+        // executor never reports it. The DM copies the code verbatim.
+        assume(abstractError != 3'h6);
 
         if (f_past_valid && !$past(reset)) begin
             if (requestToggle == $past(requestToggle)) begin
@@ -276,12 +279,28 @@ module DitDah32DebugModuleFormal;
                 assert(!probeAbstractBusy);
             end
             assert(!(abstractValid && $past(abstractValid)));
-            assert(!(resumeReq && $past(resumeReq)));
+            // resumeReq is a one-cycle pulse per accepted DMI write; it can
+            // only span two cycles if a fresh request was accepted between.
+            if (resumeReq && $past(resumeReq)) begin
+                assert($past(probeRequestToggleSync) != $past(probeRequestToggleSeen));
+            end
+            if (resumeReq) begin
+                assert($past(hartHalted));
+            end
+            if (abstractValid) begin
+                assert($past(hartHalted));
+            end
+            // cmderr is a bitwise-W1C 3-bit field, so a debugger partial
+            // clear of OTHER can land on the reserved code 6. Hardware
+            // itself never sets it.
+            if (probeCommandError == 3'h6) begin
+                assert($past(probeCommandError) == 3'h7 ||
+                       $past(probeCommandError) == 3'h6);
+            end
         end
 
         if (!reset) begin
             assert(responseOp == 2'h0);
-            assert(probeCommandError != 3'h6);
             if (!probeDmactive) begin
                 assert(!haltReq);
                 assert(!resumeReq);
@@ -293,14 +312,12 @@ module DitDah32DebugModuleFormal;
             end
             if (abstractValid) begin
                 assert(probeDmactive);
-                assert(hartHalted);
                 assert(probeAbstractBusy);
                 assert(abstractCmdType == 2'h0 || abstractCmdType == 2'h2);
                 assert(abstractSize <= 3'h2);
             end
             if (resumeReq) begin
                 assert(probeDmactive);
-                assert(hartHalted);
             end
             if (haltReq || resetReq || haltOnResetReq) begin
                 assert(probeDmactive);
