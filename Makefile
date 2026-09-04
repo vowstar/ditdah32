@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Huang Rui <vowstar@gmail.com>
 # SPDX-License-Identifier: MIT
 
-.PHONY: audit-ci-action-refs audit-ci-github-auth audit-ci-publish-readiness audit-ci-remote audit-ci-remote-preflight audit-completion audit-gaps audit-jtag-ppa audit-tools audit-trace-config build build-jtag build-trace bench bench-score ci-remote-closure ci-remote-dispatch ci-remote-publish coverage formal formal-jtag package-release signoff-coverage test test-jtag test-model test-isa test-scripts test-isa-rtl verify verify-ci-smoke verify-compliance verify-iss verify-riscv-dv verify-rvfi verify-rvfi-lite verify-sail-highmem verify-sail-matrix verify-sail-smoke verify-smoke verify-rtl verify-signoff verify-spike-highmem verify-spike-rv32e-strict verify-spike-smoke verify-spike-matrix clean
+.PHONY: audit-ci-action-refs audit-ci-github-auth audit-ci-publish-readiness audit-ci-remote audit-ci-remote-preflight audit-completion audit-gaps audit-jtag-ppa audit-tools audit-trace-config build build-jtag build-trace bench bench-score ci-remote-closure ci-remote-dispatch ci-remote-publish coverage formal formal-jtag package-release verify-commercial build-sva signoff-coverage test test-jtag test-model test-isa test-scripts test-isa-rtl verify verify-ci-smoke verify-compliance verify-iss verify-riscv-dv verify-rvfi verify-rvfi-lite verify-sail-highmem verify-sail-matrix verify-sail-smoke verify-smoke verify-rtl verify-signoff verify-spike-highmem verify-spike-rv32e-strict verify-spike-smoke verify-spike-matrix clean
 
 BENCH_FREQ_MHZ ?= 100
 BENCH_COREMARK_ITERATIONS ?= 200
@@ -14,6 +14,7 @@ CI_REMOTE_ARGS ?=
 CI_REMOTE_DISPATCH_ARGS ?= --profiles smoke ci-evidence --wait
 CI_REMOTE_CLOSURE_ARGS ?=
 CI_REMOTE_PUBLISH_ARGS ?=
+COMMERCIAL_FORMAL_ARGS ?=
 RELEASE_TAG ?= $(shell git describe --tags --exact-match 2>/dev/null)
 
 audit-tools:
@@ -90,6 +91,14 @@ formal: build-trace
 
 formal-jtag: build-jtag
 	python3 scripts/run_jtag_formal.py --depth 32
+
+build-sva:
+	build-ditdah32 --trace --sva
+
+# Unbounded proof on a licensed engine. Kept out of verify-signoff because CI
+# has no license. Skips clean when no engine is reachable.
+verify-commercial: build-sva
+	python3 scripts/run_commercial_formal.py --out-dir result/formal/commercial $(COMMERCIAL_FORMAL_ARGS)
 
 verify-rvfi-lite: build-trace
 	python3 scripts/run_rvfi_lite.py --depth 24
