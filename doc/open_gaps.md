@@ -35,9 +35,18 @@ rejected before RTL execution.
 
 ## RVFI / riscv-formal
 
-`make verify-rvfi` enables every property group in the implemented RV32EC,
-Zicsr, and M-mode direct-trap profile; no report group is disabled.
+`make verify-rvfi` enables every property group; none is disabled. Five
+assumptions narrow what those groups see: the instruction models exclude
+trapping and interrupted retirements and constrain register fields to
+x0-x15, CSR persistence excludes traps and MRET, and liveness excludes
+WFI, which `wrapper.sv` covers with a bounded wake.
 
+## Unbounded Proof
+
+`make verify-commercial` proves the `layer("DV")` SVA without a depth bound
+on JasperGold and VC Formal, with a reachability cover per antecedent. Every
+other check is bounded, and the single-outstanding AXI model `wrapper.sv`
+assumes is not asserted anywhere.
 ## Full AXI4
 
 The current target is a single-beat AXI4-Lite compatible subset.

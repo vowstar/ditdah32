@@ -5,7 +5,7 @@ RTL tests, RTL/ISS trace comparison against Spike and Sail, riscv-formal
 RVFI proofs, RISCV-DV constrained-random programs, a local compliance
 signature gate against Sail, and Verilator HDL coverage. Gaps that are not
 closed by the local campaign are tracked in `doc/open_gaps.md`. Optional JTAG
-debug adds direct protocol tests, OpenOCD/GDB interoperability, and bounded proofs.
+debug adds direct protocol tests and OpenOCD/GDB interoperability.
 
 ## Commands
 
@@ -15,13 +15,15 @@ make test-isa              # directed ISA regression artifacts
 make test-scripts          # helper-script unit tests
 make verify-smoke          # fast push/PR gate
 make verify-rtl            # full cocotb suite
-make verify-rvfi-lite      # local RVFI-lite adapter check
+make verify-rvfi-lite      # RVFI well-formedness over the trace surface
 make verify-rvfi           # riscv-formal RV32EC implemented profile
 make verify-iss            # composite Spike + Sail external ISS closure
 make verify-riscv-dv       # constrained-random programs vs reference trace
 make verify-compliance     # Sail-driven compliance signature gate
 make test-jtag             # direct JTAG and OpenOCD/GDB flows
-make formal-jtag           # JTAG DTM and DM protocol proofs
+make formal              # AXI, trap, and quiescence bounded proofs
+make formal-jtag           # JTAG DTM and DM bounded proofs
+make verify-commercial     # unbounded proof of the layer("DV") SVA
 make verify-signoff        # local CPU/JTAG campaign + coverage + gap audit
 make audit-gaps            # write result/verification/open_gaps.{json,md}
 make audit-trace-config    # audit all trace and JTAG combinations
@@ -50,16 +52,18 @@ depend on `build-trace`. JTAG ports and logic exist only with `enableJtag=true`.
 - External ISS differential: Spike and Sail diff cleanly against RTL for
   all matrix entries; non-RV32E artifacts are reported skipped, not
   silently passed.
-- riscv-formal passes all implemented-profile groups: all 62 RV32EC
-  instruction models; PC, register, order, memory, bus, and fault checks;
-  implemented CSR instruction, persistence, access, and WARL checks; complete
-  trap, MRET, and interrupt CSR transitions; bounded liveness and WFI wake.
+- riscv-formal passes every implemented-profile group. Five assumptions
+  narrow what those groups see: the instruction models run on non-trapping,
+  non-interrupted retirements under per-format x0-x15 register constraints,
+  CSR persistence assumes no trap or MRET between the selected write and
+  read, and liveness excludes WFI. Trap, MRET, interrupt CSR transitions,
+  and bounded WFI wake are proven separately in the wrapper.
 - Compliance signature gate: every test under `test/compliance/tests/`
   compiles for RV32E, runs on Sail to produce a reference signature, and
   matches the DUT's AXI-RAM signature word for word.
 - JTAG debug passes IDCODE/DTMCS/DMI, halt/resume/reset, GPR/CSR access,
   8/16/32-bit memory access, abstract errors, EBREAK, interrupt-masked step,
-  OpenOCD/GDB, TAP/DTM formal, and DM formal checks.
+  OpenOCD/GDB, and bounded TAP/DTM and DM protocol proofs.
 - The four trace/JTAG configurations build independently; no-JTAG synthesis
   remains at the recorded production cell-count and logic-depth baseline.
 - Release archives disable trace and compile from their packaged filelists.
@@ -76,6 +80,7 @@ depend on `build-trace`. JTAG ports and logic exist only with `enableJtag=true`.
 | `result/axi/` | AXI backpressure stress |
 | `result/formal/rvfi/rvfi.json` | riscv-formal RV32EC implemented profile |
 | `result/formal/jtag/jtag.json` | JTAG DTM and DM bounded proofs |
+| `result/formal/commercial/` | unbounded FPV verdicts and cover reachability |
 | `result/iss/` | Spike + Sail differential |
 | `result/riscv_dv/riscv_dv.json` | RISCV-DV regression |
 | `result/compliance/compliance.json` | compliance signature gate |
@@ -93,6 +98,16 @@ BENCH_FREQ_MHZ=100` records local RTL timing-marker cycle counts at the
 given frequency. This proves functional benchmark completion on the RTL,
 but does not prove certified CoreMark or Dhrystone scores, real
 post-synthesis clock timing, or long-duration benchmark stability.
+
+## Local SVA
+
+`ditdah32/src/DitDah32Sva.scala` states the AXI stability, bus-fault, and
+quiescence properties inside `layer("DV")`, so they reach
+`result/sva/DitDah32_DV.sv` as SVA and the production module stays
+assertion-free. Every antecedent carries a reachability cover.
+`make verify-commercial` proves them without a depth bound on JasperGold and
+VC Formal; the SymbiYosys targets build without them, because yosys-slang
+rejects the per-atom clocking firtool emits.
 
 ## RVFI Wrapper
 
