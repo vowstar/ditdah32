@@ -1485,3 +1485,16 @@ object DitDah32Module
       probe.trace_mtval   <== traceMtvalWire
       probe.trace_mip     <== traceMipWire
       probe.trace_mcause  <== traceMcauseWire
+
+      // yosys-slang rejects the per-atom clocking firtool emits for these, so
+      // the SymbiYosys flow builds without them and the commercial engines
+      // build with --sva.
+      if parameter.enableSva then
+        DitDah32Sva(
+          parameter,
+          io,
+          traceValidReg,
+          traceTrapReg,
+          traceTrapCauseReg,
+          traceRdWeReg
+        )

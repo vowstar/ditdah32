@@ -7,6 +7,7 @@ import me.jiuyang.zaozi.*
 case class DitDah32Parameter(
   resetVector: Int = 0,
   enableTrace: Boolean = false,
+  enableSva: Boolean = false,
   enableJtag: Boolean = false,
   jtagIdcode: Long = 1L
 ) extends Parameter:

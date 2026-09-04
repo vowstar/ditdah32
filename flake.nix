@@ -25,6 +25,7 @@
         ditdah32Config = {
           resetVector = 0;
           enableTrace = false;
+          enableSva = false;
           enableJtag = false;
           jtagIdcode = 1;
         };
@@ -166,6 +167,7 @@
           OUTPUT_DIR="''${OUTPUT_DIR:-$PWD/result}"
           ENABLE_TRACE="''${DITDAH32_ENABLE_TRACE:-${if ditdah32Config.enableTrace then "true" else "false"}}"
           ENABLE_JTAG="''${DITDAH32_ENABLE_JTAG:-${if ditdah32Config.enableJtag then "true" else "false"}}"
+          ENABLE_SVA="''${DITDAH32_ENABLE_SVA:-${if ditdah32Config.enableSva then "true" else "false"}}"
 
           while [ "$#" -gt 0 ]; do
             case "$1" in
@@ -177,6 +179,12 @@
                 ;;
               --jtag)
                 ENABLE_JTAG=true
+                ;;
+              --sva)
+                ENABLE_SVA=true
+                ;;
+              --no-sva)
+                ENABLE_SVA=false
                 ;;
               --no-jtag)
                 ENABLE_JTAG=false
@@ -245,6 +253,7 @@ EOF
             --resetVector ${toString ditdah32Config.resetVector} \
             --enableTrace "$ENABLE_TRACE" \
             --enableJtag "$ENABLE_JTAG" \
+            --enableSva "$ENABLE_SVA" \
             --jtagIdcode ${toString ditdah32Config.jtagIdcode}
 
           scala-cli run \
@@ -459,6 +468,7 @@ EOF
           let
             releaseConfig = ditdah32Config // {
               enableTrace = false;
+              enableSva = false;
               inherit enableJtag;
             };
           in
@@ -490,6 +500,7 @@ EOF
               -- config "$out/ditdah32_config.json" \
               --resetVector ${toString releaseConfig.resetVector} \
               --enableTrace false \
+              --enableSva false \
               --enableJtag ${if enableJtag then "true" else "false"} \
               --jtagIdcode ${toString releaseConfig.jtagIdcode}
 
