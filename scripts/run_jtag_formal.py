@@ -65,7 +65,11 @@ def run_proof(name, top, probe_top, depth, out_dir, slang_so):
                     f"plugin -i {slang_so}; "
                     f"read_slang {read_files} --top {probe_top}; "
                     f"read_verilog -formal -sv {HARNESS}; "
-                    f"prep -top {top}; write_smt2 -wires {smt_path}"
+                    # yosys lowers SV assert()/assume() to edge-triggered
+                    # $check cells; write_smt2 emits only $assert/$assume, so
+                    # without this the SMT2 assertion function is constant true.
+                    f"prep -top {top}; async2sync; chformal -lower; opt_clean; "
+                    f"write_smt2 -wires {smt_path}"
                 ),
             ],
             proof_dir / "yosys.log",

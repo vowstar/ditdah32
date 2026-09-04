@@ -84,6 +84,10 @@ def main():
                     read_slang_dut_cmd()
                     + "read_verilog -formal -sv formal/ditdah32_safety.sv; "
                     "prep -top DitDah32Safety; "
+                    # yosys lowers SV assert()/assume() to edge-triggered
+                    # $check cells; write_smt2 emits only $assert/$assume, so
+                    # without this the SMT2 assertion function is constant true.
+                    "async2sync; chformal -lower; opt_clean; "
                     f"write_smt2 -wires {smt_path}"
                 ),
             ],
