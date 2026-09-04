@@ -92,8 +92,10 @@ formal: build-trace
 formal-jtag: build-jtag
 	python3 scripts/run_jtag_formal.py --depth 32
 
+# Its own output tree: the SVA firtool emits is not parseable by read_slang,
+# so it must never land in result/ where the SymbiYosys flows look.
 build-sva:
-	build-ditdah32 --trace --sva
+	OUTPUT_DIR=$(CURDIR)/result/sva build-ditdah32 --trace --sva
 
 # Unbounded proof on a licensed engine. Kept out of verify-signoff because CI
 # has no license. Skips clean when no engine is reachable.

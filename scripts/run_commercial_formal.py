@@ -21,15 +21,18 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
 # The DUT, its bind collateral, and the bridge that resolves the probe XMRs.
+# Built by `make build-sva` into its own tree. read_slang cannot parse the SVA
+# firtool emits, so this must stay out of result/ proper.
+SVA_DIR = "result/sva"
 RTL_FILES = [
-    "result/DitDah32.sv",
-    "result/DitDah32Gpr.sv",
-    "result/DitDah32_DV.sv",
-    "result/layers-DitDah32Gpr-DV.sv",
-    "result/layers-DitDah32-DV.sv",
+    f"{SVA_DIR}/DitDah32.sv",
+    f"{SVA_DIR}/DitDah32Gpr.sv",
+    f"{SVA_DIR}/DitDah32_DV.sv",
+    f"{SVA_DIR}/layers-DitDah32Gpr-DV.sv",
+    f"{SVA_DIR}/layers-DitDah32-DV.sv",
 ]
 BRIDGE = "formal/riscv_formal/ditdah32/ditdah32_trace_top.sv"
-INCLUDE = "result/ref_DitDah32.sv"
+INCLUDE = f"{SVA_DIR}/ref_DitDah32.sv"
 TOP = "ditdah32_trace_top"
 
 JG_TCL = """clear -all
@@ -170,9 +173,9 @@ def main():
     if missing:
         return publish({"status": "skipped_no_rtl", "missing": missing})
 
-    dv = (REPO_ROOT / "result" / "DitDah32_DV.sv").read_text(encoding="utf-8")
+    dv = (REPO_ROOT / SVA_DIR / "DitDah32_DV.sv").read_text(encoding="utf-8")
     if "assert property" not in dv:
-        return publish({"status": "skipped_no_sva", "hint": "build-ditdah32 --trace --sva"})
+        return publish({"status": "skipped_no_sva", "hint": "make build-sva"})
 
     if not args.host or not args.remote_dir:
         return publish({"status": "skipped_no_host", "needs": ["DITDAH32_FPV_HOST", "DITDAH32_FPV_DIR"]})
