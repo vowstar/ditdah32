@@ -12,6 +12,7 @@ import json
 import os
 import shutil
 import subprocess
+import shutil
 import sys
 from pathlib import Path
 
@@ -19,9 +20,22 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 BUILD_DIR = REPO_ROOT / "result" / "compliance" / "build"
 SIG_OUT_ROOT = REPO_ROOT / "result" / "compliance" / "sail_signatures"
-DEFAULT_CONFIG = (
-    Path("/nix/store/gfmzkrwdaxxvgs15src1q0g6hm9dl4cx-sail-riscv-0.8/share/sail-riscv/config/rv32d.json")
-)
+
+
+def default_config() -> Path:
+    """Config shipped beside the sail binary on PATH.
+
+    A config from a different sail release is rejected: 0.12 requires
+    platform properties 0.8 does not emit.
+    """
+    binary = shutil.which("sail_riscv_sim")
+    if not binary:
+        return Path()
+    share = Path(binary).resolve().parents[1] / "share" / "sail-riscv" / "config"
+    for name in ("rv32d.json", "rv32d_v128_e32.json"):
+        if (share / name).is_file():
+            return share / name
+    return Path()
 
 
 def run(cmd, cwd=None, timeout=60):
@@ -30,7 +44,7 @@ def run(cmd, cwd=None, timeout=60):
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--config", default=str(DEFAULT_CONFIG))
+    parser.add_argument("--config", default=None)
     parser.add_argument("--sail", default="sail_riscv_sim")
     parser.add_argument("--out-dir", default=str(SIG_OUT_ROOT))
     parser.add_argument("--timeout", type=int, default=30)
@@ -40,7 +54,7 @@ def main() -> int:
     if sail is None:
         print(f"missing sail simulator: {args.sail}", file=sys.stderr)
         return 1
-    config = Path(args.config)
+    config = Path(args.config) if args.config else default_config()
     if not config.is_file():
         print(f"missing Sail config: {config}", file=sys.stderr)
         return 1
