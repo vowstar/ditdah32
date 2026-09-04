@@ -16,8 +16,8 @@ object DitDah32DebugModule
   def architecture(parameter: DitDah32Parameter) =
     val io = summon[Interface[DebugModuleIO]]
 
-    given Ref[Clock] = io.clock
-    given Ref[Reset] = io.reset
+    given ClockScope = ClockScope.posedge(io.clock)
+    given ResetScope = ResetScope.syncActiveHigh(io.reset)
 
     val requestToggleMeta = RegInit(false.B)
     val requestToggleSync = RegInit(false.B)

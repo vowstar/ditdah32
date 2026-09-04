@@ -16,7 +16,7 @@ trait DitDah32DebugHart:
   protected def connectDebugHart(
       parameter: DitDah32Parameter,
       io: Interface[DitDah32IO],
-      dm: Wire[DebugModuleIO],
+      dm: Interface[DebugModuleIO],
       pc: Reg[UInt],
       instrReg: Reg[Bits],
       fetched: Reg[Bool],
@@ -44,7 +44,7 @@ trait DitDah32DebugHart:
       csrMcause: Reg[Bits],
       csrMtval: Reg[UInt],
       trapEventReg: Reg[Bool],
-      gprIo: Wire[DitDah32GprIO],
+      gprIo: Interface[DitDah32GprIO],
       debugDcsr: Reg[UInt],
       debugDpc: Reg[UInt],
       debugStepActive: Reg[Bool],

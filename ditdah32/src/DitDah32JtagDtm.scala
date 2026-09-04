@@ -16,8 +16,8 @@ object DitDah32JtagDtm
   def architecture(parameter: DitDah32Parameter) =
     val io = summon[Interface[JtagDtmIO]]
 
-    given Ref[Clock] = io.tck
-    given Ref[Reset] = io.reset
+    given ClockScope = ClockScope.posedge(io.tck)
+    given ResetScope = ResetScope.syncActiveHigh(io.reset)
 
     val state      = RegInit(TapState.TEST_LOGIC_RESET.U(4))
     val ir         = RegInit(JtagInstruction.IDCODE.U(5))

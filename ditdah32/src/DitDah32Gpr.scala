@@ -38,8 +38,8 @@ object DitDah32Gpr
   def architecture(parameter: DitDah32Parameter) =
     val io = summon[Interface[DitDah32GprIO]]
 
-    given Ref[Clock] = io.clock
-    given Ref[Reset] = io.reset
+    given ClockScope = ClockScope.posedge(io.clock)
+    given ResetScope = ResetScope.syncActiveHigh(io.reset)
 
     // x1..x15; x0 has no storage and reads 0.
     val regs = Seq.tabulate(16)(_ => RegInit(0.U(parameter.xlen)))

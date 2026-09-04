@@ -4,7 +4,7 @@
   description = "DitDah32 tiny two-stage RV32EC core using zaozi EDSL";
 
   inputs = {
-    zaozi.url = "github:sequencer/zaozi";
+    zaozi.url = "github:xinpian-tech/zaozi";
     nixpkgs.follows = "zaozi/nixpkgs";
     flake-utils.follows = "zaozi/flake-utils";
     riscv-dv = {
@@ -20,48 +20,7 @@
   outputs = { self, nixpkgs, flake-utils, zaozi, riscv-dv, riscv-formal }:
     flake-utils.lib.eachDefaultSystem (system:
       let
-        pkgsBase = zaozi.legacyPackages.${system};
-        scalaIvyCache = pkgsBase.ivy-gather ./nix/zaozi-lock.nix;
-        pkgs = pkgsBase.extend (final: prev: {
-          zaozi = prev.zaozi // {
-            zaozi-assembly = prev.zaozi.zaozi-assembly.overrideAttrs (old: {
-              # Zaozi rev 19de5b5 ships an offline Mill lock generated for Mill
-              # 1.0.0, but the followed nixpkgs ships Mill 1.1.2, whose launcher
-              # coursier-fetches mill-runner-daemon_3-1.1.2 at startup. Use the
-              # full source tree (its packaged fileset omits testlib/) and swap
-              # in a vendored lock regenerated against 1.1.2.
-              src = zaozi.outPath;
-
-              prePatch = ''
-                cp ${./nix/zaozi-lock.nix} nix/zaozi/zaozi-lock.nix
-              '';
-
-              # --offline is load-bearing: future Mill skew fails loudly instead
-              # of silently reaching the network and breaking sealed CI.
-              buildPhase = ''
-                runHook preBuild
-                mill --no-daemon --offline '__.assembly'
-                runHook postBuild
-              '';
-
-              # Replace the upstream offline ivy cache (built from the 1.0.0
-              # lock) with one gathered from the vendored 1.1.2 lock; without
-              # this --offline cannot find mill-runner-daemon_3-1.1.2.
-              buildInputs =
-                builtins.filter
-                  (pkg: (pkg.name or "") != "build-ivy-cache-env")
-                  (old.buildInputs or [])
-                ++ [ scalaIvyCache ];
-
-              # The assembly target does not use espresso, and keeping it in
-              # nativeBuildInputs makes fresh CI runners fetch an unrelated
-              # fixed-output source before any DitDah32 smoke test can run.
-              nativeBuildInputs = builtins.filter
-                (pkg: (pkg.pname or pkg.name or "") != "espresso")
-                (old.nativeBuildInputs or []);
-            });
-          };
-        });
+        pkgs = zaozi.legacyPackages.${system};
 
         ditdah32Config = {
           resetVector = 0;
@@ -110,8 +69,9 @@
 
         commonScalaArgs = pkgs.lib.escapeShellArgs [
           "--server=false"
+          "--java-home" "${pkgs.jdk25}"
           "--extra-jars" zaozi-jar
-          "--scala-version" "3.6.2"
+          "--scala-version" "3.8.4"
           "-O=-experimental"
           "--java-opt" "--enable-native-access=ALL-UNNAMED"
           "--java-opt" "--enable-preview"
@@ -128,7 +88,7 @@
         firtoolArgs = mkFirtoolArgs "wrapInAtSquareBracket";
         releaseFirtoolArgs = mkFirtoolArgs "none";
 
-        pythonEnv = pkgs.python3.withPackages (ps:
+        pythonEnv = pkgs.python313.withPackages (ps:
           let
             pythonJsonschemaObjects = ps.buildPythonPackage rec {
               pname = "python-jsonschema-objects";
@@ -390,7 +350,7 @@ EOF
         rtlShellEnv = {
           CIRCT_INSTALL_PATH = pkgs.circt-install;
           MLIR_INSTALL_PATH = pkgs.mlir-install;
-          JEXTRACT_INSTALL_PATH = pkgs.jextract-21;
+          JEXTRACT_INSTALL_PATH = pkgs.jextract;
           JAVA_TOOL_OPTIONS = "--enable-preview -Djextract.decls.per.header=65535";
           RISCV_PREFIX = "riscv32-none-elf-";
           ZAOZI_JAR = zaozi-jar;
@@ -417,7 +377,7 @@ EOF
           pkgs.scala-cli
           pkgs.circt-install
           pkgs.mlir-install
-          pkgs.jextract-21
+          pkgs.jextract
           pkgs.pkgsCross.riscv32-embedded.stdenv.cc
           pkgs.pkgsCross.riscv32-embedded.buildPackages.binutils
           pythonEnv
@@ -428,6 +388,8 @@ EOF
           pkgs.openocd
           pkgs.pkgsCross.riscv32-embedded.buildPackages.gdb
           pkgs.verilator
+          pkgs.lz4
+          pkgs.zlib
           pkgs.yosys
           yosys-slang
           pkgs.z3
@@ -441,6 +403,8 @@ EOF
         releaseBuildInputs = [
           pkgs.iverilog
           pkgs.verilator
+          pkgs.lz4
+          pkgs.zlib
           pythonEnv
         ];
 
@@ -452,12 +416,14 @@ EOF
           pkgs.scala-cli
           pkgs.circt-install
           pkgs.mlir-install
-          pkgs.jextract-21
+          pkgs.jextract
           pkgs.mill
           pkgs.iverilog
           pkgs.openocd
           pkgs.pkgsCross.riscv32-embedded.buildPackages.gdb
           pkgs.verilator
+          pkgs.lz4
+          pkgs.zlib
           pkgs.yosys
           yosys-slang
           pkgs.z3
@@ -475,10 +441,12 @@ EOF
             pkgs.scala-cli
             pkgs.circt-install
             pkgs.mlir-install
-            pkgs.jextract-21
+            pkgs.jextract
             pkgs.pkgsCross.riscv32-embedded.stdenv.cc
             pkgs.pkgsCross.riscv32-embedded.buildPackages.binutils
             pkgs.verilator
+            pkgs.lz4
+            pkgs.zlib
             pythonEnv
           ];
           text = ''
@@ -495,7 +463,12 @@ EOF
             };
           in
           pkgs.runCommand "ditdah32-verilog-${name}" {
-            nativeBuildInputs = [ pkgs.scala-cli pkgs.circt-install pkgs.mlir-install ];
+            nativeBuildInputs = [
+              pkgs.scala-cli
+              pkgs.circt-install
+              pkgs.mlir-install
+              (pkgs.mkMavenRepository { lockFile = "${zaozi}/mtf.lock.json"; })
+            ];
             JAVA_TOOL_OPTIONS = "--enable-preview";
           } ''
             mkdir -p $out
@@ -505,8 +478,6 @@ EOF
 
             JAVA_LIBRARY_PATH="${javaLibraryPath}"
             export COURSIER_CACHE="$NIX_BUILD_TOP/coursier-cache"
-            cp -R ${scalaIvyCache}/cache "$COURSIER_CACHE"
-            chmod -R u+w "$COURSIER_CACHE"
 
             rm -f DitDah32*.mlirbc
 

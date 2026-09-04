@@ -21,7 +21,7 @@ object DitDah32Module
 
   def architecture(parameter: DitDah32Parameter) =
     val io = summon[Interface[DitDah32IO]]
-    val probe = summon[Interface[DitDah32Probe]]
+    val probe = summon[ProbeInterface[DitDah32Probe]]
 
     // Channel locals keep the architecture method under the JVM 64 KB cap.
     val axiAw = io.axi.aw
@@ -30,8 +30,8 @@ object DitDah32Module
     val axiAr = io.axi.ar
     val axiR  = io.axi.r
 
-    given Ref[Clock] = io.clock
-    given Ref[Reset] = io.reset
+    given ClockScope = ClockScope.posedge(io.clock)
+    given ResetScope = ResetScope.syncActiveHigh(io.reset)
 
     val debugDtm = Option.when(parameter.enableJtag)(DitDah32JtagDtm.instantiate(parameter))
     val debugModule = Option.when(parameter.enableJtag)(DitDah32DebugModule.instantiate(parameter))
