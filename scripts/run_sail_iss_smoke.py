@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: MIT
 
 import argparse
+import copy
 import json
 import re
 import shutil
@@ -102,32 +103,82 @@ def compare_sail_prefix(expected, actual, base, allow_low_data_memory=False):
     return None
 
 
-def make_sail_config(sail_cmd, base, memory_size, ram_base, rom_base, clint_base):
+MISALIGNED_TRAP = {
+    "load_store": {"Some": "AlignmentException"},
+    "vector": {"Some": "AlignmentException"},
+    "lrsc": "AlignmentException",
+    "amo": "AlignmentException",
+}
+
+
+def word64(value):
+    return {"len": 64, "value": hex(value)}
+
+
+def strip_jsonc(text):
+    """Sail prints JSONC with `//` line comments and no other extension."""
+    return "\n".join(line for line in text.splitlines() if not line.lstrip().startswith("//"))
+
+
+def sail_default_config(sail_cmd):
+    """The RV32 default configuration, as JSON."""
     completed = subprocess.run(
-        [sail_cmd, "--print-default-config"],
+        [sail_cmd, "--rv32", "--print-default-config"],
         cwd=REPO_ROOT,
         stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
+        stderr=subprocess.PIPE,
         text=True,
         check=False,
     )
     if completed.returncode != 0:
-        raise RuntimeError(f"failed to get Sail default config: {completed.stdout.strip()}")
+        raise RuntimeError(f"failed to get Sail default config: {completed.stderr.strip()}")
+    return json.loads(strip_jsonc(completed.stdout))
 
-    config = json.loads(completed.stdout)
-    config["base"]["xlen"] = 32
+
+def region_template(config, mem_type):
+    for region in config["memory"]["regions"]:
+        if region["attributes"]["mem_type"] == mem_type:
+            return copy.deepcopy(region)
+    raise RuntimeError(f"Sail default configuration has no {mem_type} region")
+
+
+def make_sail_config(sail_cmd, memory_size, ram_base, clint_base):
+    config = sail_default_config(sail_cmd)
+    config["base"]["E"] = True
     config["base"]["writable_misa"] = False
-    config["memory"]["misaligned"]["supported"] = False
-    config["platform"]["ram"]["base"] = ram_base
-    config["platform"]["ram"]["size"] = memory_size
-    config["platform"]["rom"]["base"] = rom_base
-    config["platform"]["rom"]["size"] = 0x1000
-    config["platform"]["reset_vector"] = rom_base
+    # F and V are unsupported, so mstatus.FS and mstatus.VS read as zero.
+    config["base"]["mstatus"]["fs_legal_states"] = "ExtContext_Off"
+    config["base"]["mstatus"]["vs_legal_states"] = "ExtContext_Off"
+    config["memory"]["misaligned"]["exceptions"] = copy.deepcopy(MISALIGNED_TRAP)
+
+    # One flat RAM and one CLINT window. There is no ROM and no reset vector:
+    # the PC starts at the ELF entry point. The device tree needs an address
+    # inside an IO region, so it sits directly above the CLINT.
+    ram = region_template(config, "MainMemory")
+    ram["base"] = word64(ram_base)
+    ram["size"] = word64(memory_size)
+    ram["include_in_device_tree"] = False
+    ram["attributes"]["misaligned_exceptions"] = {
+        key: value for key, value in MISALIGNED_TRAP.items() if key != "lrsc"
+    }
+    clint_size = config["platform"]["clint"]["size"]
+    mmio = region_template(config, "IOMemory")
+    mmio["base"] = word64(clint_base)
+    mmio["size"] = word64(clint_size + 0x1000)
+    mmio["include_in_device_tree"] = False
+    # Sail requires the region list in ascending address order.
+    config["memory"]["regions"] = sorted(
+        [ram, mmio], key=lambda region: int(region["base"]["value"], 16)
+    )
+    config["memory"]["dtb_address"] = word64(clint_base + clint_size)
+
     config["platform"]["clint"]["base"] = clint_base
-    config["platform"]["clint"]["size"] = 0x1000
+    config["platform"]["simple_interrupt_generator"]["supported"] = False
     config["platform"]["wfi_is_nop"] = True
+
     for name, extension in config["extensions"].items():
         extension["supported"] = name in {"Zicsr", "Zca"}
+    config["extensions"]["V"]["support_level"] = "Disabled"
     config["extensions"]["S"]["supported"] = False
     config["extensions"]["U"]["supported"] = False
     return config
@@ -239,7 +290,6 @@ def run_artifact(
     base,
     memory_size,
     ram_base,
-    rom_base,
     clint_base,
     timeout_seconds,
     skip_unsupported=False,
@@ -286,7 +336,7 @@ def run_artifact(
     start = time.monotonic()
     with tempfile.TemporaryDirectory(prefix=f"ditdah32-sail-{name}-") as temp_name:
         work_dir = Path(temp_name)
-        config = make_sail_config(sail_cmd, base, memory_size, ram_base, rom_base, clint_base)
+        config = make_sail_config(sail_cmd, memory_size, ram_base, clint_base)
         config_path = work_dir / "sail_rv32ec_compatible_config.json"
         config_path.write_text(json.dumps(config, indent=2, sort_keys=True) + "\n", encoding="utf-8")
         isa_string = sail_isa_string(sail_cmd, config_path)
@@ -358,7 +408,6 @@ def main():
     parser.add_argument("--base", type=lambda text: int(text, 0), default=DEFAULT_BASE)
     parser.add_argument("--ram-base", type=lambda text: int(text, 0), default=DEFAULT_BASE)
     parser.add_argument("--memory-size", type=lambda text: int(text, 0), default=0x0010_0000)
-    parser.add_argument("--rom-base", type=lambda text: int(text, 0), default=0x1000)
     parser.add_argument("--clint-base", type=lambda text: int(text, 0), default=0x0200_0000)
     parser.add_argument("--allow-low-data-memory", action="store_true")
     parser.add_argument("--timeout-seconds", type=float, default=2.0)
@@ -377,7 +426,7 @@ def main():
     out_dir.mkdir(parents=True, exist_ok=True)
 
     limitations = [
-        "The packaged Sail model is configured as rv32ic_zicsr_zca, not strict RV32E.",
+        "The model restricts the register file to x0-x15, but still reports its ISA string as rv32ic_zicsr_zca.",
         "This Sail gate compares legal RV32E/RV32EC programs only and does not close x16-x31 illegal-register behavior.",
         "Terminal ebreak is treated as the stop condition and is not counted as a committed Sail instruction.",
     ]
@@ -389,7 +438,7 @@ def main():
     report = {
         "status": "pass",
         "scope": "sail_prefix_compare",
-        "isa": "rv32ic_zicsr_zca_sail_model_on_rv32ec_legal_programs",
+        "isa": "rv32e_register_file_zicsr_zca_on_rv32ec_legal_programs",
         "limitations": limitations,
         "base": hex32(args.base),
         "ram_base": hex32(args.ram_base),
@@ -411,7 +460,6 @@ def main():
                 args.base,
                 args.memory_size,
                 args.ram_base,
-                args.rom_base,
                 args.clint_base,
                 args.timeout_seconds,
                 skip_unsupported=args.all_compatible,

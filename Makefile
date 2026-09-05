@@ -148,7 +148,7 @@ verify-signoff:
 verify-iss: test-isa build-trace
 	python3 scripts/rv32ec_isa_regress.py --out-dir result/isa
 	python3 scripts/run_rtl_isa_matrix.py --isa-dir result/isa --out-dir result/rtl_trace/isa_artifacts
-	python3 scripts/run_sail_iss_smoke.py --isa-dir result/isa --out-dir result/iss/sail_matrix --all-compatible --ram-base 0x0 --memory-size 0x80100000 --rom-base 0x90000000 --clint-base 0xa0000000 --allow-low-data-memory
+	python3 scripts/run_sail_iss_smoke.py --isa-dir result/isa --out-dir result/iss/sail_matrix --all-compatible --ram-base 0x0 --memory-size 0x80100000 --clint-base 0xa0000000 --allow-low-data-memory
 	python3 scripts/run_spike_rv32e_strict.py --out-dir result/iss/spike_rv32e_strict
 	python3 scripts/rv32ec_isa_regress.py --out-dir result/iss/spike_artifacts --spike-compatible
 	python3 scripts/run_rtl_isa_matrix.py --isa-dir result/iss/spike_artifacts --out-dir result/rtl_trace/spike_highmem_artifacts
@@ -176,7 +176,7 @@ verify-sail-smoke: test-isa
 	python3 scripts/run_sail_iss_smoke.py --isa-dir result/isa --out-dir result/iss/sail_smoke
 
 verify-sail-matrix: test-isa
-	python3 scripts/run_sail_iss_smoke.py --isa-dir result/isa --out-dir result/iss/sail_matrix --all-compatible --ram-base 0x0 --memory-size 0x80100000 --rom-base 0x90000000 --clint-base 0xa0000000 --allow-low-data-memory
+	python3 scripts/run_sail_iss_smoke.py --isa-dir result/isa --out-dir result/iss/sail_matrix --all-compatible --ram-base 0x0 --memory-size 0x80100000 --clint-base 0xa0000000 --allow-low-data-memory
 
 verify-sail-highmem: test-isa build-trace
 	python3 scripts/rv32ec_isa_regress.py --out-dir result/iss/sail_artifacts --spike-compatible

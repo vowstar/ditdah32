@@ -141,8 +141,6 @@ SIGNOFF_STEPS = [
             "0x0",
             "--memory-size",
             "0x80100000",
-            "--rom-base",
-            "0x90000000",
             "--clint-base",
             "0xa0000000",
             "--allow-low-data-memory",
