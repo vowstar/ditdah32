@@ -1493,8 +1493,25 @@ object DitDah32Module
         DitDah32Sva(
           parameter,
           io,
-          traceValidReg,
-          traceTrapReg,
-          traceTrapCauseReg,
-          traceRdWeReg
+          DitDah32TraceRefs(
+            valid = traceValidReg,
+            trap = traceTrapReg,
+            trapCause = traceTrapCauseReg,
+            rdWe = traceRdWeReg,
+            pc = tracePcReg,
+            nextPc = traceNextPcReg,
+            instr = traceInstrReg,
+            rs1Addr = traceRs1AddrReg,
+            rs2Addr = traceRs2AddrReg,
+            preTrapMstatus = tracePreTrapMstatusReg,
+            postCommitMstatus = tracePostCommitMstatusReg,
+            irqPendingMask = traceIrqPendingMaskReg,
+            mstatus = traceMstatusWire,
+            mie = traceMieWire,
+            mtvec = traceMtvecWire,
+            mepc = traceMepcWire,
+            mtval = traceMtvalWire,
+            mip = traceMipWire,
+            mcause = traceMcauseWire
+          )
         )
