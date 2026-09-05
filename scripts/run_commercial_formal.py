@@ -100,28 +100,32 @@ def parse_jg(stdout):
     return properties
 
 
+# PROP_I_RESULT: <hierarchical name>  <status>[:<n>]  [<kind>]  <hh:mm:ss>
+# The status alternation is deliberately open: an unknown vendor status must
+# reach resolved() and fail the run, not be dropped here. Anchored at the design
+# hierarchy so a log line that merely carries one of these words cannot
+# contribute a name.
+VCF_ROW = re.compile(
+    rf"^\s*\[Info\]\s+PROP_I_RESULT:\s+{TOP}\.\S*?"
+    r"([A-Za-z_][A-Za-z0-9_$]*(?::precondition\d+)?)\s+"
+    r"([a-z_]+(?::\d+)?)"
+    r"\s+(?:([a-z_]+)\s+)?(\d+:\d+:\d+)\s*$"
+)
+
+
 def parse_vcf(stdout):
-    # PROP_I_RESULT: <hierarchical name>  <status>  [<kind>]  <hh:mm:ss>
     # The same property appears once per pass, so a vacuity row and a proof row
     # both land here; keep them under separate keys rather than overwriting.
     verdicts = {}
     vacuity = {}
-    # Anchored at the design hierarchy so a log line that merely happens to
-    # carry one of these words cannot contribute a name.
-    row = re.compile(
-        rf"^\s*\[Info\]\s+PROP_I_RESULT:\s+{TOP}\.\S*?"
-        r"([A-Za-z_][A-Za-z0-9_$]*(?::precondition\d+)?)\s+"
-        r"(proven|falsified|inconclusive|unchecked|vacuous|non_vacuous|covered(?::\d+)?|unreachable)"
-        r"\s+(?:(vacuity)\s+)?(\d+:\d+:\d+)\s*$"
-    )
     for line in stdout.splitlines():
-        match = row.match(line)
+        match = VCF_ROW.match(line)
         if not match:
             continue
         name, status, kind, seconds = match.groups()
         if kind == "vacuity":
             vacuity[name] = status
-        else:
+        elif status != "checking":
             verdicts[name] = (status, seconds)
     return [
         {
@@ -132,6 +136,18 @@ def parse_vcf(stdout):
         }
         for name, (status, seconds) in verdicts.items()
     ]
+
+
+def sva_labels(dv_source):
+    """Every assert and cover label the bind collateral declares."""
+    return {
+        name
+        for name, _ in re.findall(
+            r"^\s*([A-Za-z_][A-Za-z0-9_$]*):\s*\n?\s*(assert|cover) property",
+            dv_source,
+            re.M,
+        )
+    }
 
 
 def run_engine(host, workdir, module, binary, invocation, tcl, log_path, timeout):
@@ -176,6 +192,7 @@ def main():
     dv = (REPO_ROOT / SVA_DIR / "DitDah32_DV.sv").read_text(encoding="utf-8")
     if "assert property" not in dv:
         return publish({"status": "skipped_no_sva", "hint": "make build-sva"})
+    declared = sva_labels(dv)
 
     if not args.host or not args.remote_dir:
         return publish({"status": "skipped_no_host", "needs": ["DITDAH32_FPV_HOST", "DITDAH32_FPV_DIR"]})
@@ -239,12 +256,22 @@ def main():
             )
 
         bad = [p["name"] for p in properties if not resolved(p)]
+        # A property the collateral declares but the report never mentions was
+        # dropped by the tool or by the parser, and a run that cannot account
+        # for every declared property is not evidence of anything.
+        unreported = sorted(declared - {p["name"] for p in properties})
         results[engine] = {
             "returncode": completed.returncode,
             "seconds": seconds,
+            "declared": len(declared),
             "properties": properties,
             "unresolved": bad,
-            "status": "pass" if completed.returncode == 0 and properties and not bad else "fail",
+            "unreported": unreported,
+            "status": (
+                "pass"
+                if completed.returncode == 0 and properties and not bad and not unreported
+                else "fail"
+            ),
         }
 
     status = "pass" if all(r["status"] == "pass" for r in results.values()) else "fail"
