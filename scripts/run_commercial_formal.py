@@ -150,6 +150,21 @@ def sva_labels(dv_source):
     }
 
 
+def resolved(prop):
+    """An assert must be proven and a cover must be reachable.
+
+    A green run over an unreachable antecedent proves nothing.
+    """
+    if prop["name"].startswith("cover") or ":precondition" in prop["name"]:
+        return prop["status"].startswith("covered")
+    # "unreported" is JasperGold, whose vacuity is carried by the :precondition
+    # covers instead of a per-property field.
+    return prop["status"] == "proven" and prop.get("vacuity", "unreported") in (
+        "non_vacuous",
+        "unreported",
+    )
+
+
 def run_engine(host, workdir, module, binary, invocation, tcl, log_path, timeout):
     ssh(host, f"mkdir -p {workdir} && rm -rf {workdir}/jgproj", 120)
     ssh(host, f"cat > {workdir}/{binary}.tcl <<'DITDAH32_TCL'\n{tcl}\nDITDAH32_TCL", 120)
@@ -243,18 +258,6 @@ def main():
             args.timeout,
         )
         properties = parse(completed.stdout)
-        # An assert must be proven and a cover must be reachable. A green run
-        # over an unreachable antecedent proves nothing.
-        def resolved(p):
-            if p["name"].startswith("cover") or ":precondition" in p["name"]:
-                return p["status"].startswith("covered")
-            # "unreported" is JasperGold, whose vacuity is carried by the
-            # :precondition covers instead of a per-property field.
-            return p["status"] == "proven" and p.get("vacuity", "unreported") in (
-                "non_vacuous",
-                "unreported",
-            )
-
         bad = [p["name"] for p in properties if not resolved(p)]
         # A property the collateral declares but the report never mentions was
         # dropped by the tool or by the parser, and a run that cannot account
