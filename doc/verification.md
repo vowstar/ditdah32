@@ -101,13 +101,17 @@ post-synthesis clock timing, or long-duration benchmark stability.
 
 ## Local SVA
 
-`ditdah32/src/DitDah32Sva.scala` states the AXI stability, bus-fault, and
-quiescence properties inside `layer("DV")`, so they reach
-`result/sva/DitDah32_DV.sv` as SVA and the production module stays
-assertion-free. Every antecedent carries a reachability cover.
-`make verify-commercial` proves them without a depth bound on JasperGold and
-VC Formal; the SymbiYosys targets build without them, because yosys-slang
-rejects the per-atom clocking firtool emits.
+`ditdah32/src/DitDah32Sva.scala` states 38 assertions inside `layer("DV")`, so
+they reach `result/sva/DitDah32_DV.sv` as SVA and the production module stays
+assertion-free. They cover AXI stability and single-outstanding behaviour, bus
+faults, sleep quiescence, RV32E register range, trap entry and MRET CSR
+transitions, interrupt cause priority, WARL legalization, and WFI wake. Every
+antecedent carries a reachability cover, 19 in all.
+
+`make verify-commercial` proves all 38 without a depth bound on JasperGold and
+VC Formal, and fails the run if any declared property goes unreported or any
+antecedent is unreachable. The SymbiYosys targets build without the SVA,
+because yosys-slang rejects the per-atom clocking firtool emits.
 
 ## RVFI Wrapper
 

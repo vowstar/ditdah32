@@ -19,12 +19,10 @@ test or property, command, and machine-readable evidence all agree.
 
 ## External ISS Differential
 
-Spike runs the Spike-compatible matrix; Sail runs a flat-RAM matrix plus the
-compliance signature gate. Memory artifacts that are not yet handled by the
-Spike-compatible matrix are reported skipped, not silently passed.
-
-`make verify-spike-rv32e-strict` adds RV32E x16-x31 negative checks.
-`make verify-iss` writes the composite report to
+Spike runs the Spike-compatible matrix, Sail a flat-RAM matrix plus the
+compliance signature gate. Unhandled memory artifacts are reported skipped,
+not silently passed. `make verify-spike-rv32e-strict` adds RV32E x16-x31
+negative checks. `make verify-iss` writes
 `result/iss/external_iss_full/external_iss_full.json`.
 
 ## RISCV-DV
@@ -36,21 +34,24 @@ rejected before RTL execution.
 ## RVFI / riscv-formal
 
 `make verify-rvfi` enables every property group; none is disabled. Five
-assumptions narrow what those groups see: the instruction models exclude
-trapping and interrupted retirements and constrain register fields to
-x0-x15, CSR persistence excludes traps and MRET, and liveness excludes
-WFI, which `wrapper.sv` covers with a bounded wake.
+assumptions narrow what they see: the instruction models exclude trapping and
+interrupted retirements and constrain register fields to x0-x15, CSR
+persistence excludes traps and MRET, and liveness excludes WFI. They are
+load-bearing: removing the WFI one fails `liveness_ch0`, and removing the CSR
+one fails `csrc_any_{mstatus,mepc,mcause,mtval}`, because
+`rvfi_csrc_any_check` cannot model the CSR writes a trap or MRET performs.
 
 ## Unbounded Proof
 
-`make verify-commercial` proves the `layer("DV")` SVA without a depth bound
-on JasperGold and VC Formal, with a reachability cover per antecedent. Every
-other check is bounded, and the single-outstanding AXI model `wrapper.sv`
-assumes is not asserted anywhere.
+`make verify-commercial` proves 38 `layer("DV")` assertions without a depth
+bound on JasperGold and VC Formal, with a reachability cover per antecedent.
+They include the trap-entry, MRET, interrupt-priority and WFI-wake cases those
+assumptions exclude, plus the single-outstanding AXI model `wrapper.sv` needs.
+
 ## Full AXI4
 
-The current target is a single-beat AXI4-Lite compatible subset.
-Full AXI4 burst or ID support, if a later integration requires it.
+The target is a single-beat AXI4-Lite compatible subset. Burst and ID support
+wait for an integration that requires them.
 
 ## Continuous Integration
 
@@ -60,21 +61,20 @@ exact closure procedure.
 
 ## Certified Benchmarks
 
-CoreMark and Dhrystone images build and run on RTL, with local RTL
-timing-marker cycle counts at a user-supplied frequency. They are not
-certified scores; closure requires an external certification run.
+CoreMark and Dhrystone build and run on RTL with local timing-marker cycle
+counts at a user-supplied frequency. They are not certified scores. Closure
+requires an external certification run.
 
 ## Compliance Signature Gate
 
 `make verify-compliance` compiles every `test/compliance/tests/*.S` in two
-variants (base 0 for cocotb, base 0x80000000 for Sail), runs Sail to produce
-a reference signature, and asserts the cocotb DUT signature matches Sail
-word for word.
+variants (base 0 for cocotb, base 0x80000000 for Sail), runs Sail for a
+reference signature, and asserts the DUT signature matches it word for word.
 
 ## Optional JTAG Debug
 
 The default build has no JTAG ports or debug logic. The optional single-hart
-configuration passes direct run-control and abstract-access tests, OpenOCD/GDB,
-bounded DTM/DM proofs, four-configuration isolation, and a generic synthesis
-baseline audit. Authentication, triggers, Program Buffer, system bus access,
-and multi-hart debug remain out of scope.
+configuration passes run-control and abstract-access tests, OpenOCD/GDB,
+bounded DTM/DM proofs, four-configuration isolation, and a synthesis baseline
+audit. Authentication, triggers, Program Buffer, system bus access, and
+multi-hart debug remain out of scope.
