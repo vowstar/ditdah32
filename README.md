@@ -18,7 +18,7 @@ See `doc/microarchitecture.md` for the pipeline and unit contracts.
 
 ## Results
 
-Process: TSMC 16FFCLL, 9-track (BWP16P90CPD), Calibre-clean LVS and DRC signoff for the default no-JTAG configuration. The gpr submodule is logic-equivalent to the v1.2.0 signoff netlist, so its silicon numbers are carried forward.
+Process: TSMC 16FFCLL, 9-track (BWP16P90CPD), Calibre-clean LVS and DRC signoff for the default no-JTAG configuration. The gpr submodule is logic-equivalent to the v1.2.0 signoff netlist, so its silicon numbers are carried forward. The area and timing below are the v1.4.0 signoff. The current toolchain regenerates the top-level netlist, which has not been through signoff.
 
 Area: 14.3 kGE, 2219 um^2 standard cell (5534 combinational and 861 flops).
 
